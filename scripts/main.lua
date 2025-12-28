@@ -43,7 +43,7 @@ local function ShouldSkipDelay(popup)
 
     local title = GetPopupTitle(popup)
     if title == "Hosting a LAN Server" then
-        Log("Matched LAN hosting popup", "debug")
+        Log.Debug("Matched LAN hosting popup")
         return true
     end
 
@@ -52,7 +52,7 @@ end
 
 local function RegisterLANPopupFix()
     if not Config.MenuTweaks.SkipLANHostingDelay then
-        Log("LAN popup fix disabled", "debug")
+        Log.Debug("LAN popup fix disabled")
         return
     end
 
@@ -62,7 +62,7 @@ local function RegisterLANPopupFix()
             if not popup:IsValid() then return end
 
             if ShouldSkipDelay(popup) then
-                Log("Marking popup for delay skip", "debug")
+                Log.Debug("Marking popup for delay skip")
 
                 pcall(function()
                     popup.DelayBeforeAllowingInput = 0
@@ -76,9 +76,9 @@ local function RegisterLANPopupFix()
     end)
 
     if not okConstruct then
-        Log("Failed to register Construct hook: " .. tostring(errConstruct), "error")
+        Log.Error("Failed to register Construct hook: %s", tostring(errConstruct))
     else
-        Log("LAN popup Construct hook registered", "debug")
+        Log.Debug("LAN popup Construct hook registered")
     end
 
     local okCountdown, errCountdown = pcall(function()
@@ -87,7 +87,7 @@ local function RegisterLANPopupFix()
             if not popup:IsValid() then return end
 
             if ShouldSkipDelay(popup) then
-                Log("Blocking countdown tick", "debug")
+                Log.Debug("Blocking countdown tick")
 
                 pcall(function()
                     popup.DelayTimeLeft = 0
@@ -100,9 +100,9 @@ local function RegisterLANPopupFix()
     end)
 
     if not okCountdown then
-        Log("Failed to register CountdownInputDelay hook: " .. tostring(errCountdown), "error")
+        Log.Error("Failed to register CountdownInputDelay hook: %s", tostring(errCountdown))
     else
-        Log("LAN popup CountdownInputDelay hook registered", "debug")
+        Log.Debug("LAN popup CountdownInputDelay hook registered")
     end
 end
 
@@ -117,7 +117,7 @@ local function ResetDeployedDurability(deployable)
         return deployable.MaxDurability
     end)
     if not okMax or maxDur == nil then
-        Log("Failed to get MaxDurability", "debug")
+        Log.Debug("Failed to get MaxDurability")
         return false
     end
 
@@ -126,20 +126,19 @@ local function ResetDeployedDurability(deployable)
     end)
 
     if okCurrent and currentDur == maxDur then
-        Log("Deployable already at max durability", "debug")
+        Log.Debug("Deployable already at max durability")
         return false
     end
 
-    Log("Resetting durability from " .. tostring(currentDur) .. " to " .. tostring(maxDur), "debug")
+    Log.Debug("Resetting durability from %s to %s", tostring(currentDur), tostring(maxDur))
 
-    -- Fix both the ChangeableData (source) and CurrentDurability (deployed property)
     pcall(function()
         local changeableData = deployable.ChangeableData
         if changeableData then
             local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
             if maxItemDur then
                 changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
-                Log("Fixed ChangeableData.CurrentItemDurability to " .. tostring(maxItemDur), "debug")
+                Log.Debug("Fixed ChangeableData.CurrentItemDurability to %s", tostring(maxItemDur))
             end
         end
     end)
@@ -154,7 +153,7 @@ end
 local function RegisterFoodDeployableFix()
     local foodConfig = Config.FoodDeployableFix
     if not foodConfig.Enabled then
-        Log("Food deployable fix disabled", "debug")
+        Log.Debug("Food deployable fix disabled")
         return
     end
 
@@ -171,9 +170,8 @@ local function RegisterFoodDeployableFix()
             end)
             if not okClass or not className:match("^Deployed_Food_") then return end
 
-            Log(">>> Food deployable ReceiveBeginPlay: " .. className, "debug")
+            Log.Debug("Food deployable ReceiveBeginPlay: %s", className)
 
-            -- Check authority (server/host has authority, clients don't)
             local okAuth, hasAuthority = pcall(function()
                 return deployable:HasAuthority()
             end)
@@ -184,16 +182,15 @@ local function RegisterFoodDeployableFix()
                 end)
 
                 if okLoading and isLoading and not fixExistingOnLoad then
-                    Log("Skipping - loading from save (FixExistingOnLoad disabled)", "debug")
+                    Log.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
                     return
                 end
 
                 if ResetDeployedDurability(deployable) then
-                    Log("Successfully reset durability", "debug")
+                    Log.Debug("Successfully reset durability")
                 end
             elseif clientVisualOnly then
-                -- Locally set durability to hide cracks (won't persist or replicate)
-                Log("Client visual-only mode: hiding broken texture locally", "debug")
+                Log.Debug("Client visual-only mode: hiding broken texture locally")
                 pcall(function()
                     deployable.CurrentDurability = deployable.MaxDurability
                 end)
@@ -202,9 +199,9 @@ local function RegisterFoodDeployableFix()
     end)
 
     if not ok then
-        Log("Failed to register food deployable fix: " .. tostring(err), "error")
+        Log.Error("Failed to register food deployable fix: %s", tostring(err))
     else
-        Log("Food deployable fix registered", "debug")
+        Log.Debug("Food deployable fix registered")
     end
 end
 
@@ -213,12 +210,12 @@ end
 -- ============================================================
 
 ExecuteWithDelay(2500, function()
-    Log("Registering hooks...", "debug")
+    Log.Debug("Registering hooks...")
 
     RegisterLANPopupFix()
     RegisterFoodDeployableFix()
 
-    Log("Hook registration complete", "debug")
+    Log.Debug("Hook registration complete")
 end)
 
-Log("Mod loaded", "debug")
+Log.Debug("Mod loaded")
