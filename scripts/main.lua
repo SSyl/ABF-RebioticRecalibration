@@ -3,20 +3,17 @@ print("=== [QoL Tweaks] MOD LOADING ===\n")
 local LogUtil = require("LogUtil")
 local ConfigUtil = require("ConfigUtil")
 
+-- ============================================================
+-- CONFIG
+-- ============================================================
+
 local UserConfig = require("../config")
-local Config = ConfigUtil.ValidateConfig(UserConfig)
+local Config = ConfigUtil.ValidateConfig(UserConfig, LogUtil.CreateLogger("QoL Tweaks (Config)", UserConfig))
 local Log = LogUtil.CreateLogger("QoL Tweaks", Config)
 
 -- ============================================================
 -- FEATURE: Skip LAN Hosting Delay
 -- ============================================================
-
-local function GetPopupTitle(popup)
-    local ok, titleText = pcall(function()
-        return popup.Text_Title:GetText():ToString()
-    end)
-    return ok and titleText or nil
-end
 
 local function EnablePopupButtons(popup)
     local okYes, yesButton = pcall(function()
@@ -41,8 +38,11 @@ end
 local function ShouldSkipDelay(popup)
     if not popup:IsValid() then return false end
 
-    local title = GetPopupTitle(popup)
-    if title == "Hosting a LAN Server" then
+    local ok, title = pcall(function()
+        return popup.Text_Title:ToString()
+    end)
+
+    if ok and title == "Hosting a LAN Server" then
         Log.Debug("Matched LAN hosting popup")
         return true
     end
@@ -181,13 +181,26 @@ local function RegisterFoodDeployableFix()
                     return deployable.IsCurrentlyLoadingFromSave
                 end)
 
-                if okLoading and isLoading and not fixExistingOnLoad then
-                    Log.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
-                    return
-                end
+                if okLoading and isLoading then
+                    if not fixExistingOnLoad then
+                        Log.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
+                        return
+                    end
 
-                if ResetDeployedDurability(deployable) then
-                    Log.Debug("Successfully reset durability")
+                    -- Poll until save loading completes
+                    local function WaitForLoad(n)
+                        if n > 20 then return end
+                        ExecuteWithDelay(100, function()
+                            ExecuteInGameThread(function()
+                                if not deployable:IsValid() then return end
+                                local _, stillLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
+                                if stillLoading then WaitForLoad(n + 1) else ResetDeployedDurability(deployable) end
+                            end)
+                        end)
+                    end
+                    WaitForLoad(0)
+                else
+                    ResetDeployedDurability(deployable)
                 end
             elseif clientVisualOnly then
                 Log.Debug("Client visual-only mode: hiding broken texture locally")
