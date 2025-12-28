@@ -41,12 +41,12 @@ if exist "enabled.txt" (
     echo WARNING: enabled.txt not found!
 )
 
-REM Copy scripts folder contents
-if exist "scripts\main.lua" (
-    copy "scripts\main.lua" "%TEMP_DIR%\%MOD_PATH%\scripts\main.lua" >nul
-    echo   - scripts\main.lua
+REM Copy all .lua files from scripts folder
+if exist "scripts\*.lua" (
+    copy "scripts\*.lua" "%TEMP_DIR%\%MOD_PATH%\scripts\" >nul
+    echo   - scripts\*.lua
 ) else (
-    echo WARNING: scripts\main.lua not found!
+    echo WARNING: No .lua files found in scripts folder!
 )
 
 REM Create zip using PowerShell

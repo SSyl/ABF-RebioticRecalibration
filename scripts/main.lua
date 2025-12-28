@@ -1,60 +1,62 @@
 print("=== [QoL Tweaks] MOD LOADING ===\n")
 
-local Config = require("../config")
-local DEBUG = Config.Debug or false
+local LogUtil = require("LogUtil")
+local ConfigUtil = require("ConfigUtil")
 
-local function Log(message, level)
-    level = level or "info"
+local UserConfig = require("../config")
+local Config = ConfigUtil.ValidateConfig(UserConfig)
+local Log = LogUtil.CreateLogger("QoL Tweaks", Config)
 
-    if level == "debug" and not DEBUG then
-        return
-    end
+-- ============================================================
+-- FEATURE: Skip LAN Hosting Delay
+-- ============================================================
 
-    local prefix = ""
-    if level == "error" then
-        prefix = "ERROR: "
-    elseif level == "warning" then
-        prefix = "WARNING: "
-    end
-
-    print("[QoL Tweaks] " .. prefix .. tostring(message) .. "\n")
+local function GetPopupTitle(popup)
+    local ok, titleText = pcall(function()
+        return popup.Text_Title:GetText():ToString()
+    end)
+    return ok and titleText or nil
 end
 
--- Cache for original button texts
-local popupTextCache = {}
+local function EnablePopupButtons(popup)
+    local okYes, yesButton = pcall(function()
+        return popup.Button_Yes
+    end)
+    if okYes and yesButton:IsValid() then
+        pcall(function()
+            yesButton:SetIsEnabled(true)
+        end)
+    end
+
+    local okNo, noButton = pcall(function()
+        return popup.Button_No
+    end)
+    if okNo and noButton:IsValid() then
+        pcall(function()
+            noButton:SetIsEnabled(true)
+        end)
+    end
+end
 
 local function ShouldSkipDelay(popup)
     if not popup:IsValid() then return false end
 
-    local ok, titleText = pcall(function()
-        return popup.Text_Title:ToString()
-    end)
-    if ok and titleText then
-        local title = titleText:lower()
-        if title:find("lan") then
-            Log("Matched by title: " .. titleText, "debug")
-            return true
-        end
-    end
-
-    local ok2, mainText = pcall(function()
-        return popup.Text_Main:ToString()
-    end)
-    if ok2 and mainText then
-        local main = mainText:lower()
-        if main:find("local network") or main:find("lan game") then
-            Log("Matched by main text (LAN)", "debug")
-            return true
-        end
+    local title = GetPopupTitle(popup)
+    if title == "Hosting a LAN Server" then
+        Log("Matched LAN hosting popup", "debug")
+        return true
     end
 
     return false
 end
 
-ExecuteWithDelay(2500, function()
-    Log("Registering hooks...", "debug")
+local function RegisterLANPopupFix()
+    if not Config.MenuTweaks.SkipLANHostingDelay then
+        Log("LAN popup fix disabled", "debug")
+        return
+    end
 
-    local ok1, err1 = pcall(function()
+    local okConstruct, errConstruct = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct", function(Context)
             local popup = Context:get()
             if not popup:IsValid() then return end
@@ -62,65 +64,24 @@ ExecuteWithDelay(2500, function()
             if ShouldSkipDelay(popup) then
                 Log("Marking popup for delay skip", "debug")
 
-                local popupAddr = popup:GetAddress()
-
-                -- Cache button text before countdown starts
-                popupTextCache[popupAddr] = {}
-
-                local ok1, yesText = pcall(function() return popup.Text_Yes end)
-                local ok2, noText = pcall(function() return popup.Text_No end)
-
-                if ok1 and yesText and yesText:IsValid() then
-                    local yesTextWidget = popup.YesText
-                    if yesTextWidget:IsValid() then
-                        popupTextCache[popupAddr][yesTextWidget:GetAddress()] = yesText:ToString()
-                        Log("Cached Yes text in Construct: " .. yesText:ToString(), "debug")
-                    end
-                end
-
-                if ok2 and noText and noText:IsValid() then
-                    local noTextWidget = popup.NoText
-                    if noTextWidget:IsValid() then
-                        popupTextCache[popupAddr][noTextWidget:GetAddress()] = noText:ToString()
-                        Log("Cached No text in Construct: " .. noText:ToString(), "debug")
-                    end
-                end
-
-                -- Construct is a post-callback, so this happens after construction completes
                 pcall(function()
                     popup.DelayBeforeAllowingInput = 0
                     popup.CloseBlockedByDelay = false
                     popup.DelayTimeLeft = 0
                 end)
 
-                local ok, yesButton = pcall(function()
-                    return popup.Button_Yes
-                end)
-                if ok and yesButton:IsValid() then
-                    pcall(function()
-                        yesButton:SetIsEnabled(true)
-                    end)
-                end
-
-                local ok2, noButton = pcall(function()
-                    return popup.Button_No
-                end)
-                if ok2 and noButton:IsValid() then
-                    pcall(function()
-                        noButton:SetIsEnabled(true)
-                    end)
-                end
+                EnablePopupButtons(popup)
             end
         end)
     end)
 
-    if not ok1 then
-        Log("Failed to register Construct hook: " .. tostring(err1), "error")
+    if not okConstruct then
+        Log("Failed to register Construct hook: " .. tostring(errConstruct), "error")
     else
-        Log("Construct hook registered", "debug")
+        Log("LAN popup Construct hook registered", "debug")
     end
 
-    local ok2, err2 = pcall(function()
+    local okCountdown, errCountdown = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay", function(Context)
             local popup = Context:get()
             if not popup:IsValid() then return end
@@ -133,72 +94,131 @@ ExecuteWithDelay(2500, function()
                     popup.CloseBlockedByDelay = false
                 end)
 
-                local ok, yesButton = pcall(function()
-                    return popup.Button_Yes
-                end)
-                if ok and yesButton:IsValid() then
-                    pcall(function()
-                        yesButton:SetIsEnabled(true)
-                    end)
-                end
-
-                local ok2, noButton = pcall(function()
-                    return popup.Button_No
-                end)
-                if ok2 and noButton:IsValid() then
-                    pcall(function()
-                        noButton:SetIsEnabled(true)
-                    end)
-                end
+                EnablePopupButtons(popup)
             end
         end)
     end)
 
-    if not ok2 then
-        Log("Failed to register CountdownInputDelay hook: " .. tostring(err2), "error")
+    if not okCountdown then
+        Log("Failed to register CountdownInputDelay hook: " .. tostring(errCountdown), "error")
     else
-        Log("CountdownInputDelay hook registered", "debug")
+        Log("LAN popup CountdownInputDelay hook registered", "debug")
+    end
+end
+
+-- ============================================================
+-- FEATURE: Fix Food Deployable Broken Texture
+-- ============================================================
+
+local function ResetDeployedDurability(deployable)
+    if not deployable:IsValid() then return false end
+
+    local okMax, maxDur = pcall(function()
+        return deployable.MaxDurability
+    end)
+    if not okMax or maxDur == nil then
+        Log("Failed to get MaxDurability", "debug")
+        return false
     end
 
-    -- Strip countdown prefix like "(3) YES" -> "YES"
-    local ok3, err3 = pcall(function()
-        RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime", function(Context, TextParam, OriginalTextParam)
-            local popup = Context:get()
-            if not popup:IsValid() then return end
+    local okCurrent, currentDur = pcall(function()
+        return deployable.CurrentDurability
+    end)
 
-            local popupAddr = popup:GetAddress()
-            local cache = popupTextCache[popupAddr]
+    if okCurrent and currentDur == maxDur then
+        Log("Deployable already at max durability", "debug")
+        return false
+    end
 
-            if cache then
-                local textWidget = TextParam:get()
-                if not textWidget:IsValid() then return end
+    Log("Resetting durability from " .. tostring(currentDur) .. " to " .. tostring(maxDur), "debug")
 
-                local ok, currentText = pcall(function()
-                    return textWidget:GetText():ToString()
+    -- Fix both the ChangeableData (source) and CurrentDurability (deployed property)
+    pcall(function()
+        local changeableData = deployable.ChangeableData
+        if changeableData then
+            local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
+            if maxItemDur then
+                changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
+                Log("Fixed ChangeableData.CurrentItemDurability to " .. tostring(maxItemDur), "debug")
+            end
+        end
+    end)
+
+    pcall(function()
+        deployable.CurrentDurability = maxDur
+    end)
+
+    return true
+end
+
+local function RegisterFoodDeployableFix()
+    local foodConfig = Config.FoodDeployableFix
+    if not foodConfig.Enabled then
+        Log("Food deployable fix disabled", "debug")
+        return
+    end
+
+    local clientVisualOnly = foodConfig.ClientSideVisualOnly
+    local fixExistingOnLoad = foodConfig.FixExistingOnLoad
+
+    local ok, err = pcall(function()
+        RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay", function(Context)
+            local deployable = Context:get()
+            if not deployable:IsValid() then return end
+
+            local okClass, className = pcall(function()
+                return deployable:GetClass():GetFName():ToString()
+            end)
+            if not okClass or not className:match("^Deployed_Food_") then return end
+
+            Log(">>> Food deployable ReceiveBeginPlay: " .. className, "debug")
+
+            -- Check authority (server/host has authority, clients don't)
+            local okAuth, hasAuthority = pcall(function()
+                return deployable:HasAuthority()
+            end)
+
+            if okAuth and hasAuthority then
+                local okLoading, isLoading = pcall(function()
+                    return deployable.IsCurrentlyLoadingFromSave
                 end)
 
-                if ok and currentText then
-                    Log("Current button text: " .. currentText, "debug")
-
-                    if currentText:find("%(") then
-                        -- Strip countdown prefix: "(3) YES" -> "YES"
-                        local cleanText = currentText:gsub("^%(%d+%)%s*", "")
-                        Log("Cleaned text: " .. cleanText, "debug")
-
-                        pcall(function()
-                            textWidget:SetText(FText(cleanText))
-                        end)
-                    end
+                if okLoading and isLoading and not fixExistingOnLoad then
+                    Log("Skipping - loading from save (FixExistingOnLoad disabled)", "debug")
+                    return
                 end
+
+                if ResetDeployedDurability(deployable) then
+                    Log("Successfully reset durability", "debug")
+                end
+            elseif clientVisualOnly then
+                -- Locally set durability to hide cracks (won't persist or replicate)
+                Log("Client visual-only mode: hiding broken texture locally", "debug")
+                pcall(function()
+                    deployable.CurrentDurability = deployable.MaxDurability
+                end)
             end
         end)
     end)
 
-    if not ok3 then
-        Log("Failed to register UpdateButtonWithDelayTime hook: " .. tostring(err3), "error")
+    if not ok then
+        Log("Failed to register food deployable fix: " .. tostring(err), "error")
     else
-        Log("UpdateButtonWithDelayTime hook registered", "debug")
+        Log("Food deployable fix registered", "debug")
     end
+end
+
+-- ============================================================
+-- INITIALIZATION
+-- ============================================================
+
+ExecuteWithDelay(2500, function()
+    Log("Registering hooks...", "debug")
+
+    RegisterLANPopupFix()
+    RegisterFoodDeployableFix()
+
+    Log("Hook registration complete", "debug")
 end)
 
 Log("Mod loaded", "debug")

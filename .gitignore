@@ -1,2 +1,9 @@
-.claude/
+# Ignore all folders starting with a dot
+.*/
+
+# Ignore zip files
 *.zip
+
+# Ignore all markdown files except README.md
+*.md
+!README.md
