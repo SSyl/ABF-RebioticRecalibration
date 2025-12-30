@@ -219,6 +219,69 @@ local function RegisterFoodDeployableFix()
 end
 
 -- ============================================================
+-- FEATURE: Brighten Crafting Menu 3D Preview
+-- ============================================================
+
+local function ApplyPreviewBrightness(itemDisplay, lightIntensity)
+    if not itemDisplay:IsValid() then return end
+
+    -- Disable auto-exposure so light changes actually take effect
+    -- (Auto-exposure compensates for brightness changes, defeating the purpose)
+    local okCapture, sceneCapture = pcall(function()
+        return itemDisplay.Item_RenderTarget
+    end)
+
+    if okCapture and sceneCapture:IsValid() then
+        pcall(function()
+            sceneCapture.PostProcessSettings.bOverride_AutoExposureMethod = true
+            sceneCapture.PostProcessSettings.AutoExposureMethod = 2  -- AEM_Manual
+        end)
+    end
+
+    -- Set light intensities directly
+    local okLight, pointLight = pcall(function() return itemDisplay.PointLight end)
+    if okLight and pointLight:IsValid() then
+        pointLight:SetIntensity(lightIntensity)
+    end
+
+    local okLight1, pointLight1 = pcall(function() return itemDisplay.PointLight1 end)
+    if okLight1 and pointLight1:IsValid() then
+        pointLight1:SetIntensity(lightIntensity)
+    end
+
+    -- Back light uses half intensity for subtle rim lighting
+    local okLight2, pointLight2 = pcall(function() return itemDisplay.PointLight2 end)
+    if okLight2 and pointLight2:IsValid() then
+        pointLight2:SetIntensity(lightIntensity / 2)
+    end
+end
+
+local function RegisterCraftingPreviewBrightness()
+    local previewConfig = Config.CraftingPreviewBrightness
+    if not previewConfig.Enabled then
+        Log.Debug("Crafting preview brightness disabled")
+        return
+    end
+
+    local lightIntensity = previewConfig.LightIntensity or 4.0
+
+    local ok, err = pcall(function()
+        RegisterHook("/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh", function(Context)
+            local itemDisplay = Context:get()
+            if not itemDisplay:IsValid() then return end
+
+            ApplyPreviewBrightness(itemDisplay, lightIntensity)
+        end)
+    end)
+
+    if not ok then
+        Log.Error("Failed to register crafting preview brightness: %s", tostring(err))
+    else
+        Log.Debug("Crafting preview brightness registered (intensity: %.1f)", lightIntensity)
+    end
+end
+
+-- ============================================================
 -- INITIALIZATION
 -- ============================================================
 
@@ -227,6 +290,7 @@ ExecuteWithDelay(2500, function()
 
     RegisterLANPopupFix()
     RegisterFoodDeployableFix()
+    RegisterCraftingPreviewBrightness()
 
     Log.Debug("Hook registration complete")
 end)
