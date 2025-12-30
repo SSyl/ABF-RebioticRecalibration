@@ -67,4 +67,21 @@ return {
         -- [Default = 1024]
         Resolution = 1024,
     },
+
+    -- ============================================================
+    -- Distribution Pad Distance
+    -- Increases the range at which the distribution pad detects containers
+    -- Vanilla range is 1000 units (approx 10 meters)
+    -- ============================================================
+    DistributionPadDistance = {
+        -- Enables the distance increase
+        -- NOTE: Some players may consider this a cheat rather than QoL, so it's disabled by default
+        -- [Default = false]
+        Enabled = false,
+
+        -- Distance multiplier (1.0 = vanilla 1000 units, 1.25 = 1250 units, 2.0 = 2000 units, etc.)
+        -- Higher values let the pad find containers from farther away
+        -- [Default = 1.25]
+        DistanceMultiplier = 1.25,
+    },
 }

@@ -42,13 +42,11 @@ local function ShouldSkipDelay(popup)
         return popup.Text_Title:ToString()
     end)
 
-    if ok and title == "Hosting a LAN Server" then
-        Log.Debug("Matched LAN hosting popup")
-        return true
-    end
-
-    return false
+    return ok and title == "Hosting a LAN Server"
 end
+
+-- Cache for original button text values (populated on first UpdateButtonWithDelayTime call)
+local LANPopupOriginalText = {}
 
 local function RegisterLANPopupFix()
     if not Config.MenuTweaks.SkipLANHostingDelay then
@@ -62,7 +60,7 @@ local function RegisterLANPopupFix()
             if not popup:IsValid() then return end
 
             if ShouldSkipDelay(popup) then
-                Log.Debug("Marking popup for delay skip")
+                Log.Debug("LAN hosting popup detected - skipping delay")
 
                 pcall(function()
                     popup.DelayBeforeAllowingInput = 0
@@ -87,8 +85,6 @@ local function RegisterLANPopupFix()
             if not popup:IsValid() then return end
 
             if ShouldSkipDelay(popup) then
-                Log.Debug("Blocking countdown tick")
-
                 pcall(function()
                     popup.DelayTimeLeft = 0
                     popup.CloseBlockedByDelay = false
@@ -103,6 +99,62 @@ local function RegisterLANPopupFix()
         Log.Error("Failed to register CountdownInputDelay hook: %s", tostring(errCountdown))
     else
         Log.Debug("LAN popup CountdownInputDelay hook registered")
+    end
+
+    local okUpdate, errUpdate = pcall(function()
+        RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime", function(Context, TextParam, OriginalTextParam)
+            local popup = Context:get()
+            if not popup:IsValid() then return end
+
+            if ShouldSkipDelay(popup) then
+                -- Function already executed and formatted text with countdown
+                -- Override it back to the original text
+                local okText, textWidget = pcall(function()
+                    return TextParam:get()
+                end)
+                if not okText or not textWidget:IsValid() then return end
+
+                -- Get widget name to use as cache key
+                local okName, widgetName = pcall(function()
+                    return textWidget:GetFName():ToString()
+                end)
+                if not okName then return end
+
+                -- Get original text from parameter
+                local okOriginal, originalText = pcall(function()
+                    return OriginalTextParam:get()
+                end)
+
+                local originalStr = ""
+                if okOriginal and originalText then
+                    local okStr, str = pcall(function()
+                        return originalText:ToString()
+                    end)
+                    if okStr then originalStr = str end
+                end
+
+                -- Cache original text STRING on first call (when it's not empty)
+                -- We cache the string, not the FText object, because FText may become invalid
+                if originalStr ~= "" and not LANPopupOriginalText[widgetName] then
+                    LANPopupOriginalText[widgetName] = originalStr
+                    Log.Debug("Cached original text for %s: '%s'", widgetName, originalStr)
+                end
+
+                -- Use cached string to create fresh FText and set it
+                local cachedStr = LANPopupOriginalText[widgetName]
+                if cachedStr then
+                    pcall(function()
+                        textWidget:SetText(FText(cachedStr))
+                    end)
+                end
+            end
+        end)
+    end)
+
+    if not okUpdate then
+        Log.Error("Failed to register UpdateButtonWithDelayTime hook: %s", tostring(errUpdate))
+    else
+        Log.Debug("LAN popup UpdateButtonWithDelayTime hook registered")
     end
 end
 
@@ -362,6 +414,51 @@ local function RegisterCraftingPreviewResolution()
 end
 
 -- ============================================================
+-- FEATURE: Distribution Pad Distance
+-- ============================================================
+
+local function RegisterDistributionPadDistance()
+    local config = Config.DistributionPadDistance
+    if not config.Enabled then
+        Log.Debug("Distribution pad distance disabled")
+        return
+    end
+
+    local multiplier = config.DistanceMultiplier or 1.25
+    local defaultRadius = 1000
+    local newRadius = defaultRadius * multiplier
+
+    local ok, err = pcall(function()
+        RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay", function(Context)
+            local obj = Context:get()
+            if not obj:IsValid() then return end
+
+            -- Filter for distribution pads only (parent hook fires for all deployed objects)
+            local okClass, className = pcall(function()
+                return obj:GetClass():GetFName():ToString()
+            end)
+            if not okClass or className ~= "Deployed_DistributionPad_C" then return end
+
+            local okSphere, sphere = pcall(function()
+                return obj.ContainerOverlapSphere
+            end)
+
+            if okSphere and sphere:IsValid() then
+                pcall(function()
+                    sphere:SetSphereRadius(newRadius, true)
+                end)
+            end
+        end)
+    end)
+
+    if not ok then
+        Log.Error("Failed to register distribution pad distance: %s", tostring(err))
+    else
+        Log.Debug("Distribution pad distance registered (%.0f -> %.0f units)", defaultRadius, newRadius)
+    end
+end
+
+-- ============================================================
 -- INITIALIZATION
 -- ============================================================
 
@@ -372,6 +469,7 @@ ExecuteWithDelay(2500, function()
     RegisterFoodDeployableFix()
     RegisterCraftingPreviewBrightness()
     RegisterCraftingPreviewResolution()
+    RegisterDistributionPadDistance()
 
     Log.Debug("Hook registration complete")
 end)
