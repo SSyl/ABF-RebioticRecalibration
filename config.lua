@@ -49,4 +49,22 @@ return {
         -- [Default = 10]
         LightIntensity = 10.0,
     },
+
+    -- ============================================================
+    -- Crafting Preview Resolution
+    -- Increases the resolution of the 3D item preview in the crafting menu
+    -- The vanilla game renders at 512x512 and displays it much larger, causing blur
+    -- ============================================================
+    CraftingPreviewResolution = {
+        -- Enables the resolution fix for crafting menu item previews
+        -- [Default = true]
+        Enabled = true,
+
+        -- Resolution for the 3D preview (square aspect ratio)
+        -- Vanilla is 512x512. Higher values = sharper but more VRAM usage
+        -- Values are automatically rounded to nearest power of 2 (512, 1024, 2048, 4096, 8192)
+        -- Maximum is 8192 to prevent excessive VRAM usage
+        -- [Default = 1024]
+        Resolution = 1024,
+    },
 }

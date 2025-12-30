@@ -282,6 +282,86 @@ local function RegisterCraftingPreviewBrightness()
 end
 
 -- ============================================================
+-- FEATURE: Increase Crafting Preview Resolution
+-- ============================================================
+
+local KismetRenderingLibraryCache = nil
+
+local function GetKismetRenderingLibrary()
+    if KismetRenderingLibraryCache and KismetRenderingLibraryCache:IsValid() then
+        return KismetRenderingLibraryCache
+    end
+
+    KismetRenderingLibraryCache = StaticFindObject("/Script/Engine.Default__KismetRenderingLibrary")
+    return KismetRenderingLibraryCache
+end
+
+local function RoundToPowerOfTwo(value)
+    -- ConfigUtil already validated type and bounds (1-8192)
+    -- Just round to nearest power of 2
+    value = math.floor(value)
+    local power = math.floor(math.log(value) / math.log(2) + 0.5)
+    return math.floor(2 ^ power)
+end
+
+local function RegisterCraftingPreviewResolution()
+    local config = Config.CraftingPreviewResolution
+    if not config.Enabled then
+        Log.Debug("Crafting preview resolution disabled")
+        return
+    end
+
+    local configResolution = config.Resolution or 1024
+    local targetResolution = RoundToPowerOfTwo(configResolution)
+
+    if configResolution ~= targetResolution then
+        Log.Debug("Rounded resolution from %d to nearest power of 2: %d", configResolution, targetResolution)
+    end
+
+    RegisterInitGameStatePostHook(function(ContextParam)
+        ExecuteInGameThread(function()
+            local renderTarget = StaticFindObject(
+                "/Game/Blueprints/Environment/Special/3DItem_RenderTarget.3DItem_RenderTarget"
+            )
+            local kismetRenderLib = GetKismetRenderingLibrary()
+
+            if not renderTarget:IsValid() then
+                Log.Error("Failed to find 3DItem_RenderTarget")
+                return
+            end
+
+            if not kismetRenderLib:IsValid() then
+                Log.Error("Failed to find KismetRenderingLibrary")
+                return
+            end
+
+            local okSize, currentX, currentY = pcall(function()
+                return renderTarget.SizeX, renderTarget.SizeY
+            end)
+
+            if okSize then
+                Log.Debug("Current render target size: %dx%d", currentX, currentY)
+
+                if currentX == targetResolution and currentY == targetResolution then
+                    Log.Debug("Render target already at target resolution, skipping resize")
+                    return
+                end
+            end
+
+            local okResize, errResize = pcall(function()
+                kismetRenderLib:ResizeRenderTarget2D(renderTarget, targetResolution, targetResolution)
+            end)
+
+            if okResize then
+                Log.Debug("Resized crafting preview render target to %dx%d", targetResolution, targetResolution)
+            else
+                Log.Error("Failed to resize render target: %s", tostring(errResize))
+            end
+        end)
+    end)
+end
+
+-- ============================================================
 -- INITIALIZATION
 -- ============================================================
 
@@ -291,6 +371,7 @@ ExecuteWithDelay(2500, function()
     RegisterLANPopupFix()
     RegisterFoodDeployableFix()
     RegisterCraftingPreviewBrightness()
+    RegisterCraftingPreviewResolution()
 
     Log.Debug("Hook registration complete")
 end)

@@ -101,6 +101,14 @@ local DEFAULTS = {
         FixExistingOnLoad = false,
         ClientSideVisualOnly = false,
     },
+    CraftingPreviewBrightness = {
+        Enabled = true,
+        LightIntensity = 10.0,
+    },
+    CraftingPreviewResolution = {
+        Enabled = true,
+        Resolution = 1024,
+    },
 }
 
 function ConfigUtil.ValidateConfig(userConfig, logFunc)
@@ -141,6 +149,40 @@ function ConfigUtil.ValidateConfig(userConfig, logFunc)
         DEFAULTS.FoodDeployableFix.ClientSideVisualOnly,
         logFunc,
         "FoodDeployableFix.ClientSideVisualOnly"
+    )
+
+    -- CraftingPreviewBrightness section
+    config.CraftingPreviewBrightness = ConfigUtil.EnsureTable(config.CraftingPreviewBrightness, logFunc, "CraftingPreviewBrightness")
+    config.CraftingPreviewBrightness.Enabled = ConfigUtil.ValidateBoolean(
+        config.CraftingPreviewBrightness.Enabled,
+        DEFAULTS.CraftingPreviewBrightness.Enabled,
+        logFunc,
+        "CraftingPreviewBrightness.Enabled"
+    )
+    config.CraftingPreviewBrightness.LightIntensity = ConfigUtil.ValidateNumber(
+        config.CraftingPreviewBrightness.LightIntensity,
+        DEFAULTS.CraftingPreviewBrightness.LightIntensity,
+        0.1,
+        nil,
+        logFunc,
+        "CraftingPreviewBrightness.LightIntensity"
+    )
+
+    -- CraftingPreviewResolution section
+    config.CraftingPreviewResolution = ConfigUtil.EnsureTable(config.CraftingPreviewResolution, logFunc, "CraftingPreviewResolution")
+    config.CraftingPreviewResolution.Enabled = ConfigUtil.ValidateBoolean(
+        config.CraftingPreviewResolution.Enabled,
+        DEFAULTS.CraftingPreviewResolution.Enabled,
+        logFunc,
+        "CraftingPreviewResolution.Enabled"
+    )
+    config.CraftingPreviewResolution.Resolution = ConfigUtil.ValidateNumber(
+        config.CraftingPreviewResolution.Resolution,
+        DEFAULTS.CraftingPreviewResolution.Resolution,
+        1,
+        8192,
+        logFunc,
+        "CraftingPreviewResolution.Resolution"
     )
 
     return config
