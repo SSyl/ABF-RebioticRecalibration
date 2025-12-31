@@ -93,6 +93,12 @@ end
 
 local DEFAULTS = {
     Debug = false,
+    DebugFlags = {
+        MenuTweaks = nil,
+        FoodDeployableFix = nil,
+        CraftingPreview = nil,
+        DistributionPad = nil,
+    },
     MenuTweaks = {
         SkipLANHostingDelay = true,
     },
@@ -111,6 +117,16 @@ local DEFAULTS = {
     },
 }
 
+-- Check if debug is enabled for a specific feature
+-- Returns: true if debug enabled, false otherwise
+-- Logic: If DebugFlags[feature] is explicitly set (true/false), use it; otherwise use global Debug
+function ConfigUtil.IsDebugEnabled(config, featureName)
+    if config.DebugFlags and config.DebugFlags[featureName] ~= nil then
+        return config.DebugFlags[featureName]
+    end
+    return config.Debug or false
+end
+
 function ConfigUtil.ValidateConfig(userConfig, logFunc)
     local config = userConfig or {}
 
@@ -120,6 +136,9 @@ function ConfigUtil.ValidateConfig(userConfig, logFunc)
         logFunc,
         "Debug"
     )
+
+    -- DebugFlags section (nil values are allowed - they mean "use global")
+    config.DebugFlags = ConfigUtil.EnsureTable(config.DebugFlags, logFunc, "DebugFlags")
 
     -- MenuTweaks section
     config.MenuTweaks = ConfigUtil.EnsureTable(config.MenuTweaks, logFunc, "MenuTweaks")

@@ -1,5 +1,16 @@
 return {
-    Debug = true,
+    -- Global debug flag (default for all features)
+    Debug = false,
+
+    -- Per-feature debug overrides
+    -- nil = use global Debug setting
+    -- true/false = override global setting for this feature
+    DebugFlags = {
+        MenuTweaks = nil,
+        FoodDeployableFix = nil,
+        CraftingPreview = nil,
+        DistributionPad = true,  -- Currently debugging this feature
+    },
 
     -- ============================================================
     -- Menu Tweaks
@@ -83,5 +94,16 @@ return {
         -- Higher values let the pad find containers from farther away
         -- [Default = 1.25]
         DistanceMultiplier = 1.25,
+    },
+
+    -- ============================================================
+    -- Distribution Pad Container Indicator
+    -- Shows which containers are within distribution pad range
+    -- Adds "[DistPad]" to container name when opening inventory
+    -- ============================================================
+    DistributionPadIndicator = {
+        -- Enables the indicator
+        -- [Default = true]
+        Enabled = true,
     },
 }

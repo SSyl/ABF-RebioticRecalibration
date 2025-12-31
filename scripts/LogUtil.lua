@@ -1,7 +1,20 @@
 local LogUtil = {}
 
-function LogUtil.CreateLogger(modName, config)
-    local debugEnabled = config and config.Debug
+-- CreateLogger creates a logger for a specific feature
+-- modName: Display name for log prefix (e.g., "QoL Tweaks")
+-- config: Full config table
+-- featureName: Optional feature name for per-feature debug flags (e.g., "DistributionPad")
+--              If nil, uses global Debug flag
+function LogUtil.CreateLogger(modName, config, featureName)
+    local ConfigUtil = require("ConfigUtil")
+
+    local function isDebugEnabled()
+        if featureName then
+            return ConfigUtil.IsDebugEnabled(config, featureName)
+        end
+        return config and config.Debug or false
+    end
+
     local loggedOnce = {}
 
     local function formatMessage(message, ...)
@@ -13,7 +26,7 @@ function LogUtil.CreateLogger(modName, config)
     end
 
     local function doLog(level, once, message, ...)
-        if level == "debug" and not debugEnabled then
+        if level == "debug" and not isDebugEnabled() then
             return
         end
 

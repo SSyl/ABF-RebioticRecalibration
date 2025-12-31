@@ -9,7 +9,15 @@ local ConfigUtil = require("ConfigUtil")
 
 local UserConfig = require("../config")
 local Config = ConfigUtil.ValidateConfig(UserConfig, LogUtil.CreateLogger("QoL Tweaks (Config)", UserConfig))
-local Log = LogUtil.CreateLogger("QoL Tweaks", Config)
+
+-- Feature-specific loggers (each checks its own DebugFlags entry)
+-- Usage: Log.FeatureName.Debug("message")
+local Log = {
+    MenuTweaks = LogUtil.CreateLogger("QoL Tweaks|MenuTweaks", Config, "MenuTweaks"),
+    FoodFix = LogUtil.CreateLogger("QoL Tweaks|FoodFix", Config, "FoodDeployableFix"),
+    CraftingPreview = LogUtil.CreateLogger("QoL Tweaks|CraftingPreview", Config, "CraftingPreview"),
+    DistPad = LogUtil.CreateLogger("QoL Tweaks|DistPad", Config, "DistributionPad"),
+}
 
 -- ============================================================
 -- FEATURE: Skip LAN Hosting Delay
@@ -50,7 +58,7 @@ local LANPopupOriginalText = {}
 
 local function RegisterLANPopupFix()
     if not Config.MenuTweaks.SkipLANHostingDelay then
-        Log.Debug("LAN popup fix disabled")
+        Log.MenuTweaks.Debug("LAN popup fix disabled")
         return
     end
 
@@ -60,7 +68,7 @@ local function RegisterLANPopupFix()
             if not popup:IsValid() then return end
 
             if ShouldSkipDelay(popup) then
-                Log.Debug("LAN hosting popup detected - skipping delay")
+                Log.MenuTweaks.Debug("LAN hosting popup detected - skipping delay")
 
                 pcall(function()
                     popup.DelayBeforeAllowingInput = 0
@@ -74,9 +82,9 @@ local function RegisterLANPopupFix()
     end)
 
     if not okConstruct then
-        Log.Error("Failed to register Construct hook: %s", tostring(errConstruct))
+        Log.MenuTweaks.Error("Failed to register Construct hook: %s", tostring(errConstruct))
     else
-        Log.Debug("LAN popup Construct hook registered")
+        Log.MenuTweaks.Debug("LAN popup Construct hook registered")
     end
 
     local okCountdown, errCountdown = pcall(function()
@@ -96,9 +104,9 @@ local function RegisterLANPopupFix()
     end)
 
     if not okCountdown then
-        Log.Error("Failed to register CountdownInputDelay hook: %s", tostring(errCountdown))
+        Log.MenuTweaks.Error("Failed to register CountdownInputDelay hook: %s", tostring(errCountdown))
     else
-        Log.Debug("LAN popup CountdownInputDelay hook registered")
+        Log.MenuTweaks.Debug("LAN popup CountdownInputDelay hook registered")
     end
 
     local okUpdate, errUpdate = pcall(function()
@@ -137,7 +145,7 @@ local function RegisterLANPopupFix()
                 -- We cache the string, not the FText object, because FText may become invalid
                 if originalStr ~= "" and not LANPopupOriginalText[widgetName] then
                     LANPopupOriginalText[widgetName] = originalStr
-                    Log.Debug("Cached original text for %s: '%s'", widgetName, originalStr)
+                    Log.MenuTweaks.Debug("Cached original text for %s: '%s'", widgetName, originalStr)
                 end
 
                 -- Use cached string to create fresh FText and set it
@@ -152,9 +160,9 @@ local function RegisterLANPopupFix()
     end)
 
     if not okUpdate then
-        Log.Error("Failed to register UpdateButtonWithDelayTime hook: %s", tostring(errUpdate))
+        Log.MenuTweaks.Error("Failed to register UpdateButtonWithDelayTime hook: %s", tostring(errUpdate))
     else
-        Log.Debug("LAN popup UpdateButtonWithDelayTime hook registered")
+        Log.MenuTweaks.Debug("LAN popup UpdateButtonWithDelayTime hook registered")
     end
 end
 
@@ -169,7 +177,7 @@ local function ResetDeployedDurability(deployable)
         return deployable.MaxDurability
     end)
     if not okMax or maxDur == nil then
-        Log.Debug("Failed to get MaxDurability")
+        Log.FoodFix.Debug("Failed to get MaxDurability")
         return false
     end
 
@@ -178,11 +186,11 @@ local function ResetDeployedDurability(deployable)
     end)
 
     if okCurrent and currentDur == maxDur then
-        Log.Debug("Deployable already at max durability")
+        Log.FoodFix.Debug("Deployable already at max durability")
         return false
     end
 
-    Log.Debug("Resetting durability from %s to %s", tostring(currentDur), tostring(maxDur))
+    Log.FoodFix.Debug("Resetting durability from %s to %s", tostring(currentDur), tostring(maxDur))
 
     pcall(function()
         local changeableData = deployable.ChangeableData
@@ -190,7 +198,7 @@ local function ResetDeployedDurability(deployable)
             local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
             if maxItemDur then
                 changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
-                Log.Debug("Fixed ChangeableData.CurrentItemDurability to %s", tostring(maxItemDur))
+                Log.FoodFix.Debug("Fixed ChangeableData.CurrentItemDurability to %s", tostring(maxItemDur))
             end
         end
     end)
@@ -205,7 +213,7 @@ end
 local function RegisterFoodDeployableFix()
     local foodConfig = Config.FoodDeployableFix
     if not foodConfig.Enabled then
-        Log.Debug("Food deployable fix disabled")
+        Log.FoodFix.Debug("Food deployable fix disabled")
         return
     end
 
@@ -222,7 +230,7 @@ local function RegisterFoodDeployableFix()
             end)
             if not okClass or not className:match("^Deployed_Food_") then return end
 
-            Log.Debug("Food deployable ReceiveBeginPlay: %s", className)
+            Log.FoodFix.Debug("Food deployable ReceiveBeginPlay: %s", className)
 
             local okAuth, hasAuthority = pcall(function()
                 return deployable:HasAuthority()
@@ -235,7 +243,7 @@ local function RegisterFoodDeployableFix()
 
                 if okLoading and isLoading then
                     if not fixExistingOnLoad then
-                        Log.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
+                        Log.FoodFix.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
                         return
                     end
 
@@ -255,7 +263,7 @@ local function RegisterFoodDeployableFix()
                     ResetDeployedDurability(deployable)
                 end
             elseif clientVisualOnly then
-                Log.Debug("Client visual-only mode: hiding broken texture locally")
+                Log.FoodFix.Debug("Client visual-only mode: hiding broken texture locally")
                 pcall(function()
                     deployable.CurrentDurability = deployable.MaxDurability
                 end)
@@ -264,9 +272,9 @@ local function RegisterFoodDeployableFix()
     end)
 
     if not ok then
-        Log.Error("Failed to register food deployable fix: %s", tostring(err))
+        Log.FoodFix.Error("Failed to register food deployable fix: %s", tostring(err))
     else
-        Log.Debug("Food deployable fix registered")
+        Log.FoodFix.Debug("Food deployable fix registered")
     end
 end
 
@@ -311,7 +319,7 @@ end
 local function RegisterCraftingPreviewBrightness()
     local previewConfig = Config.CraftingPreviewBrightness
     if not previewConfig.Enabled then
-        Log.Debug("Crafting preview brightness disabled")
+        Log.CraftingPreview.Debug("Crafting preview brightness disabled")
         return
     end
 
@@ -327,9 +335,9 @@ local function RegisterCraftingPreviewBrightness()
     end)
 
     if not ok then
-        Log.Error("Failed to register crafting preview brightness: %s", tostring(err))
+        Log.CraftingPreview.Error("Failed to register crafting preview brightness: %s", tostring(err))
     else
-        Log.Debug("Crafting preview brightness registered (intensity: %.1f)", lightIntensity)
+        Log.CraftingPreview.Debug("Crafting preview brightness registered (intensity: %.1f)", lightIntensity)
     end
 end
 
@@ -359,7 +367,7 @@ end
 local function RegisterCraftingPreviewResolution()
     local config = Config.CraftingPreviewResolution
     if not config.Enabled then
-        Log.Debug("Crafting preview resolution disabled")
+        Log.CraftingPreview.Debug("Crafting preview resolution disabled")
         return
     end
 
@@ -367,7 +375,7 @@ local function RegisterCraftingPreviewResolution()
     local targetResolution = RoundToPowerOfTwo(configResolution)
 
     if configResolution ~= targetResolution then
-        Log.Debug("Rounded resolution from %d to nearest power of 2: %d", configResolution, targetResolution)
+        Log.CraftingPreview.Debug("Rounded resolution from %d to nearest power of 2: %d", configResolution, targetResolution)
     end
 
     RegisterInitGameStatePostHook(function(ContextParam)
@@ -378,12 +386,12 @@ local function RegisterCraftingPreviewResolution()
             local kismetRenderLib = GetKismetRenderingLibrary()
 
             if not renderTarget:IsValid() then
-                Log.Error("Failed to find 3DItem_RenderTarget")
+                Log.CraftingPreview.Error("Failed to find 3DItem_RenderTarget")
                 return
             end
 
             if not kismetRenderLib:IsValid() then
-                Log.Error("Failed to find KismetRenderingLibrary")
+                Log.CraftingPreview.Error("Failed to find KismetRenderingLibrary")
                 return
             end
 
@@ -392,10 +400,10 @@ local function RegisterCraftingPreviewResolution()
             end)
 
             if okSize then
-                Log.Debug("Current render target size: %dx%d", currentX, currentY)
+                Log.CraftingPreview.Debug("Current render target size: %dx%d", currentX, currentY)
 
                 if currentX == targetResolution and currentY == targetResolution then
-                    Log.Debug("Render target already at target resolution, skipping resize")
+                    Log.CraftingPreview.Debug("Render target already at target resolution, skipping resize")
                     return
                 end
             end
@@ -405,9 +413,9 @@ local function RegisterCraftingPreviewResolution()
             end)
 
             if okResize then
-                Log.Debug("Resized crafting preview render target to %dx%d", targetResolution, targetResolution)
+                Log.CraftingPreview.Debug("Resized crafting preview render target to %dx%d", targetResolution, targetResolution)
             else
-                Log.Error("Failed to resize render target: %s", tostring(errResize))
+                Log.CraftingPreview.Error("Failed to resize render target: %s", tostring(errResize))
             end
         end)
     end)
@@ -420,7 +428,7 @@ end
 local function RegisterDistributionPadDistance()
     local config = Config.DistributionPadDistance
     if not config.Enabled then
-        Log.Debug("Distribution pad distance disabled")
+        Log.DistPad.Debug("Distance feature disabled")
         return
     end
 
@@ -452,26 +460,203 @@ local function RegisterDistributionPadDistance()
     end)
 
     if not ok then
-        Log.Error("Failed to register distribution pad distance: %s", tostring(err))
+        Log.DistPad.Error("Failed to register distance feature: %s", tostring(err))
     else
-        Log.Debug("Distribution pad distance registered (%.0f -> %.0f units)", defaultRadius, newRadius)
+        Log.DistPad.Debug("Distance feature registered (%.0f -> %.0f units)", defaultRadius, newRadius)
     end
+end
+
+-- ============================================================
+-- Distribution Pad Container Indicator
+-- ============================================================
+
+-- Cache: inventory addresses that are in ANY pad's range
+local DistPadCache = {
+    inventories = {},      -- [inventoryAddress] = true
+    lastRefresh = 0,       -- os.time() of last refresh
+    maxAge = 900,          -- 15 minutes in seconds
+}
+
+local function RefreshDistPadCache()
+    DistPadCache.inventories = {}
+    DistPadCache.lastRefresh = os.time()
+
+    local allPads = FindAllOf("Deployed_DistributionPad_C")
+    if not allPads then
+        Log.DistPad.Debug("RefreshCache: No distribution pads found")
+        return
+    end
+
+    local padCount = 0
+    local invCount = 0
+
+    for _, pad in pairs(allPads) do
+        if pad:IsValid() then
+            padCount = padCount + 1
+
+            -- Force the pad to update its container list (queries physics overlap)
+            pcall(function()
+                pad:UpdateCompatibleContainers()
+            end)
+
+            -- Now read the populated AdditionalInventories
+            local okInvs, inventories = pcall(function()
+                return pad.AdditionalInventories
+            end)
+
+            if okInvs and inventories then
+                local count = #inventories
+                for i = 1, count do
+                    local inv = inventories[i]
+                    if inv:IsValid() then
+                        local addr = inv:GetAddress()
+                        DistPadCache.inventories[addr] = true
+                        invCount = invCount + 1
+                    end
+                end
+            end
+        end
+    end
+
+    Log.DistPad.Debug("RefreshCache: %d pads, %d inventories cached", padCount, invCount)
+end
+
+-- ============================================================
+-- Distribution Pad Indicator: Interaction Prompt Hook
+-- ============================================================
+
+local function RegisterInteractionPromptHook()
+    -- Cache: remember last actor we processed to avoid repeated lookups
+    local lastActorAddr = nil
+    local lastActorInRange = false
+
+    local okHook, errHook = pcall(function()
+        RegisterHook(
+            "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
+            function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
+                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
+                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+
+                local widget = Context:get()
+                if not widget:IsValid() then return end
+
+                -- Get HitActor from parameter
+                local okHitActor, hitActor = pcall(function()
+                    return HitActorParam:get()
+                end)
+
+                if not okHitActor or not hitActor or not hitActor:IsValid() then
+                    lastActorAddr = nil
+                    lastActorInRange = false
+                    return
+                end
+
+                local actorAddr = hitActor:GetAddress()
+
+                -- Fast path: same actor as last frame
+                if actorAddr == lastActorAddr then
+                    if not lastActorInRange then return end
+                    -- Still in range - just append indicator (vanilla resets text each frame)
+                    local okText, textBlock = pcall(function() return widget.InteractionObjectName end)
+                    if okText and textBlock and textBlock:IsValid() then
+                        local okGet, currentText = pcall(function() return textBlock:GetText():ToString() end)
+                        if okGet and currentText and not currentText:match("%[DistPad%]") then
+                            pcall(function() textBlock:SetText(FText(currentText .. " [DistPad]")) end)
+                        end
+                    end
+                    return
+                end
+
+                -- New actor - do full check
+                lastActorAddr = actorAddr
+                lastActorInRange = false
+
+                -- Check if it's a container (has ContainerInventory)
+                local okInv, containerInv = pcall(function()
+                    return hitActor.ContainerInventory
+                end)
+
+                if not okInv or not containerInv or not containerInv:IsValid() then
+                    return
+                end
+
+                -- Check cache
+                local invAddr = containerInv:GetAddress()
+                local inRange = DistPadCache.inventories[invAddr] == true
+
+                if not inRange then return end
+
+                lastActorInRange = true
+
+                -- Get InteractionObjectName TextBlock and append indicator
+                local okText, textBlock = pcall(function()
+                    return widget.InteractionObjectName
+                end)
+
+                if not okText or not textBlock or not textBlock:IsValid() then
+                    return
+                end
+
+                local okGetText, currentText = pcall(function()
+                    return textBlock:GetText():ToString()
+                end)
+
+                if not okGetText or not currentText then return end
+
+                if not currentText:match("%[DistPad%]") then
+                    pcall(function()
+                        textBlock:SetText(FText(currentText .. " [DistPad]"))
+                    end)
+                end
+            end
+        )
+    end)
+
+    if not okHook then
+        Log.DistPad.Debug("UpdateInteractionPrompts hook FAILED: %s", tostring(errHook))
+        return false
+    end
+
+    Log.DistPad.Debug("UpdateInteractionPrompts hook registered")
+    return true
+end
+
+
+local function RegisterDistPadIndicatorV2()
+    if not Config.DistributionPadIndicator.Enabled then
+        Log.DistPad.Debug("DistPad Indicator disabled")
+        return
+    end
+
+    Log.DistPad.Debug("Setting up DistPad Indicator...")
+
+    -- Register hooks after map loads (Blueprint needs to be available)
+    RegisterLoadMapPostHook(function()
+        ExecuteWithDelay(1000, function()
+            ExecuteInGameThread(function()
+                Log.DistPad.Debug("Map loaded, registering hooks and refreshing cache...")
+                RegisterInteractionPromptHook()
+                RefreshDistPadCache()
+            end)
+        end)
+    end)
+
+    Log.DistPad.Debug("LoadMapPostHook registered")
 end
 
 -- ============================================================
 -- INITIALIZATION
 -- ============================================================
 
-ExecuteWithDelay(2500, function()
-    Log.Debug("Registering hooks...")
+-- Features with internal lifecycle hooks - call immediately
+RegisterCraftingPreviewResolution()  -- Uses RegisterInitGameStatePostHook
+RegisterDistPadIndicatorV2()         -- Uses RegisterLoadMapPostHook
 
+-- Features hooking Blueprint functions - use delayed registration
+-- (Blueprints may not be loaded at mod init)
+ExecuteWithDelay(2500, function()
     RegisterLANPopupFix()
     RegisterFoodDeployableFix()
     RegisterCraftingPreviewBrightness()
-    RegisterCraftingPreviewResolution()
     RegisterDistributionPadDistance()
-
-    Log.Debug("Hook registration complete")
 end)
-
-Log.Debug("Mod loaded")
