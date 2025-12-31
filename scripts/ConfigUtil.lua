@@ -87,6 +87,31 @@ function ConfigUtil.EnsureTable(value, logFunc, fieldName)
     return value
 end
 
+-- Validate and convert RGB color (0-255) to UE format (0-1)
+function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
+    local function isValidRGB(color)
+        return type(color) == "table"
+            and type(color.R) == "number" and color.R >= 0 and color.R <= 255
+            and type(color.G) == "number" and color.G >= 0 and color.G <= 255
+            and type(color.B) == "number" and color.B >= 0 and color.B <= 255
+    end
+
+    local source = value
+    if not isValidRGB(value) then
+        if value ~= nil and logFunc and fieldName then
+            logFunc("Invalid " .. fieldName .. " (must be {R=0-255, G=0-255, B=0-255}), using default", "warning")
+        end
+        source = default
+    end
+
+    return {
+        R = source.R / 255,
+        G = source.G / 255,
+        B = source.B / 255,
+        A = 1.0
+    }
+end
+
 -- ============================================================
 -- QOL-FIXES-TWEAKS CONFIG VALIDATOR
 -- ============================================================
@@ -114,6 +139,19 @@ local DEFAULTS = {
     CraftingPreviewResolution = {
         Enabled = true,
         Resolution = 1024,
+    },
+    DistributionPadDistance = {
+        Enabled = false,
+        DistanceMultiplier = 1.25,
+    },
+    DistributionPadIndicator = {
+        Enabled = true,
+        RefreshOnContainerDeploy = false,
+        TextEnabled = true,
+        Text = "[DistPad]",
+        IconEnabled = true,
+        Icon = "icon_hackingdevice",
+        IconColor = { R = 114, G = 242, B = 255 },
     },
 }
 
@@ -202,6 +240,72 @@ function ConfigUtil.ValidateConfig(userConfig, logFunc)
         8192,
         logFunc,
         "CraftingPreviewResolution.Resolution"
+    )
+
+    -- DistributionPadDistance section
+    config.DistributionPadDistance = ConfigUtil.EnsureTable(config.DistributionPadDistance, logFunc, "DistributionPadDistance")
+    config.DistributionPadDistance.Enabled = ConfigUtil.ValidateBoolean(
+        config.DistributionPadDistance.Enabled,
+        DEFAULTS.DistributionPadDistance.Enabled,
+        logFunc,
+        "DistributionPadDistance.Enabled"
+    )
+    config.DistributionPadDistance.DistanceMultiplier = ConfigUtil.ValidateNumber(
+        config.DistributionPadDistance.DistanceMultiplier,
+        DEFAULTS.DistributionPadDistance.DistanceMultiplier,
+        0.1,
+        10.0,
+        logFunc,
+        "DistributionPadDistance.DistanceMultiplier"
+    )
+
+    -- DistributionPadIndicator section
+    config.DistributionPadIndicator = ConfigUtil.EnsureTable(config.DistributionPadIndicator, logFunc, "DistributionPadIndicator")
+    config.DistributionPadIndicator.Enabled = ConfigUtil.ValidateBoolean(
+        config.DistributionPadIndicator.Enabled,
+        DEFAULTS.DistributionPadIndicator.Enabled,
+        logFunc,
+        "DistributionPadIndicator.Enabled"
+    )
+    config.DistributionPadIndicator.RefreshOnContainerDeploy = ConfigUtil.ValidateBoolean(
+        config.DistributionPadIndicator.RefreshOnContainerDeploy,
+        DEFAULTS.DistributionPadIndicator.RefreshOnContainerDeploy,
+        logFunc,
+        "DistributionPadIndicator.RefreshOnContainerDeploy"
+    )
+    config.DistributionPadIndicator.TextEnabled = ConfigUtil.ValidateBoolean(
+        config.DistributionPadIndicator.TextEnabled,
+        DEFAULTS.DistributionPadIndicator.TextEnabled,
+        logFunc,
+        "DistributionPadIndicator.TextEnabled"
+    )
+    config.DistributionPadIndicator.Text = ConfigUtil.ValidateString(
+        config.DistributionPadIndicator.Text,
+        DEFAULTS.DistributionPadIndicator.Text,
+        nil,
+        logFunc,
+        "DistributionPadIndicator.Text"
+    )
+    config.DistributionPadIndicator.TextPattern = config.DistributionPadIndicator.Text
+        :gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
+    config.DistributionPadIndicator.IconEnabled = ConfigUtil.ValidateBoolean(
+        config.DistributionPadIndicator.IconEnabled,
+        DEFAULTS.DistributionPadIndicator.IconEnabled,
+        logFunc,
+        "DistributionPadIndicator.IconEnabled"
+    )
+    config.DistributionPadIndicator.Icon = ConfigUtil.ValidateString(
+        config.DistributionPadIndicator.Icon,
+        DEFAULTS.DistributionPadIndicator.Icon,
+        nil,
+        logFunc,
+        "DistributionPadIndicator.Icon"
+    )
+    config.DistributionPadIndicator.IconColor = ConfigUtil.ValidateColor(
+        config.DistributionPadIndicator.IconColor,
+        DEFAULTS.DistributionPadIndicator.IconColor,
+        logFunc,
+        "DistributionPadIndicator.IconColor"
     )
 
     return config

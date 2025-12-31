@@ -99,11 +99,44 @@ return {
     -- ============================================================
     -- Distribution Pad Container Indicator
     -- Shows which containers are within distribution pad range
-    -- Adds "[DistPad]" to container name when opening inventory
     -- ============================================================
     DistributionPadIndicator = {
-        -- Enables the indicator
+        -- Enables the indicator feature entirely
         -- [Default = true]
         Enabled = true,
+
+        -- When you finish building a container, immediately check if it's near any distribution pad
+        -- Without this, newly built containers won't show the indicator until someone
+        -- walks on a nearby pad
+        -- May cause a brief hitch if you have many distribution pads in your base
+        -- [Default = false]
+        RefreshOnContainerDeploy = true,
+
+        -- Text indicator options
+        -- Appends text to container name when looking at it
+        -- [Default = true]
+        TextEnabled = true,
+
+        -- Text to append to container name (e.g., "[DistPad]", "[D]", " *")
+        -- [Default = "[DistPad]"]
+        Text = "[DistPad]",
+
+        -- Icon indicator options
+        -- Shows an icon next to the container name
+        -- [Default = true]
+        IconEnabled = true,
+
+        -- Icon to display (from /Game/Textures/GUI/Icons/)
+        -- [Default = "icon_hackingdevice"]
+        Icon = "icon_hackingdevice",
+
+        -- Icon color (RGB values 0-255)
+        -- Default is the game's UI cyan color
+        -- [Default = { R = 114, G = 242, B = 255 }]
+        IconColor = {
+            R = 114,
+            G = 242,
+            B = 255,
+        },
     },
 }
