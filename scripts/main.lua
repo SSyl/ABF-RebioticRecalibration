@@ -1,5 +1,6 @@
 print("=== [QoL Tweaks] MOD LOADING ===\n")
 
+local UEHelpers = require("UEHelpers")
 local LogUtil = require("LogUtil")
 local ConfigUtil = require("ConfigUtil")
 
@@ -480,6 +481,7 @@ local DistPadCache = {
 local function RefreshDistPadCache()
     DistPadCache.inventories = {}
     DistPadCache.lastRefresh = os.time()
+    TrackedPadAddresses = {}
 
     local allPads = FindAllOf("Deployed_DistributionPad_C")
     if not allPads then
@@ -488,37 +490,136 @@ local function RefreshDistPadCache()
     end
 
     local padCount = 0
-    local invCount = 0
 
     for _, pad in pairs(allPads) do
         if pad:IsValid() then
             padCount = padCount + 1
-
             -- Force the pad to update its container list (queries physics overlap)
+            -- This triggers our UpdateCompatibleContainers hook which calls SyncCacheFromPad
             pcall(function()
                 pad:UpdateCompatibleContainers()
             end)
-
-            -- Now read the populated AdditionalInventories
-            local okInvs, inventories = pcall(function()
-                return pad.AdditionalInventories
-            end)
-
-            if okInvs and inventories then
-                local count = #inventories
-                for i = 1, count do
-                    local inv = inventories[i]
-                    if inv:IsValid() then
-                        local addr = inv:GetAddress()
-                        DistPadCache.inventories[addr] = true
-                        invCount = invCount + 1
-                    end
-                end
-            end
         end
     end
 
+    -- Count total inventories
+    local invCount = 0
+    for _ in pairs(DistPadCache.inventories) do invCount = invCount + 1 end
+
     Log.DistPad.Debug("RefreshCache: %d pads, %d inventories cached", padCount, invCount)
+end
+
+-- ============================================================
+-- Distribution Pad Indicator: Cache Update Hooks
+-- ============================================================
+
+-- Track which pads we've registered, so we can purge on EndPlay
+local TrackedPadAddresses = {}  -- [padAddress] = {inventoryAddresses...}
+local isSyncingCache = false    -- Guard against re-entry
+
+local function SyncCacheFromPad(pad)
+    if not pad or not pad:IsValid() then return end
+
+    local padAddr = pad:GetAddress()
+    local oldInventories = TrackedPadAddresses[padAddr] or {}
+
+    -- Remove old inventories from cache
+    for _, invAddr in ipairs(oldInventories) do
+        DistPadCache.inventories[invAddr] = nil
+    end
+
+    -- Read current inventories from pad
+    local newInventories = {}
+    local okInvs, inventories = pcall(function()
+        return pad.AdditionalInventories
+    end)
+
+    if okInvs and inventories then
+        local count = #inventories
+        for i = 1, count do
+            local inv = inventories[i]
+            if inv:IsValid() then
+                local addr = inv:GetAddress()
+                DistPadCache.inventories[addr] = true
+                table.insert(newInventories, addr)
+            end
+        end
+        Log.DistPad.Debug("SyncCacheFromPad: %d inventories from pad %s", #newInventories, tostring(padAddr))
+    end
+
+    TrackedPadAddresses[padAddr] = newInventories
+end
+
+local function PurgePadFromCache(pad)
+    if not pad then return end
+
+    local padAddr = pad:GetAddress()
+    local inventories = TrackedPadAddresses[padAddr] or {}
+
+    for _, invAddr in ipairs(inventories) do
+        DistPadCache.inventories[invAddr] = nil
+    end
+
+    TrackedPadAddresses[padAddr] = nil
+    Log.DistPad.Debug("PurgePadFromCache: removed pad %s", tostring(padAddr))
+end
+
+local function RegisterDistPadCacheHooks()
+    -- Hook UpdateCompatibleContainers - fires when player walks on pad
+    local okUpdate, errUpdate = pcall(function()
+        RegisterHook(
+            "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers",
+            function(Context)
+                if isSyncingCache then return end  -- Guard against re-entry
+                isSyncingCache = true
+                local pad = Context:get()
+                SyncCacheFromPad(pad)
+                isSyncingCache = false
+            end
+        )
+    end)
+
+    if not okUpdate then
+        Log.DistPad.Debug("UpdateCompatibleContainers hook FAILED: %s", tostring(errUpdate))
+    else
+        Log.DistPad.Debug("UpdateCompatibleContainers hook registered")
+    end
+
+    -- NotifyOnNewObject for new pads
+    NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C", function(pad)
+        Log.DistPad.Debug("New DistributionPad spawned: %s", tostring(pad:GetAddress()))
+        -- Pad might not be powered yet, but sync anyway (will be empty if unpowered)
+        ExecuteWithDelay(1000, function()
+            ExecuteInGameThread(function()
+                if pad:IsValid() then
+                    pcall(function() pad:UpdateCompatibleContainers() end)
+                end
+            end)
+        end)
+    end)
+    Log.DistPad.Debug("NotifyOnNewObject for pads registered")
+
+    -- Hook ReceiveEndPlay on parent class, filter by tracked addresses
+    local okEndPlay, errEndPlay = pcall(function()
+        RegisterHook(
+            "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
+            function(Context, EndPlayReasonParam)
+                local actor = Context:get()
+                if not actor then return end
+
+                local addr = actor:GetAddress()
+                if TrackedPadAddresses[addr] then
+                    PurgePadFromCache(actor)
+                end
+            end
+        )
+    end)
+
+    if not okEndPlay then
+        Log.DistPad.Debug("ReceiveEndPlay hook FAILED: %s", tostring(errEndPlay))
+    else
+        Log.DistPad.Debug("ReceiveEndPlay hook registered")
+    end
 end
 
 -- ============================================================
@@ -632,11 +733,28 @@ local function RegisterDistPadIndicatorV2()
 
     -- Register hooks after map loads (Blueprint needs to be available)
     RegisterLoadMapPostHook(function()
+        -- Filter out main menu - only run in actual game world
+        local gameState = UEHelpers.GetGameStateBase()
+        if not gameState:IsValid() then
+            Log.DistPad.Debug("Skipping - no GameState found")
+            return
+        end
+
+        local okClass, gameStateClass = pcall(function()
+            return gameState:GetClass():GetFName():ToString()
+        end)
+
+        if not okClass or gameStateClass ~= "Abiotic_Survival_GameState_C" then
+            Log.DistPad.Debug("Skipping - not in game world (GameState: %s)", tostring(gameStateClass))
+            return
+        end
+
         ExecuteWithDelay(1000, function()
             ExecuteInGameThread(function()
-                Log.DistPad.Debug("Map loaded, registering hooks and refreshing cache...")
-                RegisterInteractionPromptHook()
-                RefreshDistPadCache()
+                Log.DistPad.Debug("Game map loaded, registering hooks then refreshing cache...")
+                RegisterDistPadCacheHooks()     -- Register hooks first
+                RegisterInteractionPromptHook() -- UI display hook
+                RefreshDistPadCache()           -- Now refresh - UpdateCompatibleContainers hook will populate TrackedPadAddresses
             end)
         end)
     end)
