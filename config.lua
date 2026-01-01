@@ -1,17 +1,4 @@
 return {
-    -- Global debug flag (default for all features)
-    Debug = false,
-
-    -- Per-feature debug overrides
-    -- nil = use global Debug setting
-    -- true/false = override global setting for this feature
-    DebugFlags = {
-        MenuTweaks = nil,
-        FoodDeployableFix = nil,
-        CraftingPreview = nil,
-        DistributionPad = true,  -- Currently debugging this feature
-    },
-
     -- ============================================================
     -- Menu Tweaks
     -- Small quality-of-life improvements to menus and popups
@@ -36,7 +23,7 @@ return {
         -- Also fix existing food deployables when loading a save
         -- If false, only newly placed food is fixed (preserves existing saved state)
         -- If true, all food deployables are fixed on load (retroactive fix)
-        -- [Default = true]
+        -- [Default = false]
         FixExistingOnLoad = true,
 
         -- Enable this if you're playing on a server without this mod installed
@@ -55,7 +42,7 @@ return {
         -- [Default = true]
         Enabled = true,
 
-        -- Vanilla itensity is 4, mod default is 10, so this will make it 2.5x brighter
+        -- Vanilla intensity is 4, mod default is 10, so this will make it 2.5x brighter
         -- Note: The back will still be darker, as it's always half as intense as the front
         -- [Default = 10]
         LightIntensity = 10.0,
@@ -115,7 +102,7 @@ return {
         -- Text indicator options
         -- Appends text to container name when looking at it
         -- [Default = true]
-        TextEnabled = true,
+        TextEnabled = false,
 
         -- Text to append to container name (e.g., "[DistPad]", "[D]", " *")
         -- [Default = "[DistPad]"]
@@ -138,5 +125,17 @@ return {
             G = 242,
             B = 255,
         },
+    },
+
+    -- ============================================================
+    -- Debug Flags (Developer/Troubleshooting)
+    -- Enable debug logging for specific features
+    -- [All defaults = false]
+    -- ============================================================
+    DebugFlags = {
+        MenuTweaks = false,
+        FoodDeployableFix = false,
+        CraftingPreviewFix = false,
+        DistributionPadTweaks = false,  -- Currently debugging this feature
     },
 }
