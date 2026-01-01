@@ -8,11 +8,9 @@ local Log = nil
 -- CACHE STATE
 -- ============================================================
 
--- Cache: inventory addresses that are in ANY pad's range
+-- Cache: inventory addresses that are in ANY pad's range (reference counted)
 local DistPadCache = {
-    inventories = {},      -- [inventoryAddress] = true
-    lastRefresh = 0,       -- os.time() of last refresh
-    maxAge = 900,          -- 15 minutes in seconds
+    inventories = {},      -- [inventoryAddress] = count (number of pads covering this inventory)
 }
 
 -- Track which pads we've registered, so we can purge on EndPlay
@@ -41,9 +39,14 @@ local function SyncCacheFromPad(pad)
     local padAddr = pad:GetAddress()
     local oldInventories = TrackedPadAddresses[padAddr] or {}
 
-    -- Remove old inventories from cache
+    -- Decrement ref count for old inventories
     for _, invAddr in ipairs(oldInventories) do
-        DistPadCache.inventories[invAddr] = nil
+        local count = DistPadCache.inventories[invAddr]
+        if count and count > 1 then
+            DistPadCache.inventories[invAddr] = count - 1
+        else
+            DistPadCache.inventories[invAddr] = nil
+        end
     end
 
     -- Read current inventories from pad
@@ -53,12 +56,13 @@ local function SyncCacheFromPad(pad)
     end)
 
     if okInvs and inventories then
-        local count = #inventories
-        for i = 1, count do
+        local invCount = #inventories
+        for i = 1, invCount do
             local inv = inventories[i]
             if inv:IsValid() then
                 local addr = inv:GetAddress()
-                DistPadCache.inventories[addr] = true
+                local currentCount = DistPadCache.inventories[addr] or 0
+                DistPadCache.inventories[addr] = currentCount + 1
                 table.insert(newInventories, addr)
             end
         end
@@ -74,8 +78,14 @@ local function PurgePadFromCache(pad)
     local padAddr = pad:GetAddress()
     local inventories = TrackedPadAddresses[padAddr] or {}
 
+    -- Decrement ref count for each inventory this pad covered
     for _, invAddr in ipairs(inventories) do
-        DistPadCache.inventories[invAddr] = nil
+        local count = DistPadCache.inventories[invAddr]
+        if count and count > 1 then
+            DistPadCache.inventories[invAddr] = count - 1
+        else
+            DistPadCache.inventories[invAddr] = nil
+        end
     end
 
     TrackedPadAddresses[padAddr] = nil
@@ -349,7 +359,7 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam
 
     -- Check cache
     local invAddr = containerInv:GetAddress()
-    local inRange = DistPadCache.inventories[invAddr] == true
+    local inRange = DistPadCache.inventories[invAddr] ~= nil
 
     if not inRange then
         HideDistPadIcon()
@@ -399,7 +409,6 @@ end
 -- Called from main.lua inside RegisterLoadMapPostHook to refresh cache after map loads
 function DistributionPadTweaks.RefreshCache()
     DistPadCache.inventories = {}
-    DistPadCache.lastRefresh = os.time()
     TrackedPadAddresses = {}
 
     local allPads = FindAllOf("Deployed_DistributionPad_C")
