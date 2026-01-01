@@ -114,6 +114,7 @@ return {
         IconEnabled = true,
 
         -- Icon to display (from /Game/Textures/GUI/Icons/)
+        -- See icon-list.txt for available icons
         -- [Default = "icon_hackingdevice"]
         Icon = "icon_hackingdevice",
 
