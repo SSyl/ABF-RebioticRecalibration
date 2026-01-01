@@ -334,19 +334,58 @@ end
 -- Red overlay when health drops below threshold
 -- ============================================================
 
+local vignetteHooksRegistered = false
+
 if Config.LowHealthVignette.Enabled then
-    local okHook, errHook = pcall(function()
-        RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
-            local hud = Context:get()
-            if not hud:IsValid() then return end
-            LowHealthVignette.OnUpdateHealth(hud)  -- → core/LowHealthVignette.lua:OnUpdateHealth()
+    RegisterLoadMapPostHook(function()
+        if vignetteHooksRegistered then return end
+
+        -- Filter out main menu - only run in actual game world
+        local gameState = UEHelpers.GetGameStateBase()
+        if not gameState:IsValid() then
+            return
+        end
+
+        local okClass, gameStateClass = pcall(function()
+            return gameState:GetClass():GetFName():ToString()
+        end)
+
+        if not okClass or gameStateClass ~= "Abiotic_Survival_GameState_C" then
+            return
+        end
+
+        vignetteHooksRegistered = true
+
+        ExecuteWithDelay(1000, function()
+            ExecuteInGameThread(function()
+                Log.LowHealthVignette.Debug("Game map loaded, setting up vignette...")
+
+                -- Pre-create vignette widget
+                local hud = FindFirstOf("W_PlayerHUD_Main_C")
+                if hud:IsValid() then
+                    LowHealthVignette.CreateWidget(hud)
+                else
+                    Log.LowHealthVignette.Debug("HUD not found during setup, will lazy-create on first use")
+                end
+
+                -- Register UpdateHealth hook
+                local okHook, errHook = pcall(function()
+                    RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
+                        local hud = Context:get()
+                        if not hud:IsValid() then return end
+                        LowHealthVignette.OnUpdateHealth(hud)
+                    end)
+                end)
+                if not okHook then
+                    Log.LowHealthVignette.Error("Failed to register UpdateHealth hook: %s", tostring(errHook))
+                else
+                    Log.LowHealthVignette.Debug("UpdateHealth hook registered (threshold: %.0f%%)", Config.LowHealthVignette.Threshold * 100)
+                end
+            end)
         end)
     end)
-    if not okHook then
-        Log.LowHealthVignette.Error("Failed to register UpdateHealth hook: %s", tostring(errHook))
-    else
-        Log.LowHealthVignette.Debug("UpdateHealth hook registered (threshold: %.0f%%)", Config.LowHealthVignette.Threshold * 100)
-    end
+
+    Log.LowHealthVignette.Debug("LoadMapPostHook registered for vignette setup")
 end
 
 Log.General.Info("Mod loaded")

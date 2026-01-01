@@ -97,7 +97,7 @@ local function GetOrCreateVignetteWidget(hud)
             -- ZOrder: behind most elements
             slot:SetZOrder(-1)
         end)
-        Log.Debug("Configured slot: anchors (0,0)-(1,1), offsets -800, zorder -1")
+        Log.Debug("Configured slot: Anchors, Offsets, ZOrder")
     end
 
     -- Reset RenderTransform (cloned from EyeLid_Top which has offset positioning)
@@ -192,10 +192,11 @@ end
 
 local function ShowVignette(hud)
     if IsVignetteVisible then return end  -- Already showing
-    IsVignetteVisible = true
 
     local widget = GetOrCreateVignetteWidget(hud)
-    if not widget then return end
+    if not widget then return end  -- Widget creation failed, will retry next frame
+
+    IsVignetteVisible = true  -- Only set after widget confirmed to exist
 
     pcall(function()
         widget:SetVisibility(4) -- SelfHitTestInvisible
@@ -225,6 +226,18 @@ function LowHealthVignette.Init(config, log)
     Config = config
     Log = log
     Log.Debug("LowHealthVignette initialized (threshold: %.0f%%)", Config.Threshold * 100)
+end
+
+-- Called from main.lua during LoadMapPostHook to pre-create widget
+function LowHealthVignette.CreateWidget(hud)
+    if not hud:IsValid() then return end
+
+    local widget = GetOrCreateVignetteWidget(hud)
+    if widget then
+        Log.Debug("Vignette widget pre-created successfully")
+    else
+        Log.Debug("Failed to pre-create vignette widget")
+    end
 end
 
 -- Called from RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth") in main.lua
