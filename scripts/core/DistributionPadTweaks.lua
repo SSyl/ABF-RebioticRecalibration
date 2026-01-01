@@ -13,8 +13,8 @@ local DistPadCache = {
     inventories = {},      -- [inventoryAddress] = count (number of pads covering this inventory)
 }
 
--- Track which pads we've registered, so we can purge on EndPlay
-local TrackedPadAddresses = {}  -- [padAddress] = {inventoryAddresses...}
+-- Track pads for cache management and FindAllOf avoidance
+local TrackedPads = {}  -- [padAddress] = { pad = UObject, position = FVector, inventories = {invAddr...} }
 
 -- Guard against re-entry during cache sync
 local isSyncingCache = false
@@ -37,7 +37,8 @@ local function SyncCacheFromPad(pad)
     if not pad or not pad:IsValid() then return end
 
     local padAddr = pad:GetAddress()
-    local oldInventories = TrackedPadAddresses[padAddr] or {}
+    local padData = TrackedPads[padAddr]
+    local oldInventories = padData and padData.inventories or {}
 
     -- Decrement ref count for old inventories
     for _, invAddr in ipairs(oldInventories) do
@@ -69,14 +70,24 @@ local function SyncCacheFromPad(pad)
         Log.Debug("SyncCacheFromPad: %d inventories from pad %s", #newInventories, tostring(padAddr))
     end
 
-    TrackedPadAddresses[padAddr] = newInventories
+    -- Cache pad object and position for FindAllOf avoidance
+    local okPos, position = pcall(function()
+        return pad:K2_GetActorLocation()
+    end)
+
+    TrackedPads[padAddr] = {
+        pad = pad,
+        position = okPos and position or nil,
+        inventories = newInventories
+    }
 end
 
 local function PurgePadFromCache(pad)
     if not pad then return end
 
     local padAddr = pad:GetAddress()
-    local inventories = TrackedPadAddresses[padAddr] or {}
+    local padData = TrackedPads[padAddr]
+    local inventories = padData and padData.inventories or {}
 
     -- Decrement ref count for each inventory this pad covered
     for _, invAddr in ipairs(inventories) do
@@ -88,7 +99,7 @@ local function PurgePadFromCache(pad)
         end
     end
 
-    TrackedPadAddresses[padAddr] = nil
+    TrackedPads[padAddr] = nil
     Log.Debug("PurgePadFromCache: removed pad %s", tostring(padAddr))
 end
 
@@ -308,7 +319,7 @@ function DistributionPadTweaks.OnReceiveEndPlay(Context)
     if not actor then return end
 
     local addr = actor:GetAddress()
-    if TrackedPadAddresses[addr] then
+    if TrackedPads[addr] then
         PurgePadFromCache(actor)
     end
 end
@@ -391,16 +402,36 @@ function DistributionPadTweaks.OnContainerConstructionComplete(Context)
     local okClass, className = pcall(function()
         return deployable:GetClass():GetFName():ToString()
     end)
-    Log.Debug("Container '%s' construction complete, refreshing all pads...", okClass and className or "unknown")
 
-    local allPads = FindAllOf("Deployed_DistributionPad_C")
-    if allPads then
-        for _, pad in pairs(allPads) do
-            if pad:IsValid() then
-                pcall(function() pad:UpdateCompatibleContainers() end)
+    -- Get container position for distance check
+    local okContainerPos, containerPos = pcall(function()
+        return deployable:K2_GetActorLocation()
+    end)
+    if not okContainerPos then
+        Log.Debug("Container '%s' built but couldn't get position, skipping pad refresh", okClass and className or "unknown")
+        return
+    end
+
+    -- Check cached pads within range (avoids FindAllOf)
+    local multiplier = Config.Range.Enabled and Config.Range.Multiplier or 1.0
+    local rangeSquared = (1000 * multiplier * 1.10) ^ 2  -- Base range * multiplier + 10% buffer
+    local updatedCount = 0
+
+    for _, padData in pairs(TrackedPads) do
+        if padData.pad and padData.pad:IsValid() and padData.position then
+            local dx = containerPos.X - padData.position.X
+            local dy = containerPos.Y - padData.position.Y
+            local dz = containerPos.Z - padData.position.Z
+            local distSq = dx*dx + dy*dy + dz*dz
+
+            if distSq <= rangeSquared then
+                pcall(function() padData.pad:UpdateCompatibleContainers() end)
+                updatedCount = updatedCount + 1
             end
         end
     end
+
+    Log.Debug("Container '%s' construction complete, updated %d nearby pads", okClass and className or "unknown", updatedCount)
 
     -- Reset interaction prompt cache to force re-check on next frame
     InteractionPromptCache.lastActorAddr = nil
@@ -409,7 +440,7 @@ end
 -- Called from main.lua inside RegisterLoadMapPostHook to refresh cache after map loads
 function DistributionPadTweaks.RefreshCache()
     DistPadCache.inventories = {}
-    TrackedPadAddresses = {}
+    TrackedPads = {}
 
     local allPads = FindAllOf("Deployed_DistributionPad_C")
     if not allPads then
