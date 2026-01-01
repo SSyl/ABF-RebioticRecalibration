@@ -228,6 +228,16 @@ function LowHealthVignette.Init(config, log)
     Log.Debug("LowHealthVignette initialized (threshold: %.0f%%)", Config.Threshold * 100)
 end
 
+-- Called from main.lua when returning to main menu to clean up cached widgets
+function LowHealthVignette.Cleanup()
+    Log.Debug("Cleaning up vignette state")
+    VignetteWidget = nil
+    VignetteTexture = nil
+    IsVignetteVisible = false
+    IsPulsing = false
+    PulseTime = 0
+end
+
 -- Called from main.lua during LoadMapPostHook to pre-create widget
 function LowHealthVignette.CreateWidget(hud)
     if not hud:IsValid() then return end
