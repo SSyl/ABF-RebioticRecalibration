@@ -154,9 +154,7 @@ if Config.CraftingMenu.Resolution.Enabled then
         if resolutionFixHook then return end
         resolutionFixHook = true
 
-        ExecuteInGameThread(function()
-            CraftingPreviewFix.ApplyResolutionFix()  -- → core/CraftingPreviewFix.lua:ApplyResolutionFix()
-        end)
+        CraftingPreviewFix.ApplyResolutionFix()  -- → core/CraftingPreviewFix.lua:ApplyResolutionFix()
     end)
     Log.CraftingMenu.Debug("Resolution fix registered (target: %d)", Config.CraftingMenu.Resolution.Resolution)
 end
@@ -267,8 +265,6 @@ if Config.DistributionPad.Indicator.Enabled then
                 end)
                 if not okUpdate then
                     Log.DistPad.Debug("UpdateCompatibleContainers hook FAILED: %s", tostring(errUpdate))
-                else
-                    Log.DistPad.Debug("UpdateCompatibleContainers hook registered")
                 end
 
                 -- NotifyOnNewObject for new pads
@@ -279,29 +275,23 @@ if Config.DistributionPad.Indicator.Enabled then
 
                 -- ReceiveEndPlay - purge pad from cache when destroyed
                 local okEndPlay, errEndPlay = pcall(function()
-                    RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay", function(Context, EndPlayReasonParam)
+                    RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay", function(Context)
                         DistPadTweaks.OnReceiveEndPlay(Context)  -- → core/DistributionPadTweaks.lua:OnReceiveEndPlay()
                     end)
                 end)
                 if not okEndPlay then
                     Log.DistPad.Debug("ReceiveEndPlay hook FAILED: %s", tostring(errEndPlay))
-                else
-                    Log.DistPad.Debug("ReceiveEndPlay hook registered")
                 end
 
                 -- UpdateInteractionPrompts - show icon/text on containers
                 local okPrompt, errPrompt = pcall(function()
                     RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
-                        function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
-                                 ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
-                                 ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+                        function(Context, HitActorParam)
                             DistPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)  -- → core/DistributionPadTweaks.lua:OnUpdateInteractionPrompts()
                         end)
                 end)
                 if not okPrompt then
                     Log.DistPad.Debug("UpdateInteractionPrompts hook FAILED: %s", tostring(errPrompt))
-                else
-                    Log.DistPad.Debug("UpdateInteractionPrompts hook registered")
                 end
 
                 -- Container construction complete - refresh pads when new container built
@@ -313,8 +303,6 @@ if Config.DistributionPad.Indicator.Enabled then
                     end)
                     if not okConstruction then
                         Log.DistPad.Debug("OnRep_ConstructionModeActive hook FAILED: %s", tostring(errConstruction))
-                    else
-                        Log.DistPad.Debug("Container construction complete hook registered")
                     end
                 end
 
@@ -337,55 +325,65 @@ end
 local vignetteHooksRegistered = false
 
 if Config.LowHealthVignette.Enabled then
-    RegisterLoadMapPostHook(function()
+    RegisterInitGameStatePostHook(function(ContextParam)
         if vignetteHooksRegistered then return end
 
-        -- Filter out main menu - only run in actual game world
-        local gameState = UEHelpers.GetGameStateBase()
-        if not gameState:IsValid() then
+        -- Filter out main menu - check if we're in an actual game world
+        local GameMode = ContextParam:get()
+        if not GameMode:IsValid() then
             return
         end
 
-        local okClass, gameStateClass = pcall(function()
-            return gameState:GetClass():GetFName():ToString()
+        local World = GameMode:GetWorld()
+        if not World:IsValid() then
+            return
+        end
+
+        local okMap, mapName = pcall(function()
+            return World:GetFName():ToString()
         end)
 
-        if not okClass or gameStateClass ~= "Abiotic_Survival_GameState_C" then
+        if not okMap then
+            Log.LowHealthVignette.Debug("Failed to get map name, skipping")
+            return
+        end
+
+        Log.LowHealthVignette.Debug("InitGameStatePostHook fired - Map: %s", mapName)
+
+        -- Skip main menu maps
+        if mapName == "Persistent_FrontEnd" or mapName == "MainMenu" then
+            Log.LowHealthVignette.Debug("Skipping vignette setup - in main menu")
             return
         end
 
         vignetteHooksRegistered = true
 
-        ExecuteWithDelay(1000, function()
-            ExecuteInGameThread(function()
-                Log.LowHealthVignette.Debug("Game map loaded, setting up vignette...")
+        Log.LowHealthVignette.Debug("Setting up vignette...")
 
-                -- Pre-create vignette widget
-                local hud = FindFirstOf("W_PlayerHUD_Main_C")
-                if hud:IsValid() then
-                    LowHealthVignette.CreateWidget(hud)
-                else
-                    Log.LowHealthVignette.Debug("HUD not found during setup, will lazy-create on first use")
-                end
+        -- Pre-create vignette widget
+        local hud = FindFirstOf("W_PlayerHUD_Main_C")
+        if hud:IsValid() then
+            LowHealthVignette.CreateWidget(hud)
+        else
+            Log.LowHealthVignette.Debug("HUD not found during setup, will lazy-create on first use")
+        end
 
-                -- Register UpdateHealth hook
-                local okHook, errHook = pcall(function()
-                    RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
-                        local hud = Context:get()
-                        if not hud:IsValid() then return end
-                        LowHealthVignette.OnUpdateHealth(hud)
-                    end)
-                end)
-                if not okHook then
-                    Log.LowHealthVignette.Error("Failed to register UpdateHealth hook: %s", tostring(errHook))
-                else
-                    Log.LowHealthVignette.Debug("UpdateHealth hook registered (threshold: %.0f%%)", Config.LowHealthVignette.Threshold * 100)
-                end
+        -- Register UpdateHealth hook
+        local okHook, errHook = pcall(function()
+            RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
+                local hud = Context:get()
+                if not hud:IsValid() then return end
+                LowHealthVignette.OnUpdateHealth(hud)
             end)
         end)
+        if not okHook then
+            Log.LowHealthVignette.Error("Failed to register UpdateHealth hook: %s", tostring(errHook))
+        else
+            Log.LowHealthVignette.Debug("UpdateHealth hook registered (threshold: %.0f%%)", Config.LowHealthVignette.Threshold * 100)
+        end
     end)
 
-    Log.LowHealthVignette.Debug("LoadMapPostHook registered for vignette setup")
+    Log.LowHealthVignette.Debug("InitGameStatePostHook registered for vignette setup")
 end
 
 Log.General.Info("Mod loaded")
