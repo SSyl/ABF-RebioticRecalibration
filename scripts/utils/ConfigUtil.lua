@@ -74,6 +74,10 @@ function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
             and type(color.B) == "number" and color.B >= 0 and color.B <= 255
     end
 
+    local function isValidAlpha(alpha)
+        return type(alpha) == "number" and alpha >= 0 and alpha <= 1
+    end
+
     local source = value
     if not isValidRGB(value) then
         if value ~= nil and logFunc and fieldName then
@@ -82,11 +86,19 @@ function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
         source = default
     end
 
+    -- Alpha is optional: use source.A if valid, else default.A if valid, else 1.0
+    local alpha = 1.0
+    if isValidAlpha(source.A) then
+        alpha = source.A
+    elseif isValidAlpha(default.A) then
+        alpha = default.A
+    end
+
     return {
         R = source.R / 255,
         G = source.G / 255,
         B = source.B / 255,
-        A = 1.0
+        A = alpha
     }
 end
 

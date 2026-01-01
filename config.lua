@@ -74,7 +74,7 @@ return {
             },
 
             -- Add text to the container name when looking at it
-            TextEnabled = false, -- [default = true]
+            TextEnabled = false, -- [default = false]
 
             -- Text to append (e.g., "[DistPad]", "[D]", " *")
             Text = "[DistPad]", -- [default = "[DistPad]"]
@@ -91,6 +91,30 @@ return {
     },
 
     -- ============================================================
+    -- Low Health Vignette
+    -- Adds a red vignette overlay when health drops below a threshold
+    -- ============================================================
+    LowHealthVignette = {
+        -- Enable/disable the low health vignette effect
+        Enabled = true, -- [default = true]
+
+        -- Health percentage threshold (0.0 - 1.0) to trigger vignette
+        -- 0.25 = vignette appears when health drops below 25%
+        Threshold = 0.25, -- [default = 0.25]
+
+        -- Vignette color (RGB 0-255, A 0.0-1.0)
+        Color = {
+            R = 128,
+            G = 0,
+            B = 0,
+            A = 0.3,
+        }, -- [default = { R = 128, G = 0, B = 0, A = 0.3 }]
+
+        -- Slow pulsing effect for the vignette
+        PulseEnabled = true, -- [default = true]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -99,5 +123,6 @@ return {
         FoodDisplayFix = false,
         CraftingMenu = false,
         DistributionPad = false,
+        LowHealthVignette = true,
     },
 }

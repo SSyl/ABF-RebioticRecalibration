@@ -1,0 +1,238 @@
+local LowHealthVignette = {}
+
+-- Module state (set during Init)
+local Config = nil
+local Log = nil
+
+-- Cached references
+local VignetteWidget = nil
+local VignetteTexture = nil
+
+-- Pulse animation state
+local IsPulsing = false
+local PulseTime = 0
+local PULSE_SPEED = 2.0  -- Seconds per full heartbeat cycle
+local PULSE_MIN = 0.4    -- Multiplier for minimum alpha (base * 0.4)
+local PULSE_MAX = 1.0    -- Multiplier for maximum alpha (base * 1.0)
+
+-- ============================================================
+-- HELPER FUNCTIONS
+-- ============================================================
+
+local function GetOrCreateVignetteWidget(hud)
+    -- Return cached widget if still valid
+    if VignetteWidget and VignetteWidget:IsValid() then
+        return VignetteWidget
+    end
+
+    Log.Debug("Creating vignette widget...")
+
+    -- Get EyeLid_Top (UImage) to use as template - UImage supports textures with alpha
+    local okTemplate, templateImage = pcall(function()
+        return hud.EyeLid_Top
+    end)
+    if not okTemplate or not templateImage or not templateImage:IsValid() then
+        Log.Debug("Failed to get EyeLid_Top: okTemplate=%s", tostring(okTemplate))
+        return nil
+    end
+    Log.Debug("Got EyeLid_Top template: %s", templateImage:GetFullName())
+
+    -- Get parent (PrimaryHUDCanvas)
+    local okParent, parent = pcall(function()
+        return templateImage:GetParent()
+    end)
+    if not okParent or not parent or not parent:IsValid() then
+        Log.Debug("Failed to get EyeLid_Top parent")
+        return nil
+    end
+    Log.Debug("Got parent: %s", parent:GetFullName())
+
+    -- Clone the UImage widget
+    local widgetClass = templateImage:GetClass()
+    local newWidget = StaticConstructObject(
+        widgetClass,
+        parent,
+        FName("LowHealthVignetteWidget"),
+        0, 0, false, false,
+        templateImage  -- Template parameter - copies all properties
+    )
+
+    if not newWidget or not newWidget:IsValid() then
+        Log.Debug("StaticConstructObject failed for vignette widget")
+        return nil
+    end
+    Log.Debug("Created vignette widget: %s", newWidget:GetFullName())
+
+    -- Add to parent
+    local parentClassName = parent:GetClass():GetFName():ToString()
+    Log.Debug("Parent class: %s", parentClassName)
+
+    local okAdd, slot
+    if parentClassName == "Overlay" then
+        okAdd, slot = pcall(function() return parent:AddChildToOverlay(newWidget) end)
+    elseif parentClassName == "CanvasPanel" then
+        okAdd, slot = pcall(function() return parent:AddChildToCanvas(newWidget) end)
+    else
+        okAdd, slot = pcall(function() return parent:AddChild(newWidget) end)
+    end
+
+    if not okAdd or not slot then
+        Log.Debug("Failed to add vignette widget to parent")
+        return nil
+    end
+    Log.Debug("Added vignette widget to parent")
+
+    -- Configure slot for fullscreen
+    if slot and slot:IsValid() then
+        pcall(function()
+            -- Anchors: stretch to fill entire screen
+            slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 1, Y = 1 } })
+            -- Offsets: large negative to push edges way off screen (makes center larger)
+            slot:SetOffsets({ Left = -250, Top = -250, Right = -250, Bottom = -250 })
+            -- Alignment
+            slot:SetAlignment({ X = 0, Y = 0 })
+            -- ZOrder: behind most elements
+            slot:SetZOrder(-1)
+        end)
+        Log.Debug("Configured slot: anchors (0,0)-(1,1), offsets -800, zorder -1")
+    end
+
+    -- Reset RenderTransform (cloned from EyeLid_Top which has offset positioning)
+    pcall(function()
+        newWidget:SetRenderTranslation({ X = 0, Y = 0 })
+    end)
+    Log.Debug("Reset render translation")
+
+    -- Load radial gradient texture for proper vignette effect
+    if not VignetteTexture then
+        local okTexture, texture = pcall(function()
+            return StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
+        end)
+        if okTexture and texture and texture:IsValid() then
+            VignetteTexture = texture
+            Log.Debug("Loaded vignette texture: T_Gradient_Radial")
+        else
+            Log.Debug("Failed to load T_Gradient_Radial texture")
+            return nil
+        end
+    end
+
+    -- Apply texture to UImage
+    pcall(function()
+        newWidget:SetBrushFromTexture(VignetteTexture, false)
+    end)
+    Log.Debug("Applied radial gradient texture to vignette")
+
+    -- Set color tint (UImage uses SetColorAndOpacity)
+    local color = Config.Color
+    pcall(function()
+        newWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = color.A })
+    end)
+    Log.Debug("Set vignette color: R=%.2f G=%.2f B=%.2f A=%.2f", color.R, color.G, color.B, color.A)
+
+    -- Start hidden
+    pcall(function()
+        newWidget:SetVisibility(1) -- Collapsed
+    end)
+
+    VignetteWidget = newWidget
+    return newWidget
+end
+
+local function StartPulseLoop()
+    if IsPulsing then return end
+    if not Config.PulseEnabled then return end
+
+    IsPulsing = true
+    PulseTime = 0
+    Log.Debug("Started pulse animation")
+
+    LoopAsync(33, function()
+        -- Stop condition
+        if not IsPulsing then return true end
+        if not VignetteWidget or not VignetteWidget:IsValid() then
+            IsPulsing = false
+            return true
+        end
+
+        -- Update time (33ms tick ≈ 30 FPS)
+        PulseTime = PulseTime + 0.033
+
+        -- Sine wave oscillation between PULSE_MIN and PULSE_MAX
+        local cycle = (PulseTime / PULSE_SPEED) * math.pi * 2
+        local wave = (math.sin(cycle) + 1) / 2  -- 0 to 1
+        local multiplier = PULSE_MIN + (PULSE_MAX - PULSE_MIN) * wave
+
+        -- Apply pulsing alpha
+        local baseAlpha = Config.Color.A
+        local pulseAlpha = baseAlpha * multiplier
+        local color = Config.Color
+
+        pcall(function()
+            VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
+        end)
+
+        return false  -- Continue loop
+    end)
+end
+
+local function StopPulseLoop()
+    IsPulsing = false
+    Log.Debug("Stopped pulse animation")
+end
+
+local function ShowVignette(hud)
+    local widget = GetOrCreateVignetteWidget(hud)
+    if not widget then return end
+
+    pcall(function()
+        widget:SetVisibility(4) -- SelfHitTestInvisible
+    end)
+
+    StartPulseLoop()
+end
+
+local function HideVignette()
+    StopPulseLoop()
+
+    if VignetteWidget and VignetteWidget:IsValid() then
+        pcall(function()
+            VignetteWidget:SetVisibility(1) -- Collapsed
+        end)
+    end
+end
+
+-- ============================================================
+-- CORE LOGIC
+-- ============================================================
+
+function LowHealthVignette.Init(config, log)
+    Config = config
+    Log = log
+    Log.Debug("LowHealthVignette initialized (threshold: %.0f%%)", Config.Threshold * 100)
+end
+
+-- Called from RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth") in main.lua
+function LowHealthVignette.OnUpdateHealth(hud)
+    if not hud:IsValid() then return end
+
+    -- Get health percentage from the HUD's cached value
+    local okHealth, healthPercent = pcall(function()
+        return hud.LastHealthPercentage
+    end)
+
+    if not okHealth then
+        Log.Debug("Failed to get LastHealthPercentage")
+        return
+    end
+
+    Log.Debug("Health update: %.1f%% (threshold: %.1f%%)", healthPercent * 100, Config.Threshold * 100)
+
+    if healthPercent < Config.Threshold then
+        ShowVignette(hud)
+    else
+        HideVignette()
+    end
+end
+
+return LowHealthVignette
