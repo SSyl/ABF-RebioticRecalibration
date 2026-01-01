@@ -70,7 +70,12 @@ function FoodFix.OnBeginPlay(deployable)
         return deployable:HasAuthority()
     end)
 
-    if okAuth and hasAuthority then
+    if not okAuth then
+        Log.Debug("Failed to check authority, skipping fix")
+        return
+    end
+
+    if hasAuthority then
         local okLoading, isLoading = pcall(function()
             return deployable.IsCurrentlyLoadingFromSave
         end)
@@ -102,8 +107,8 @@ function FoodFix.OnBeginPlay(deployable)
         else
             ResetDeployedDurability(deployable)
         end
-    elseif Config.ClientSideVisualOnly then
-        Log.Debug("Client visual-only mode: hiding broken texture locally")
+    else
+        Log.Debug("Client: applying visual-only fix locally")
         pcall(function()
             deployable.CurrentDurability = deployable.MaxDurability
         end)

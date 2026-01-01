@@ -5,138 +5,99 @@ return {
     -- ============================================================
     MenuTweaks = {
         -- Skips the 3-second countdown when hosting a LAN server
-        -- [Default = true]
-        SkipLANHostingDelay = true,
+        SkipLANHostingDelay = true, -- [default = true]
     },
 
     -- ============================================================
-    -- Food Deployable Fix
+    -- Food Display Fix
     -- Fixes the visual bug where placed food shows damage cracks
-    -- when the food item was partially decayed in your inventory
+    -- when the food was partially decayed in your inventory.
     -- ============================================================
-    FoodDeployableFix = {
-        -- Enables the fix (resets food durability to 100% when placed)
-        -- This runs on the server/host and automatically applies to all players
-        -- [Default = true]
-        Enabled = true,
+    FoodDisplayFix = {
+        -- If you're hosting: applies to all players in the lobby.
+        -- If you're a client: applies visually to yourself only.
+        Enabled = true, -- [default = true]
 
-        -- Also fix existing food deployables when loading a save
-        -- If false, only newly placed food is fixed (preserves existing saved state)
-        -- If true, all food deployables are fixed on load (retroactive fix)
-        -- [Default = false]
-        FixExistingOnLoad = true,
-
-        -- Enable this if you're playing on a server without this mod installed
-        -- This will hide the cracked texture overlay for you locally
-        -- Safe to leave enabled even on servers that have the mod (just unnecessary)
-        -- [Default = false]
-        ClientSideVisualOnly = false,
+        -- When enabled, retroactively fixes existing placed food when loading a save
+        -- If false, only newly placed food is fixed
+        FixExistingOnLoad = false, -- [default = false]
     },
 
     -- ============================================================
-    -- Crafting Preview Brightness
-    -- Fixes the dark 3D item preview in the crafting menu
+    -- Crafting Menu
+    -- Fixes for the 3D item preview in the crafting menu
     -- ============================================================
-    CraftingPreviewBrightness = {
-        -- Enables the brightness fix for crafting menu item previews
-        -- [Default = true]
-        Enabled = true,
+    CraftingMenu = {
+        Brightness = {
+            -- Fixes the dark 3D item preview in the crafting menu
+            Enabled = true, -- [default = true]
 
-        -- Vanilla intensity is 4, mod default is 10, so this will make it 2.5x brighter
-        -- Note: The back will still be darker, as it's always half as intense as the front
-        -- [Default = 10]
-        LightIntensity = 10.0,
-    },
+            -- How bright the preview should be (vanilla = 4)
+            LightIntensity = 10.0, -- [default = 10]
+        },
 
-    -- ============================================================
-    -- Crafting Preview Resolution
-    -- Increases the resolution of the 3D item preview in the crafting menu
-    -- The vanilla game renders at 512x512 and displays it much larger, causing blur
-    -- ============================================================
-    CraftingPreviewResolution = {
-        -- Enables the resolution fix for crafting menu item previews
-        -- [Default = true]
-        Enabled = true,
+        Resolution = {
+            -- The vanilla preview is blurry because it renders at low resolution
+            Enabled = true, -- [default = true]
 
-        -- Resolution for the 3D preview (square aspect ratio)
-        -- Vanilla is 512x512. Higher values = sharper but more VRAM usage
-        -- Values are automatically rounded to nearest power of 2 (512, 1024, 2048, 4096, 8192)
-        -- Maximum is 8192 to prevent excessive VRAM usage
-        -- [Default = 1024]
-        Resolution = 1024,
-    },
-
-    -- ============================================================
-    -- Distribution Pad Distance
-    -- Increases the range at which the distribution pad detects containers
-    -- Vanilla range is 1000 units (approx 10 meters)
-    -- ============================================================
-    DistributionPadDistance = {
-        -- Enables the distance increase
-        -- NOTE: Some players may consider this a cheat rather than QoL, so it's disabled by default
-        -- [Default = false]
-        Enabled = false,
-
-        -- Distance multiplier (1.0 = vanilla 1000 units, 1.25 = 1250 units, 2.0 = 2000 units, etc.)
-        -- Higher values let the pad find containers from farther away
-        -- [Default = 1.25]
-        DistanceMultiplier = 1.25,
-    },
-
-    -- ============================================================
-    -- Distribution Pad Container Indicator
-    -- Shows which containers are within distribution pad range
-    -- ============================================================
-    DistributionPadIndicator = {
-        -- Enables the indicator feature entirely
-        -- [Default = true]
-        Enabled = true,
-
-        -- When you finish building a container, immediately check if it's near any distribution pad
-        -- Without this, newly built containers won't show the indicator until someone
-        -- walks on a nearby pad
-        -- May cause a brief hitch if you have many distribution pads in your base
-        -- [Default = false]
-        RefreshOnContainerDeploy = true,
-
-        -- Text indicator options
-        -- Appends text to container name when looking at it
-        -- [Default = true]
-        TextEnabled = false,
-
-        -- Text to append to container name (e.g., "[DistPad]", "[D]", " *")
-        -- [Default = "[DistPad]"]
-        Text = "[DistPad]",
-
-        -- Icon indicator options
-        -- Shows an icon next to the container name
-        -- [Default = true]
-        IconEnabled = true,
-
-        -- Icon to display (from /Game/Textures/GUI/Icons/)
-        -- See icon-list.txt for available icons
-        -- [Default = "icon_hackingdevice"]
-        Icon = "icon_hackingdevice",
-
-        -- Icon color (RGB values 0-255)
-        -- Default is the game's UI cyan color
-        -- [Default = { R = 114, G = 242, B = 255 }]
-        IconColor = {
-            R = 114,
-            G = 242,
-            B = 255,
+            -- Vanilla is 512. Higher = sharper but may impact performance. 1024 shouldn't case any perfomrance issues on anything but the lowest-end systems.
+            -- Options: 512, 1024, 2048, 4096, or 8192
+            Resolution = 1024, -- [default = 1024]
         },
     },
 
     -- ============================================================
-    -- Debug Flags (Developer/Troubleshooting)
-    -- Enable debug logging for specific features
-    -- [All defaults = false]
+    -- Distribution Pad
+    -- Adds indicators to containers in range and optionally increases pad range
+    -- ============================================================
+    DistributionPad = {
+        Indicator = {
+            -- Adds an icon or text indicator next to containers names in range of a distribution pad
+            Enabled = true, -- [default = true]
+
+            -- Refresh indicators when you finish building a container
+            -- Without this, new containers won't show indicators until someone walks on a pad
+            -- May cause a brief hitch if you have many pads. Left to off for lower end system, should be fine to enable for most.
+            RefreshOnBuiltContainer = false, -- [default = false]
+
+            -- Show an icon next to the container name
+            IconEnabled = true, -- [default = true]
+
+            -- Which icon to use (see icon-list.txt for options)
+            Icon = "icon_hackingdevice", -- [default = "icon_hackingdevice"]
+
+            -- Icon color (RGB 0-255) [default = { R = 114, G = 242, B = 255 }]
+            IconColor = {
+                R = 114,
+                G = 242,
+                B = 255,
+            },
+
+            -- Add text to the container name when looking at it
+            TextEnabled = false, -- [default = true]
+
+            -- Text to append (e.g., "[DistPad]", "[D]", " *")
+            Text = "[DistPad]", -- [default = "[DistPad]"]
+        },
+
+        Range = {
+            -- Increases the range the distribution pad will deposit items into
+            -- Some players may consider this a cheat, so it's disabled by default
+            Enabled = false, -- [default = false]
+
+            -- 1.0 = normal, 1.25 = 25% farther, 2.0 = twice as far
+            Multiplier = 1.25, -- [default = 1.25]
+        },
+    },
+
+    -- ============================================================
+    -- Debug Flags
+    -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
     DebugFlags = {
         MenuTweaks = false,
-        FoodDeployableFix = false,
-        CraftingPreviewFix = false,
-        DistributionPadTweaks = false,  -- Currently debugging this feature
+        FoodDisplayFix = false,
+        CraftingMenu = false,
+        DistributionPad = false,
     },
 }

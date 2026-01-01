@@ -125,7 +125,7 @@ end
 
 -- Create or get the DistPad icon widget (cloned from RadioactiveIcon)
 local function GetOrCreateDistPadIcon(widget)
-    if not Config.DistributionPadIndicator.IconEnabled then
+    if not Config.Indicator.IconEnabled then
         return nil
     end
 
@@ -172,7 +172,7 @@ local function GetOrCreateDistPadIcon(widget)
     end
 
     -- Load and set texture from config
-    local iconName = Config.DistributionPadIndicator.Icon
+    local iconName = Config.Indicator.Icon
     if iconName == "" then
         Log.Debug("Icon disabled in config")
         return nil
@@ -195,7 +195,7 @@ local function GetOrCreateDistPadIcon(widget)
         pcall(function()
             newIcon:SetBrushFromTexture(DistPadIconTexture, false)
             newIcon:SetDesiredSizeOverride({ X = 32, Y = 32 })
-            newIcon:SetColorAndOpacity(Config.DistributionPadIndicator.IconColor)
+            newIcon:SetColorAndOpacity(Config.Indicator.IconColor)
         end)
         Log.Debug("Set texture, size, and color on icon")
     end
@@ -222,7 +222,7 @@ local function ShowDistPadIcon(widget)
 end
 
 local function AppendDistPadText(widget)
-    local indicatorConfig = Config.DistributionPadIndicator
+    local indicatorConfig = Config.Indicator
     if not indicatorConfig.TextEnabled then return end
     if indicatorConfig.Text == "" then return end
 
@@ -252,10 +252,10 @@ end
 -- Called from consolidated RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay") in main.lua
 -- Only called for Deployed_DistributionPad_C (filtering done in main.lua)
 function DistributionPadTweaks.OnDistPadBeginPlay(pad)
-    local distanceConfig = Config.DistributionPadDistance
-    if not distanceConfig.Enabled then return end
+    local rangeConfig = Config.Range
+    if not rangeConfig.Enabled then return end
 
-    local multiplier = distanceConfig.DistanceMultiplier
+    local multiplier = rangeConfig.Multiplier
     local defaultRadius = 1000
     local newRadius = defaultRadius * multiplier
 

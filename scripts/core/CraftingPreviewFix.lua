@@ -40,7 +40,7 @@ end
 function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
     if not itemDisplay:IsValid() then return end
 
-    local lightIntensity = Config.CraftingPreviewBrightness.LightIntensity
+    local lightIntensity = Config.Brightness.LightIntensity
 
     -- Disable auto-exposure so light changes actually take effect
     local okCapture, sceneCapture = pcall(function()
@@ -74,7 +74,7 @@ end
 
 -- Called from RegisterInitGameStatePostHook in main.lua
 function CraftingPreviewFix.ApplyResolutionFix()
-    local configResolution = Config.CraftingPreviewResolution.Resolution
+    local configResolution = Config.Resolution.Resolution
     local targetResolution = RoundToPowerOfTwo(configResolution)
 
     if configResolution ~= targetResolution then

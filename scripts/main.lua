@@ -12,37 +12,36 @@ local SCHEMA = {
     -- MenuTweaks
     { path = "MenuTweaks.SkipLANHostingDelay", type = "boolean", default = true },
 
-    -- FoodDeployableFix
-    { path = "FoodDeployableFix.Enabled", type = "boolean", default = true },
-    { path = "FoodDeployableFix.FixExistingOnLoad", type = "boolean", default = false },
-    { path = "FoodDeployableFix.ClientSideVisualOnly", type = "boolean", default = false },
+    -- FoodDisplayFix
+    { path = "FoodDisplayFix.Enabled", type = "boolean", default = true },
+    { path = "FoodDisplayFix.FixExistingOnLoad", type = "boolean", default = false },
 
-    -- CraftingPreviewBrightness
-    { path = "CraftingPreviewBrightness.Enabled", type = "boolean", default = true },
-    { path = "CraftingPreviewBrightness.LightIntensity", type = "number", default = 10.0, min = 0.1 },
+    -- CraftingMenu.Brightness
+    { path = "CraftingMenu.Brightness.Enabled", type = "boolean", default = true },
+    { path = "CraftingMenu.Brightness.LightIntensity", type = "number", default = 10.0, min = 0.1 },
 
-    -- CraftingPreviewResolution
-    { path = "CraftingPreviewResolution.Enabled", type = "boolean", default = true },
-    { path = "CraftingPreviewResolution.Resolution", type = "number", default = 1024, min = 1, max = 8192 },
+    -- CraftingMenu.Resolution
+    { path = "CraftingMenu.Resolution.Enabled", type = "boolean", default = true },
+    { path = "CraftingMenu.Resolution.Resolution", type = "number", default = 1024, min = 1, max = 8192 },
 
-    -- DistributionPadDistance
-    { path = "DistributionPadDistance.Enabled", type = "boolean", default = false },
-    { path = "DistributionPadDistance.DistanceMultiplier", type = "number", default = 1.25, min = 0.1, max = 10.0 },
+    -- DistributionPad.Indicator
+    { path = "DistributionPad.Indicator.Enabled", type = "boolean", default = true },
+    { path = "DistributionPad.Indicator.RefreshOnBuiltContainer", type = "boolean", default = false },
+    { path = "DistributionPad.Indicator.IconEnabled", type = "boolean", default = true },
+    { path = "DistributionPad.Indicator.Icon", type = "string", default = "icon_hackingdevice" },
+    { path = "DistributionPad.Indicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
+    { path = "DistributionPad.Indicator.TextEnabled", type = "boolean", default = true },
+    { path = "DistributionPad.Indicator.Text", type = "string", default = "[DistPad]" },
 
-    -- DistributionPadIndicator
-    { path = "DistributionPadIndicator.Enabled", type = "boolean", default = true },
-    { path = "DistributionPadIndicator.RefreshOnContainerDeploy", type = "boolean", default = false },
-    { path = "DistributionPadIndicator.TextEnabled", type = "boolean", default = true },
-    { path = "DistributionPadIndicator.Text", type = "string", default = "[DistPad]" },
-    { path = "DistributionPadIndicator.IconEnabled", type = "boolean", default = true },
-    { path = "DistributionPadIndicator.Icon", type = "string", default = "icon_hackingdevice" },
-    { path = "DistributionPadIndicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
+    -- DistributionPad.Range
+    { path = "DistributionPad.Range.Enabled", type = "boolean", default = false },
+    { path = "DistributionPad.Range.Multiplier", type = "number", default = 1.25, min = 0.1, max = 10.0 },
 
     -- DebugFlags
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
-    { path = "DebugFlags.FoodDeployableFix", type = "boolean", default = false },
-    { path = "DebugFlags.CraftingPreviewFix", type = "boolean", default = false },
-    { path = "DebugFlags.DistributionPadTweaks", type = "boolean", default = false },
+    { path = "DebugFlags.FoodDisplayFix", type = "boolean", default = false },
+    { path = "DebugFlags.CraftingMenu", type = "boolean", default = false },
+    { path = "DebugFlags.DistributionPad", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -50,7 +49,7 @@ local configLogger = LogUtil.CreateLogger("QoL Tweaks (Config)", false)
 local Config = ConfigUtil.ValidateFromSchema(UserConfig, SCHEMA, configLogger)
 
 -- Derived fields (computed from validated config)
-Config.DistributionPadIndicator.TextPattern = Config.DistributionPadIndicator.Text
+Config.DistributionPad.Indicator.TextPattern = Config.DistributionPad.Indicator.Text
     :gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
 
 -- ============================================================
@@ -65,16 +64,16 @@ local DistPadTweaks = require("core/DistributionPadTweaks")
 local Log = {
     General = LogUtil.CreateLogger("QoL Tweaks", false),  -- Always enabled for mod-level messages
     MenuTweaks = LogUtil.CreateLogger("QoL Tweaks|MenuTweaks", Config.DebugFlags.MenuTweaks),
-    FoodFix = LogUtil.CreateLogger("QoL Tweaks|FoodFix", Config.DebugFlags.FoodDeployableFix),
-    CraftingPreview = LogUtil.CreateLogger("QoL Tweaks|CraftingPreview", Config.DebugFlags.CraftingPreviewFix),
-    DistPad = LogUtil.CreateLogger("QoL Tweaks|DistPad", Config.DebugFlags.DistributionPadTweaks),
+    FoodFix = LogUtil.CreateLogger("QoL Tweaks|FoodFix", Config.DebugFlags.FoodDisplayFix),
+    CraftingMenu = LogUtil.CreateLogger("QoL Tweaks|CraftingMenu", Config.DebugFlags.CraftingMenu),
+    DistPad = LogUtil.CreateLogger("QoL Tweaks|DistPad", Config.DebugFlags.DistributionPad),
 }
 
 -- Initialize feature modules
 MenuTweaks.Init(Config.MenuTweaks, Log.MenuTweaks)
-FoodFix.Init(Config.FoodDeployableFix, Log.FoodFix)
-CraftingPreviewFix.Init(Config, Log.CraftingPreview)
-DistPadTweaks.Init(Config, Log.DistPad)
+FoodFix.Init(Config.FoodDisplayFix, Log.FoodFix)
+CraftingPreviewFix.Init(Config.CraftingMenu, Log.CraftingMenu)
+DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
 
 -- ============================================================
 -- MENU TWEAKS HOOKS
@@ -86,7 +85,7 @@ if Config.MenuTweaks.SkipLANHostingDelay then
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct", function(Context)
             local popup = Context:get()
             if not popup:IsValid() then return end
-            MenuTweaks.OnConstruct(popup)  -- -> core/MenuTweaks.lua:OnConstruct()
+            MenuTweaks.OnConstruct(popup)  -- → core/MenuTweaks.lua:OnConstruct()
         end)
     end)
     if not okConstruct then
@@ -97,7 +96,7 @@ if Config.MenuTweaks.SkipLANHostingDelay then
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay", function(Context)
             local popup = Context:get()
             if not popup:IsValid() then return end
-            MenuTweaks.OnCountdownInputDelay(popup)  -- -> core/MenuTweaks.lua:OnCountdownInputDelay()
+            MenuTweaks.OnCountdownInputDelay(popup)  -- → core/MenuTweaks.lua:OnCountdownInputDelay()
         end)
     end)
     if not okCountdown then
@@ -108,7 +107,7 @@ if Config.MenuTweaks.SkipLANHostingDelay then
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime", function(Context, TextParam, OriginalTextParam)
             local popup = Context:get()
             if not popup:IsValid() then return end
-            MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)  -- -> core/MenuTweaks.lua:OnUpdateButtonWithDelayTime()
+            MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)  -- → core/MenuTweaks.lua:OnUpdateButtonWithDelayTime()
         end)
     end)
     if not okUpdate then
@@ -119,43 +118,43 @@ if Config.MenuTweaks.SkipLANHostingDelay then
 end
 
 -- ============================================================
--- CRAFTING PREVIEW FIX HOOKS
+-- CRAFTING MENU HOOKS
 -- Brightness and Resolution fixes
 -- ============================================================
 
-if Config.CraftingPreviewBrightness.Enabled then
+if Config.CraftingMenu.Brightness.Enabled then
     local okBrightness, errBrightness = pcall(function()
         RegisterHook("/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh", function(Context)
             local itemDisplay = Context:get()
             if not itemDisplay:IsValid() then return end
-            CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)  -- -> core/CraftingPreviewFix.lua:OnSet3DPreviewMesh()
+            CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)  -- → core/CraftingPreviewFix.lua:OnSet3DPreviewMesh()
         end)
     end)
     if not okBrightness then
-        Log.CraftingPreview.Error("Failed to register Set3DPreviewMesh hook: %s", tostring(errBrightness))
+        Log.CraftingMenu.Error("Failed to register Set3DPreviewMesh hook: %s", tostring(errBrightness))
     else
-        Log.CraftingPreview.Debug("Brightness hook registered (intensity: %.1f)", Config.CraftingPreviewBrightness.LightIntensity)
+        Log.CraftingMenu.Debug("Brightness hook registered (intensity: %.1f)", Config.CraftingMenu.Brightness.LightIntensity)
     end
 end
 
-if Config.CraftingPreviewResolution.Enabled then
+if Config.CraftingMenu.Resolution.Enabled then
     RegisterInitGameStatePostHook(function()
         ExecuteInGameThread(function()
-            CraftingPreviewFix.ApplyResolutionFix()  -- -> core/CraftingPreviewFix.lua:ApplyResolutionFix()
+            CraftingPreviewFix.ApplyResolutionFix()  -- → core/CraftingPreviewFix.lua:ApplyResolutionFix()
         end)
     end)
-    Log.CraftingPreview.Debug("Resolution fix registered (target: %d)", Config.CraftingPreviewResolution.Resolution)
+    Log.CraftingMenu.Debug("Resolution fix registered (target: %d)", Config.CraftingMenu.Resolution.Resolution)
 end
 
 -- ============================================================
 -- CONSOLIDATED DEPLOYED OBJECT HOOKS
--- Shared hook for FoodFix and DistributionPadDistance
+-- Shared hook for FoodDisplayFix and DistributionPad.Range
 -- ============================================================
 
-local foodFixEnabled = Config.FoodDeployableFix.Enabled
-local distPadDistanceEnabled = Config.DistributionPadDistance.Enabled
+local foodFixEnabled = Config.FoodDisplayFix.Enabled
+local distPadRangeEnabled = Config.DistributionPad.Range.Enabled
 
-if foodFixEnabled or distPadDistanceEnabled then
+if foodFixEnabled or distPadRangeEnabled then
     local okBeginPlay, errBeginPlay = pcall(function()
         RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay", function(Context)
             local obj = Context:get()
@@ -166,14 +165,14 @@ if foodFixEnabled or distPadDistanceEnabled then
             end)
             if not okClass then return end
 
-            -- FoodDeployableFix: Handle Deployed_Food_* classes
+            -- FoodDisplayFix: Handle Deployed_Food_* classes
             if foodFixEnabled and className:match("^Deployed_Food_") then
-                FoodFix.OnBeginPlay(obj)  -- -> core/FoodFix.lua:OnBeginPlay()
+                FoodFix.OnBeginPlay(obj)  -- → core/FoodFix.lua:OnBeginPlay()
             end
 
-            -- DistributionPadDistance: Handle Deployed_DistributionPad_C
-            if distPadDistanceEnabled and className == "Deployed_DistributionPad_C" then
-                DistPadTweaks.OnDistPadBeginPlay(obj)  -- -> core/DistributionPadTweaks.lua:OnDistPadBeginPlay()
+            -- DistributionPad.Range: Handle Deployed_DistributionPad_C
+            if distPadRangeEnabled and className == "Deployed_DistributionPad_C" then
+                DistPadTweaks.OnDistPadBeginPlay(obj)  -- → core/DistributionPadTweaks.lua:OnDistPadBeginPlay()
             end
         end)
     end)
@@ -182,10 +181,10 @@ if foodFixEnabled or distPadDistanceEnabled then
         Log.FoodFix.Error("Failed to register ReceiveBeginPlay hook: %s", tostring(errBeginPlay))
     else
         if foodFixEnabled then
-            Log.FoodFix.Debug("Food deployable fix registered")
+            Log.FoodFix.Debug("Food display fix registered")
         end
-        if distPadDistanceEnabled then
-            Log.DistPad.Debug("Distribution pad distance registered (multiplier: %.2f)", Config.DistributionPadDistance.DistanceMultiplier)
+        if distPadRangeEnabled then
+            Log.DistPad.Debug("Distribution pad range registered (multiplier: %.2f)", Config.DistributionPad.Range.Multiplier)
         end
     end
 end
@@ -195,7 +194,7 @@ end
 -- Cache management and UI display
 -- ============================================================
 
-if Config.DistributionPadIndicator.Enabled then
+if Config.DistributionPad.Indicator.Enabled then
     RegisterLoadMapPostHook(function()
         -- Filter out main menu - only run in actual game world
         local gameState = UEHelpers.GetGameStateBase()
@@ -220,7 +219,7 @@ if Config.DistributionPadIndicator.Enabled then
                 -- UpdateCompatibleContainers - fires when player walks on pad
                 local okUpdate, errUpdate = pcall(function()
                     RegisterHook("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers", function(Context)
-                        DistPadTweaks.OnUpdateCompatibleContainers(Context)  -- -> core/DistributionPadTweaks.lua:OnUpdateCompatibleContainers()
+                        DistPadTweaks.OnUpdateCompatibleContainers(Context)  -- → core/DistributionPadTweaks.lua:OnUpdateCompatibleContainers()
                     end)
                 end)
                 if not okUpdate then
@@ -231,14 +230,14 @@ if Config.DistributionPadIndicator.Enabled then
 
                 -- NotifyOnNewObject for new pads
                 NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C", function(pad)
-                    DistPadTweaks.OnNewPadSpawned(pad)  -- -> core/DistributionPadTweaks.lua:OnNewPadSpawned()
+                    DistPadTweaks.OnNewPadSpawned(pad)  -- → core/DistributionPadTweaks.lua:OnNewPadSpawned()
                 end)
                 Log.DistPad.Debug("NotifyOnNewObject for pads registered")
 
                 -- ReceiveEndPlay - purge pad from cache when destroyed
                 local okEndPlay, errEndPlay = pcall(function()
                     RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay", function(Context, EndPlayReasonParam)
-                        DistPadTweaks.OnReceiveEndPlay(Context)  -- -> core/DistributionPadTweaks.lua:OnReceiveEndPlay()
+                        DistPadTweaks.OnReceiveEndPlay(Context)  -- → core/DistributionPadTweaks.lua:OnReceiveEndPlay()
                     end)
                 end)
                 if not okEndPlay then
@@ -253,7 +252,7 @@ if Config.DistributionPadIndicator.Enabled then
                         function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
                                  ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
                                  ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
-                            DistPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)  -- -> core/DistributionPadTweaks.lua:OnUpdateInteractionPrompts()
+                            DistPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)  -- → core/DistributionPadTweaks.lua:OnUpdateInteractionPrompts()
                         end)
                 end)
                 if not okPrompt then
@@ -263,10 +262,10 @@ if Config.DistributionPadIndicator.Enabled then
                 end
 
                 -- Container construction complete - refresh pads when new container built
-                if Config.DistributionPadIndicator.RefreshOnContainerDeploy then
+                if Config.DistributionPad.Indicator.RefreshOnBuiltContainer then
                     local okConstruction, errConstruction = pcall(function()
                         RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive", function(Context)
-                            DistPadTweaks.OnContainerConstructionComplete(Context)  -- -> core/DistributionPadTweaks.lua:OnContainerConstructionComplete()
+                            DistPadTweaks.OnContainerConstructionComplete(Context)  -- → core/DistributionPadTweaks.lua:OnContainerConstructionComplete()
                         end)
                     end)
                     if not okConstruction then
@@ -277,7 +276,7 @@ if Config.DistributionPadIndicator.Enabled then
                 end
 
                 -- Initial cache refresh
-                DistPadTweaks.RefreshCache()  -- -> core/DistributionPadTweaks.lua:RefreshCache()
+                DistPadTweaks.RefreshCache()  -- → core/DistributionPadTweaks.lua:RefreshCache()
 
                 Log.DistPad.Debug("DistPad Indicator setup complete")
             end)
