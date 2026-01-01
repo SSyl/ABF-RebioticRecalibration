@@ -8,6 +8,9 @@ local Log = nil
 local VignetteWidget = nil
 local VignetteTexture = nil
 
+-- Visibility state
+local IsVignetteVisible = false
+
 -- Pulse animation state
 local IsPulsing = false
 local PulseTime = 0
@@ -103,7 +106,7 @@ local function GetOrCreateVignetteWidget(hud)
     end)
     Log.Debug("Reset render translation")
 
-    -- Load radial gradient texture for proper vignette effect
+    -- Load radial gradient texture for vignette effect
     if not VignetteTexture then
         local okTexture, texture = pcall(function()
             return StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
@@ -148,14 +151,10 @@ local function StartPulseLoop()
     Log.Debug("Started pulse animation")
 
     LoopAsync(33, function()
-        -- Stop condition
+        -- Stop condition (pure Lua check)
         if not IsPulsing then return true end
-        if not VignetteWidget or not VignetteWidget:IsValid() then
-            IsPulsing = false
-            return true
-        end
 
-        -- Update time (33ms tick ≈ 30 FPS)
+        -- Update time (33ms tick ≈ 30 FPS) - pure Lua math on async thread
         PulseTime = PulseTime + 0.033
 
         -- Sine wave oscillation between PULSE_MIN and PULSE_MAX
@@ -163,13 +162,21 @@ local function StartPulseLoop()
         local wave = (math.sin(cycle) + 1) / 2  -- 0 to 1
         local multiplier = PULSE_MIN + (PULSE_MAX - PULSE_MIN) * wave
 
-        -- Apply pulsing alpha
+        -- Calculate pulsing alpha
         local baseAlpha = Config.Color.A
         local pulseAlpha = baseAlpha * multiplier
         local color = Config.Color
 
-        pcall(function()
-            VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
+        -- UObject access requires game thread
+        ExecuteInGameThread(function()
+            if not VignetteWidget or not VignetteWidget:IsValid() then
+                IsPulsing = false
+                return
+            end
+
+            pcall(function()
+                VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
+            end)
         end)
 
         return false  -- Continue loop
@@ -177,11 +184,16 @@ local function StartPulseLoop()
 end
 
 local function StopPulseLoop()
+    if IsPulsing then
+        Log.Debug("Stopped pulse animation")
+    end
     IsPulsing = false
-    Log.Debug("Stopped pulse animation")
 end
 
 local function ShowVignette(hud)
+    if IsVignetteVisible then return end  -- Already showing
+    IsVignetteVisible = true
+
     local widget = GetOrCreateVignetteWidget(hud)
     if not widget then return end
 
@@ -193,6 +205,9 @@ local function ShowVignette(hud)
 end
 
 local function HideVignette()
+    if not IsVignetteVisible then return end  -- Already hidden
+    IsVignetteVisible = false
+
     StopPulseLoop()
 
     if VignetteWidget and VignetteWidget:IsValid() then
@@ -225,8 +240,6 @@ function LowHealthVignette.OnUpdateHealth(hud)
         Log.Debug("Failed to get LastHealthPercentage")
         return
     end
-
-    Log.Debug("Health update: %.1f%% (threshold: %.1f%%)", healthPercent * 100, Config.Threshold * 100)
 
     if healthPercent < Config.Threshold then
         ShowVignette(hud)
