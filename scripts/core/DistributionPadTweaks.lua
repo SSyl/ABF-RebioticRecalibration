@@ -68,6 +68,13 @@ local InteractionPromptCache = {
     lastActorInRange = false, -- Was that actor in a pad's range?
 }
 
+-- Per-frame optimization: cache the InteractionObjectName textBlock widget
+-- to avoid pcall property lookup every frame in AppendDistPadText
+local TextBlockCache = {
+    widgetAddr = nil,  -- Address of parent widget we cached from
+    textBlock = nil,   -- Cached InteractionObjectName UTextBlock reference
+}
+
 -- Cached icon texture and widget for DistPad indicator
 local DistPadIconTexture = nil
 local DistPadIconWidget = nil
@@ -419,19 +426,50 @@ local function ShowDistPadIcon(widget)
     end)
 end
 
+--[[
+    AppendDistPadText: Adds indicator text to container name.
+
+    OPTIMIZATION: We cache the textBlock (InteractionObjectName) reference
+    because this function is called every frame while looking at an in-range
+    container. Caching saves 1 pcall per frame.
+
+    Note: We can't cache the text itself because vanilla resets it each frame.
+]]
 local function AppendDistPadText(widget)
     local indicatorConfig = Config.Indicator
     if not indicatorConfig.TextEnabled then return end
     if indicatorConfig.Text == "" then return end
 
-    local okText, textBlock = pcall(function() return widget.InteractionObjectName end)
-    if not okText or not textBlock or not textBlock:IsValid() then return end
+    -- Cache the textBlock reference when widget changes
+    local widgetAddr = widget:GetAddress()
+    if widgetAddr ~= TextBlockCache.widgetAddr then
+        local ok, tb = pcall(function() return widget.InteractionObjectName end)
+        if ok and tb and tb:IsValid() then
+            TextBlockCache.widgetAddr = widgetAddr
+            TextBlockCache.textBlock = tb
+        else
+            TextBlockCache.widgetAddr = nil
+            TextBlockCache.textBlock = nil
+            return
+        end
+    end
 
+    -- Use cached textBlock (with validity check in case it became invalid)
+    local textBlock = TextBlockCache.textBlock
+    if not textBlock or not textBlock:IsValid() then
+        TextBlockCache.widgetAddr = nil
+        TextBlockCache.textBlock = nil
+        return
+    end
+
+    -- Get current text (can't cache - vanilla resets it each frame)
     local okGet, currentText = pcall(function() return textBlock:GetText():ToString() end)
     if not okGet or not currentText then return end
 
+    -- Skip if already appended
     if currentText:match(indicatorConfig.TextPattern) then return end
 
+    -- Append our indicator text
     pcall(function()
         textBlock:SetText(FText(currentText .. " " .. indicatorConfig.Text))
     end)
@@ -696,6 +734,10 @@ function DistributionPadTweaks.Cleanup()
     -- Clear interaction prompt cache
     InteractionPromptCache.lastActorAddr = nil
     InteractionPromptCache.lastActorInRange = false
+
+    -- Clear textBlock cache
+    TextBlockCache.widgetAddr = nil
+    TextBlockCache.textBlock = nil
 
     -- Clear widget references (will be recreated when needed)
     DistPadIconTexture = nil
