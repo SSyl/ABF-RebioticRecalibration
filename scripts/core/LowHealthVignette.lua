@@ -1,16 +1,61 @@
+--[[
+============================================================================
+LowHealthVignette - Red Screen Edge Effect When Low on Health
+============================================================================
+
+PURPOSE:
+Adds a red vignette effect around the screen edges when the player's health
+drops below a configurable threshold. Provides visual feedback that you're
+in danger. Optionally pulses for a "heartbeat" effect.
+
+HOW IT WORKS:
+
+Widget Creation:
+- We clone the existing EyeLid_Top UImage widget (used for the blindfold
+  effect) because it's already configured for fullscreen overlay.
+- We replace its texture with T_Gradient_Radial (a radial gradient that
+  fades from transparent center to opaque edges - perfect for vignette).
+- We tint it with the configured color (default: dark red).
+- Widget is created lazily on first health update below threshold.
+
+Health Tracking:
+- We hook W_PlayerHUD_Main_C:UpdateHealth which fires when health changes.
+- We read hud.LastHealthPercentage and compare against Config.Threshold.
+- We only show/hide on threshold crossing, not every health update.
+
+Pulse Animation:
+- When visible and PulseEnabled, we run a LoopAsync at ~30 FPS.
+- The async loop does pure Lua math (sine wave), then uses ExecuteInGameThread
+  to update the widget's alpha.
+- The pulse oscillates between 40% and 100% of the base alpha.
+
+HOOKS (registered in main.lua):
+- W_PlayerHUD_Main_C:UpdateHealth → OnUpdateHealth()
+
+PERFORMANCE:
+- Health updates fire when health changes (not every frame).
+- Pulse loop only runs when vignette is visible (player is low health).
+- Cleanup() clears state when returning to menu.
+
+POTENTIAL OPTIMIZATION NOTES:
+- The LoopAsync + ExecuteInGameThread pattern runs every 33ms when pulsing.
+  This is fine for a visual effect but could be replaced with UE animation
+  if we had access to widget animation APIs.
+]]
+
 local LowHealthVignette = {}
 
 -- Module state (set during Init)
 local Config = nil
 local Log = nil
 
--- Cached references
+-- Cached widget references (created lazily, cleared on Cleanup)
 local VignetteWidget = nil
 local VignetteTexture = nil
 
--- Visibility state
+-- Visibility state tracking
 local IsVignetteVisible = false
-local LastBelowThreshold = nil
+local LastBelowThreshold = nil  -- nil = unknown, true = below, false = above
 
 -- Pulse animation state
 local IsPulsing = false

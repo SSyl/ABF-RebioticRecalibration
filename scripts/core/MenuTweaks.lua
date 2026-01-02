@@ -1,3 +1,33 @@
+--[[
+============================================================================
+MenuTweaks - Skip LAN Hosting Delay
+============================================================================
+
+PURPOSE:
+When hosting a LAN server, the vanilla game shows a popup with a 3-second
+countdown before allowing you to click "Yes". This module skips that delay.
+
+HOW IT WORKS:
+The popup uses three mechanisms to enforce the delay:
+1. DelayBeforeAllowingInput - initial delay value
+2. CloseBlockedByDelay - prevents closing during countdown
+3. DelayTimeLeft - remaining countdown time
+
+We hook three Blueprint functions to disable all three:
+- Construct: Initial popup creation - zero out the delay values
+- CountdownInputDelay: Called each tick during countdown - force to 0
+- UpdateButtonWithDelayTime: Updates button text with countdown - restore original
+
+HOOKS (registered in main.lua):
+- W_MenuPopup_YesNo_C:Construct           → OnConstruct()
+- W_MenuPopup_YesNo_C:CountdownInputDelay → OnCountdownInputDelay()
+- W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime → OnUpdateButtonWithDelayTime()
+
+PERFORMANCE:
+These hooks only fire when the LAN hosting popup is open (rare event).
+No per-frame overhead.
+]]
+
 local MenuTweaks = {}
 
 -- Module state (set during Init)
@@ -5,6 +35,7 @@ local Config = nil
 local Log = nil
 
 -- Cache for original button text values (populated on first UpdateButtonWithDelayTime call)
+-- Keyed by widget name (e.g., "Text_Yes", "Text_No") since popup is short-lived
 local OriginalButtonText = {}
 
 -- ============================================================

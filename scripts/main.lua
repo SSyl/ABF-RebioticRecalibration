@@ -1,5 +1,59 @@
 print("=== [QoL Tweaks] MOD LOADING ===\n")
 
+--[[
+============================================================================
+QoL-Fixes-Tweaks - Main Entry Point
+============================================================================
+
+This file orchestrates all QoL features:
+1. Loads and validates configuration from ../config.lua
+2. Creates loggers for each feature module
+3. Initializes feature modules with their config + logger
+4. Registers hooks at appropriate lifecycle stages
+
+HOOK REGISTRATION STRATEGY:
+
+We register hooks at different lifecycle stages depending on what they need:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ IMMEDIATE (mod load time)                                                   │
+│ - MenuTweaks hooks (need to catch main menu popups)                        │
+│ - Retries up to 10x with 2s delay if registration fails                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ InitGameStatePostHook (when GameState becomes valid)                        │
+│ - CraftingMenu brightness hook (needs game objects to exist)               │
+│ - CraftingMenu resolution fix (needs render target to exist)               │
+│ - LowHealthVignette hook registration (filters out menu maps)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+         ↓
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ RegisterLoadMapPostHook (when a map finishes loading)                       │
+│ - FoodFix hooks (need deployed objects to exist)                           │
+│ - DistPad hooks (need pads and containers to exist)                        │
+│ - Cleanup on menu return (clears stale state)                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+HOOK SUMMARY (for quick reference):
+
+Feature              | Hook Target                                    | Fires When
+---------------------|------------------------------------------------|---------------------------
+MenuTweaks           | W_MenuPopup_YesNo_C:Construct                 | Popup created
+MenuTweaks           | W_MenuPopup_YesNo_C:CountdownInputDelay       | Countdown tick
+MenuTweaks           | W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime | Button text update
+CraftingPreviewFix   | 3D_ItemDisplay_BP_C:Set3DPreviewMesh          | Preview item changes
+LowHealthVignette    | W_PlayerHUD_Main_C:UpdateHealth               | Health value changes
+FoodFix              | AbioticDeployed_ParentBP_C:ReceiveBeginPlay   | Deployable spawns
+DistPadTweaks (range)| AbioticDeployed_ParentBP_C:ReceiveBeginPlay   | Pad spawns (filtered)
+DistPadTweaks        | Deployed_DistributionPad_C:UpdateCompatible...| Pad inventory updates
+DistPadTweaks        | NotifyOnNewObject (DistributionPad)           | New pad created
+DistPadTweaks        | AbioticDeployed_ParentBP_C:ReceiveEndPlay     | Deployable destroyed
+DistPadTweaks        | W_PlayerHUD_InteractionPrompt_C:Update...     | PER-FRAME while aiming
+DistPadTweaks        | AbioticDeployed_ParentBP_C:OnRep_Construction | Container built (optional)
+
+]]
+
 local UEHelpers = require("UEHelpers")
 local LogUtil = require("utils/LogUtil")
 local ConfigUtil = require("utils/ConfigUtil")

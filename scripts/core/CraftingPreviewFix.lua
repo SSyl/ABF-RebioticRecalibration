@@ -1,10 +1,46 @@
+--[[
+============================================================================
+CraftingPreviewFix - Fix Dark/Blurry 3D Item Preview in Crafting Menu
+============================================================================
+
+PURPOSE:
+The 3D item preview in the crafting menu has two issues:
+1. DARK: Items appear too dark due to low light intensity + auto-exposure
+2. BLURRY: Low render target resolution (vanilla is 512x512)
+
+HOW WE FIX IT:
+
+Brightness Fix:
+- The 3D preview uses a SceneCaptureComponent2D (Item_RenderTarget) to render
+  the item to a texture, which is then displayed in the UI.
+- Vanilla auto-exposure causes inconsistent brightness. We disable it by
+  setting AutoExposureMethod to AEM_Manual (value 2).
+- Then we set PointLight and PointLight1 to configured intensity (default 10,
+  vs vanilla 4), and PointLight2 to half for subtle rim lighting.
+
+Resolution Fix:
+- The render target texture (3DItem_RenderTarget) is 512x512 in vanilla.
+- We use KismetRenderingLibrary:ResizeRenderTarget2D to resize it to the
+  configured resolution (default 1024, must be power of 2).
+- This is a one-time fix applied at InitGameStatePostHook.
+
+HOOKS (registered in main.lua):
+- 3D_ItemDisplay_BP_C:Set3DPreviewMesh → OnSet3DPreviewMesh() [brightness]
+- InitGameStatePostHook → ApplyResolutionFix() [resolution, one-time]
+
+PERFORMANCE:
+- Brightness: Fires when preview item changes (user scrolls crafting menu)
+- Resolution: Fires once at game start
+Both are infrequent, no per-frame overhead.
+]]
+
 local CraftingPreviewFix = {}
 
 -- Module state (set during Init)
 local Config = nil
 local Log = nil
 
--- Cached references
+-- Cached reference to KismetRenderingLibrary (used for render target resize)
 local KismetRenderingLibraryCache = nil
 
 -- ============================================================
