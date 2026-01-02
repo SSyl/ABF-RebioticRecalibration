@@ -407,10 +407,16 @@ RegisterLoadMapPostHook(function(Engine, World, URL)
 
     local inGameWorld = mapName ~= "MainMenu"
 
-    -- Clean up vignette state when returning to main menu
-    if not inGameWorld and Config.LowHealthVignette.Enabled then
-        Log.General.Debug("Returning to main menu, cleaning up vignette")
-        LowHealthVignette.Cleanup()
+    -- Clean up module state when returning to main menu
+    if not inGameWorld then
+        if Config.LowHealthVignette.Enabled then
+            Log.General.Debug("Returning to main menu, cleaning up vignette")
+            LowHealthVignette.Cleanup()
+        end
+        if Config.DistributionPad.Indicator.Enabled then
+            Log.General.Debug("Returning to main menu, cleaning up DistPad cache")
+            DistPadTweaks.Cleanup()
+        end
     end
 
     -- Skip if not in game world
