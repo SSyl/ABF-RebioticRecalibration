@@ -398,13 +398,8 @@ RegisterLoadMapPostHook(function(Engine, World, URL)
         return URL:GetMap()
     end)
 
-    if not okMap then
+    if not okMap or not mapName then
         Log.General.Error("LoadMapPostHook: Failed to call GetMap() - %s", tostring(mapName))
-        return
-    end
-
-    if not mapName or type(mapName) ~= "string" or mapName == "" then
-        Log.General.Error("LoadMapPostHook: mapName is invalid (got %s: %s)", type(mapName), tostring(mapName))
         return
     end
 
