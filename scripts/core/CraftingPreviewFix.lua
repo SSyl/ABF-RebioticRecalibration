@@ -73,6 +73,7 @@ function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
 end
 
 -- Called from RegisterInitGameStatePostHook in main.lua
+-- Returns true on success, false on failure (allows retry)
 function CraftingPreviewFix.ApplyResolutionFix()
     local configResolution = Config.Resolution.Resolution
     local targetResolution = RoundToPowerOfTwo(configResolution)
@@ -88,12 +89,12 @@ function CraftingPreviewFix.ApplyResolutionFix()
 
     if not renderTarget:IsValid() then
         Log.Error("Failed to find 3DItem_RenderTarget")
-        return
+        return false
     end
 
     if not kismetRenderLib:IsValid() then
         Log.Error("Failed to find KismetRenderingLibrary")
-        return
+        return false
     end
 
     local okSize, currentX, currentY = pcall(function()
@@ -105,7 +106,7 @@ function CraftingPreviewFix.ApplyResolutionFix()
 
         if currentX == targetResolution and currentY == targetResolution then
             Log.Debug("Render target already at target resolution, skipping resize")
-            return
+            return true  -- Already correct = success
         end
     end
 
@@ -115,8 +116,10 @@ function CraftingPreviewFix.ApplyResolutionFix()
 
     if okResize then
         Log.Debug("Resized crafting preview render target to %dx%d", targetResolution, targetResolution)
+        return true
     else
         Log.Error("Failed to resize render target: %s", tostring(errResize))
+        return false
     end
 end
 

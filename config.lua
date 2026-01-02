@@ -100,7 +100,7 @@ return {
 
         -- Health percentage threshold (0.0 - 1.0) to trigger vignette
         -- 0.25 = vignette appears when health drops below 25%
-        Threshold = 0.25, -- [default = 0.25]
+        Threshold = 1.0, -- [default = 0.25]
 
         -- Vignette color (RGB 0-255, A 0.0-1.0)
         Color = {
@@ -119,10 +119,10 @@ return {
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
     DebugFlags = {
-        MenuTweaks = false,
-        FoodDisplayFix = false,
-        CraftingMenu = false,
-        DistributionPad = false,
+        MenuTweaks = true,
+        FoodDisplayFix = true,
+        CraftingMenu = true,
+        DistributionPad = true,
         LowHealthVignette = true,
     },
 }

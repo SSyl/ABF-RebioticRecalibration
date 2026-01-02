@@ -10,6 +10,7 @@ local VignetteTexture = nil
 
 -- Visibility state
 local IsVignetteVisible = false
+local LastBelowThreshold = nil
 
 -- Pulse animation state
 local IsPulsing = false
@@ -183,13 +184,6 @@ local function StartPulseLoop()
     end)
 end
 
-local function StopPulseLoop()
-    if IsPulsing then
-        Log.Debug("Stopped pulse animation")
-    end
-    IsPulsing = false
-end
-
 local function ShowVignette(hud)
     if IsVignetteVisible then return end  -- Already showing
 
@@ -209,7 +203,11 @@ local function HideVignette()
     if not IsVignetteVisible then return end  -- Already hidden
     IsVignetteVisible = false
 
-    StopPulseLoop()
+    -- Stop pulse animation
+    if IsPulsing then
+        Log.Debug("Stopped pulse animation")
+    end
+    IsPulsing = false
 
     if VignetteWidget and VignetteWidget:IsValid() then
         pcall(function()
@@ -234,23 +232,13 @@ function LowHealthVignette.Cleanup()
     VignetteWidget = nil
     VignetteTexture = nil
     IsVignetteVisible = false
+    LastBelowThreshold = nil
     IsPulsing = false
     PulseTime = 0
 end
 
--- Called from main.lua during LoadMapPostHook to pre-create widget
-function LowHealthVignette.CreateWidget(hud)
-    if not hud:IsValid() then return end
-
-    local widget = GetOrCreateVignetteWidget(hud)
-    if widget then
-        Log.Debug("Vignette widget pre-created successfully")
-    else
-        Log.Debug("Failed to pre-create vignette widget")
-    end
-end
-
 -- Called from RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth") in main.lua
+-- Widget lazy-creates on first call via ShowVignette -> GetOrCreateVignetteWidget
 function LowHealthVignette.OnUpdateHealth(hud)
     if not hud:IsValid() then return end
 
@@ -264,10 +252,24 @@ function LowHealthVignette.OnUpdateHealth(hud)
         return
     end
 
-    if healthPercent < Config.Threshold then
-        ShowVignette(hud)
-    else
-        HideVignette()
+    -- Dead = no vignette
+    if healthPercent <= 0 then
+        if LastBelowThreshold ~= false then
+            LastBelowThreshold = false
+            HideVignette()
+        end
+        return
+    end
+
+    -- Only update when crossing threshold, not every frame
+    local belowThreshold = healthPercent < Config.Threshold
+    if belowThreshold ~= LastBelowThreshold then
+        LastBelowThreshold = belowThreshold
+        if belowThreshold then
+            ShowVignette(hud)
+        else
+            HideVignette()
+        end
     end
 end
 
