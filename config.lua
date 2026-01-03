@@ -20,7 +20,7 @@ return {
 
         -- When enabled, retroactively fixes existing placed food when loading a save
         -- If false, only newly placed food is fixed
-        FixExistingOnLoad = false, -- [default = false]
+        FixExistingFoodOnLoad = false, -- [default = false]
     },
 
     -- ============================================================
@@ -57,8 +57,8 @@ return {
 
             -- Refresh indicators when you finish building a container
             -- Without this, new containers won't show indicators until someone walks on a pad
-            -- May cause a brief hitch if you have many pads. Left to off for lower end system, should be fine to enable for most.
-            RefreshOnBuiltContainer = false, -- [default = false]
+            -- May increase world load time on lower-end systems or with a ridiculous amount of pads
+            RefreshOnBuiltContainer = true, -- [default = true]
 
             -- Show an icon next to the container name
             IconEnabled = true, -- [default = true]
@@ -86,7 +86,7 @@ return {
             Enabled = false, -- [default = false]
 
             -- 1.0 = normal, 1.25 = 25% farther, 2.0 = twice as far
-            Multiplier = 1.25, -- [default = 1.25]
+            Multiplier = 1.5, -- [default = 1.5]
         },
     },
 
@@ -100,7 +100,7 @@ return {
 
         -- Health percentage threshold (0.0 - 1.0) to trigger vignette
         -- 0.25 = vignette appears when health drops below 25%
-        Threshold = 1.0, -- [default = 0.25]
+        Threshold = 0.25, -- [default = 0.25]
 
         -- Vignette color (RGB 0-255, A 0.0-1.0)
         Color = {
@@ -119,10 +119,11 @@ return {
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
     DebugFlags = {
-        MenuTweaks = true,
-        FoodDisplayFix = true,
-        CraftingMenu = true,
-        DistributionPad = true,
-        LowHealthVignette = true,
+        Misc = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
+        MenuTweaks = false,
+        FoodDisplayFix = false,
+        CraftingMenu = false,
+        DistributionPad = false,
+        LowHealthVignette = false,
     },
 }

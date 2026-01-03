@@ -197,8 +197,14 @@ local function StartPulseLoop()
     Log.Debug("Started pulse animation")
 
     LoopAsync(33, function()
-        -- Stop condition (pure Lua check)
+        -- Stop condition (pure Lua check) - check FIRST before any other work
         if not IsPulsing then return true end
+
+        -- Check if widget was cleared during map transition
+        if not VignetteWidget then
+            IsPulsing = false
+            return true
+        end
 
         -- Update time (33ms tick ≈ 30 FPS) - pure Lua math on async thread
         PulseTime = PulseTime + 0.033
@@ -215,14 +221,26 @@ local function StartPulseLoop()
 
         -- UObject access requires game thread
         ExecuteInGameThread(function()
-            if not VignetteWidget or not VignetteWidget:IsValid() then
+            -- Double-check conditions on game thread (widget might have been cleaned up)
+            if not IsPulsing or not VignetteWidget then
+                return
+            end
+
+            -- IsValid() can lie during GC - pcall protects against access violations
+            if not VignetteWidget:IsValid() then
                 IsPulsing = false
                 return
             end
 
-            pcall(function()
+            -- SetColorAndOpacity can throw during map transition even if IsValid() passed
+            local ok = pcall(function()
                 VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
             end)
+
+            -- If SetColorAndOpacity failed, widget is being destroyed - stop pulsing
+            if not ok then
+                IsPulsing = false
+            end
         end)
 
         return false  -- Continue loop

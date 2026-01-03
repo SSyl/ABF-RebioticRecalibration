@@ -84,7 +84,12 @@ end
 
 -- Called from RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct") in main.lua
 function MenuTweaks.OnConstruct(popup)
-    if not ShouldSkipDelay(popup) then return end
+    Log.Debug("OnConstruct called")
+
+    if not ShouldSkipDelay(popup) then
+        Log.Debug("Not a LAN hosting popup, skipping")
+        return
+    end
 
     Log.Debug("LAN hosting popup detected - skipping delay")
 
@@ -119,7 +124,7 @@ function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextPa
     local okText, textWidget = pcall(function()
         return TextParam:get()
     end)
-    if not okText or not textWidget:IsValid() then return end
+    if not okText or not textWidget or not textWidget:IsValid() then return end
 
     -- Get widget name to use as cache key
     local okName, widgetName = pcall(function()

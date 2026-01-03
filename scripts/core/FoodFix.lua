@@ -25,7 +25,7 @@ HOST vs CLIENT:
 - Client: Visual-only fix (just sets local CurrentDurability)
 
 LOADING FROM SAVE:
-The FixExistingOnLoad config controls whether we fix food that was placed
+The FixExistingFoodOnLoad config controls whether we fix food that was placed
 in a previous session. If enabled, we poll until IsCurrentlyLoadingFromSave
 becomes false before applying the fix.
 
@@ -49,7 +49,7 @@ local Log = nil
 
 -- Resets a deployed food item's durability to max (removes visual cracks)
 local function ResetDeployedDurability(deployable)
-    if not deployable:IsValid() then return false end
+    if not deployable or not deployable:IsValid() then return false end
 
     local okMax, maxDur = pcall(function()
         return deployable.MaxDurability
@@ -101,6 +101,11 @@ end
 -- Called from consolidated RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay") in main.lua
 -- Only called for Deployed_Food_* classes (filtering done in main.lua)
 function FoodFix.OnBeginPlay(deployable)
+    if not deployable:IsValid() then
+        Log.Debug("FoodFix.OnBeginPlay: Invalid deployable")
+        return
+    end
+
     local okClass, className = pcall(function()
         return deployable:GetClass():GetFName():ToString()
     end)
@@ -121,8 +126,8 @@ function FoodFix.OnBeginPlay(deployable)
         end)
 
         if okLoading and isLoading then
-            if not Config.FixExistingOnLoad then
-                Log.Debug("Skipping - loading from save (FixExistingOnLoad disabled)")
+            if not Config.FixExistingFoodOnLoad then
+                Log.Debug("Skipping - loading from save (FixExistingFoodOnLoad disabled)")
                 return
             end
 

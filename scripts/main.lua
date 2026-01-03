@@ -16,24 +16,23 @@ HOOK REGISTRATION STRATEGY:
 We register hooks at different lifecycle stages depending on what they need:
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ InitGameStatePostHook (when GameState becomes valid)                        │
+│ InitGameStatePostHook (when GameState becomes valid) - FIRES FIRST          │
 │ - CraftingMenu brightness hook (needs game objects to exist)               │
 │ - CraftingMenu resolution fix (needs render target to exist)               │
-│ - LowHealthVignette hook registration (filters out menu maps)              │
+│ - LowHealthVignette hook registration                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ RegisterLoadMapPostHook (when a map finishes loading)                       │
+│ LoadMapPostHook (when a map finishes loading) - FIRES SECOND                │
+│ - MenuTweaks hooks (LAN hosting popup appears on MainMenu)                 │
 │ - FoodFix hooks (need deployed objects to exist)                           │
 │ - DistPad hooks (need pads and containers to exist)                        │
-│ - Cleanup on menu return (clears stale state)                              │
+│ - Cleanup on menu return (via LoadMapPreHook)                              │
 └─────────────────────────────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PollForMissedHooks (race condition fallback - Abiotic Factor specific)      │
-│ - MenuTweaks hooks (Blueprint loaded on-demand when popup is triggered)    │
-│ - Simulates InitGameStatePostHook if missed                                │
-│ - Simulates LoadMapPostHook if missed                                      │
+│ - Invokes OnLoadMap/OnInitGameState if lifecycle hooks missed              │
 │ - Polls every 100ms for up to 10 seconds                                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -70,7 +69,7 @@ local SCHEMA = {
 
     -- FoodDisplayFix
     { path = "FoodDisplayFix.Enabled", type = "boolean", default = true },
-    { path = "FoodDisplayFix.FixExistingOnLoad", type = "boolean", default = false },
+    { path = "FoodDisplayFix.FixExistingFoodOnLoad", type = "boolean", default = false },
 
     -- CraftingMenu.Brightness
     { path = "CraftingMenu.Brightness.Enabled", type = "boolean", default = true },
@@ -82,7 +81,7 @@ local SCHEMA = {
 
     -- DistributionPad.Indicator
     { path = "DistributionPad.Indicator.Enabled", type = "boolean", default = true },
-    { path = "DistributionPad.Indicator.RefreshOnBuiltContainer", type = "boolean", default = false },
+    { path = "DistributionPad.Indicator.RefreshOnBuiltContainer", type = "boolean", default = true },
     { path = "DistributionPad.Indicator.IconEnabled", type = "boolean", default = true },
     { path = "DistributionPad.Indicator.Icon", type = "string", default = "icon_hackingdevice" },
     { path = "DistributionPad.Indicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
@@ -91,7 +90,7 @@ local SCHEMA = {
 
     -- DistributionPad.Range
     { path = "DistributionPad.Range.Enabled", type = "boolean", default = false },
-    { path = "DistributionPad.Range.Multiplier", type = "number", default = 1.25, min = 0.1, max = 10.0 },
+    { path = "DistributionPad.Range.Multiplier", type = "number", default = 1.5, min = 0.1, max = 10.0 },
 
     -- LowHealthVignette
     { path = "LowHealthVignette.Enabled", type = "boolean", default = true },
@@ -100,6 +99,7 @@ local SCHEMA = {
     { path = "LowHealthVignette.PulseEnabled", type = "boolean", default = true },
 
     -- DebugFlags
+    { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
     { path = "DebugFlags.FoodDisplayFix", type = "boolean", default = false },
     { path = "DebugFlags.CraftingMenu", type = "boolean", default = false },
@@ -126,7 +126,7 @@ local DistPadTweaks = require("core/DistributionPadTweaks")
 local LowHealthVignette = require("core/LowHealthVignette")
 
 local Log = {
-    General = LogUtil.CreateLogger("QoL Tweaks", true),  -- DEBUG ENABLED FOR DIAGNOSIS
+    General = LogUtil.CreateLogger("QoL Tweaks", Config.DebugFlags.Misc),
     MenuTweaks = LogUtil.CreateLogger("QoL Tweaks|MenuTweaks", Config.DebugFlags.MenuTweaks),
     FoodFix = LogUtil.CreateLogger("QoL Tweaks|FoodFix", Config.DebugFlags.FoodDisplayFix),
     CraftingMenu = LogUtil.CreateLogger("QoL Tweaks|CraftingMenu", Config.DebugFlags.CraftingMenu),
@@ -142,10 +142,21 @@ DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
 LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 
 -- ============================================================
--- INITGAMESTATE HOOK REGISTRATION FUNCTIONS
+-- MODULE STATE
 -- ============================================================
 
-local function RegisterMenuTweaksHooks()
+-- Lifecycle hook tracking flags
+local InitGameStatePostHookFired = false
+local LoadMapPostHookFired = false
+
+-- Run-once feature registration state (managed by TryRegister)
+local Registered = {}
+
+-- ============================================================
+-- HOOK REGISTRATION FUNCTIONS
+-- ============================================================
+
+local function HookMenuTweaks()
     local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct", function(Context)
             local popup = Context:get()
@@ -185,7 +196,7 @@ local function RegisterMenuTweaksHooks()
     return true
 end
 
-local function RegisterCraftingMenuBrightnessHook()
+local function HookCraftingMenuBrightness()
     local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh", function(Context)
             local itemDisplay = Context:get()
@@ -200,11 +211,7 @@ local function RegisterCraftingMenuBrightnessHook()
     return true
 end
 
-local function RegisterCraftingMenuResolutionFix()
-    return CraftingPreviewFix.ApplyResolutionFix()
-end
-
-local function RegisterLowHealthVignetteHooks()
+local function HookLowHealthVignette()
     local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
             local hud = Context:get()
@@ -219,20 +226,70 @@ local function RegisterLowHealthVignetteHooks()
     return true
 end
 
--- ============================================================
--- CONSOLIDATED INITGAMESTATE HOOKS
--- Single hook for all features requiring InitGameStatePostHook
--- ============================================================
+local function HookDistPadIndicator()
+    local ok, err = pcall(function()
+        RegisterHook(
+        "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers",
+            function(Context)
+                DistPadTweaks.OnUpdateCompatibleContainers(Context)
+            end)
+    end)
+    if not ok then
+        Log.DistPad.Error("UpdateCompatibleContainers hook failed: %s", tostring(err))
+        return false
+    end
 
--- Lifecycle hook tracking flags
-local InitGameStatePostHookFired = false
-local LoadMapPostHookFired = false
+    NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C",
+        function(pad)
+            DistPadTweaks.OnNewPadSpawned(pad)
+        end)
 
--- Run-once feature registration state (managed by TryRegister)
-local Registered = {}
+    ok, err = pcall(function()
+        RegisterHook(
+        "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
+            function(Context)
+                DistPadTweaks.OnReceiveEndPlay(Context)
+            end)
+    end)
+    if not ok then
+        Log.DistPad.Error("ReceiveEndPlay hook failed: %s", tostring(err))
+        return false
+    end
+
+    ok, err = pcall(function()
+        RegisterHook(
+            "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
+            function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
+                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
+                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+                DistPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)
+            end)
+    end)
+    if not ok then
+        Log.DistPad.Error("UpdateInteractionPrompts hook failed: %s", tostring(err))
+        return false
+    end
+
+    if Config.DistributionPad.Indicator.RefreshOnBuiltContainer then
+        ok, err = pcall(function()
+            RegisterHook(
+            "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive",
+                function(Context)
+                    DistPadTweaks.OnContainerConstructionComplete(Context)
+                end)
+        end)
+        if not ok then
+            Log.DistPad.Error("OnRep_ConstructionModeActive hook failed: %s", tostring(err))
+            return false
+        end
+    end
+
+    return true
+end
+
 
 -- ============================================================
--- HOOK WRAPPER FUNCTIONS
+-- LIFECYCLE HANDLERS
 -- ============================================================
 
 --- Registers a run-once feature if enabled and not already registered.
@@ -267,18 +324,10 @@ local function OnInitGameState(gameMode)
         return
     end
 
-    local okFullName, fullName = pcall(function()
-        return gameState:GetFullName()
-    end)
-
-    if okFullName and fullName then
-        Log.General.Debug("GameState validated: %s", fullName)
-    end
-
     -- RUN-ONCE features (with automatic retry on failure)
-    TryRegister("CraftingMenuBrightness", Config.CraftingMenu.Brightness.Enabled, RegisterCraftingMenuBrightnessHook)
-    TryRegister("CraftingMenuResolution", Config.CraftingMenu.Resolution.Enabled, RegisterCraftingMenuResolutionFix)
-    TryRegister("LowHealthVignette", Config.LowHealthVignette.Enabled, RegisterLowHealthVignetteHooks)
+    TryRegister("CraftingMenuBrightness", Config.CraftingMenu.Brightness.Enabled, HookCraftingMenuBrightness)
+    TryRegister("CraftingMenuResolution", Config.CraftingMenu.Resolution.Enabled, CraftingPreviewFix.ApplyResolutionFix)
+    TryRegister("LowHealthVignette", Config.LowHealthVignette.Enabled, HookLowHealthVignette)
 end
 
 RegisterInitGameStatePostHook(function(ContextParam)
@@ -288,11 +337,7 @@ RegisterInitGameStatePostHook(function(ContextParam)
     end
 end)
 
--- ============================================================
--- LOADMAP HOOK REGISTRATION FUNCTIONS
--- ============================================================
-
-local function RegisterDeployedObjectHooks()
+local function HookDeployedObjects()
     local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay", function(Context)
             local okObj, obj = pcall(function() return Context:get() end)
@@ -321,64 +366,6 @@ local function RegisterDeployedObjectHooks()
     return true
 end
 
-local function RegisterDistPadIndicatorHooks()
-    local ok, err = pcall(function()
-        RegisterHook("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers", function(Context)
-            DistPadTweaks.OnUpdateCompatibleContainers(Context)
-        end)
-    end)
-    if not ok then
-        Log.DistPad.Error("UpdateCompatibleContainers hook failed: %s", tostring(err))
-        return false
-    end
-
-    NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C", function(pad)
-        DistPadTweaks.OnNewPadSpawned(pad)
-    end)
-
-    ok, err = pcall(function()
-        RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay", function(Context)
-            DistPadTweaks.OnReceiveEndPlay(Context)
-        end)
-    end)
-    if not ok then
-        Log.DistPad.Error("ReceiveEndPlay hook failed: %s", tostring(err))
-        return false
-    end
-
-    ok, err = pcall(function()
-        RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
-            function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
-                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
-                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
-                DistPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)
-            end)
-    end)
-    if not ok then
-        Log.DistPad.Error("UpdateInteractionPrompts hook failed: %s", tostring(err))
-        return false
-    end
-
-    if Config.DistributionPad.Indicator.RefreshOnBuiltContainer then
-        ok, err = pcall(function()
-            RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive", function(Context)
-                DistPadTweaks.OnContainerConstructionComplete(Context)
-            end)
-        end)
-        if not ok then
-            Log.DistPad.Error("OnRep_ConstructionModeActive hook failed: %s", tostring(err))
-            return false
-        end
-    end
-
-    return true
-end
-
--- ============================================================
--- CONSOLIDATED LOADMAP HOOKS
--- Single hook for all features requiring LoadMapPostHook
--- ============================================================
-
 local function OnLoadMap(world)
     LoadMapPostHookFired = true
 
@@ -395,11 +382,11 @@ local function OnLoadMap(world)
     local isGameplayMap = not mapName:match("MainMenu")
 
     -- MenuTweaks registers on all maps (LAN hosting popup appears on MainMenu)
-    TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, RegisterMenuTweaksHooks)
-    TryRegister("DeployedObjectHooks", Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled, RegisterDeployedObjectHooks)
-    TryRegister("DistPadIndicatorHooks", Config.DistributionPad.Indicator.Enabled and isGameplayMap, RegisterDistPadIndicatorHooks)
+    TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, HookMenuTweaks)
+    TryRegister("DeployedObjects", Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled, HookDeployedObjects)
+    TryRegister("DistPadIndicator", Config.DistributionPad.Indicator.Enabled and isGameplayMap, HookDistPadIndicator)
 
-    -- Cache needs refresh on every gameplay map load (cleared in LoadMapPreHook)
+    -- Cache refresh on every gameplay map load
     if Config.DistributionPad.Indicator.Enabled and isGameplayMap then
         DistPadTweaks.RefreshCache()
     end
@@ -425,8 +412,6 @@ RegisterLoadMapPostHook(function(Engine, World)
         OnLoadMap(world)
     end
 end)
-
-Log.General.Info("Mod loaded")
 
 -- ============================================================
 -- RACE CONDITION FALLBACK -- SPECIAL ABIOTIC FACTOR CONDITION
@@ -492,3 +477,5 @@ end
 
 -- Start polling for missed hooks
 PollForMissedHooks()
+
+Log.General.Info("Mod loaded")

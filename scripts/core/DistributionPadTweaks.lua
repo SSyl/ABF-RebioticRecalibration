@@ -156,7 +156,12 @@ end
 local function SyncCacheFromPad(pad)
     if not pad or not pad:IsValid() then return end
 
-    local padAddr = pad:GetAddress()
+    -- GetAddress() can throw during GC even after IsValid() check
+    local okPadAddr, padAddr = pcall(function()
+        return pad:GetAddress()
+    end)
+    if not okPadAddr or not padAddr then return end
+
     local padData = TrackedPads[padAddr]
     local oldInventoryAddresses = (padData and padData.inventories) or {}
 
@@ -180,22 +185,27 @@ local function SyncCacheFromPad(pad)
         for i = 1, #inventoryArray do
             local inventory = inventoryArray[i]
             if inventory and inventory:IsValid() then
-                local addr = inventory:GetAddress()
+                -- GetAddress() can throw during GC even after IsValid() check
+                local okAddr, addr = pcall(function()
+                    return inventory:GetAddress()
+                end)
 
-                -- Add to our new list (regardless of whether it's new or unchanged)
-                newInventoryAddresses[#newInventoryAddresses + 1] = addr
+                if okAddr and addr then
+                    -- Add to our new list (regardless of whether it's new or unchanged)
+                    newInventoryAddresses[#newInventoryAddresses + 1] = addr
 
-                -- Check if this inventory was already covered by this pad
-                if oldInventorySet[addr] then
-                    -- UNCHANGED: This inventory was in the old list too.
-                    -- Remove from oldInventorySet so we know it's accounted for.
-                    -- No ref count change needed.
-                    oldInventorySet[addr] = nil
-                else
-                    -- ADDED: This inventory is new (wasn't in old list).
-                    -- Increment its ref count.
-                    IncrementInventoryRefCount(addr)
-                    numAddedInventories = numAddedInventories + 1
+                    -- Check if this inventory was already covered by this pad
+                    if oldInventorySet[addr] then
+                        -- UNCHANGED: This inventory was in the old list too.
+                        -- Remove from oldInventorySet so we know it's accounted for.
+                        -- No ref count change needed.
+                        oldInventorySet[addr] = nil
+                    else
+                        -- ADDED: This inventory is new (wasn't in old list).
+                        -- Increment its ref count.
+                        IncrementInventoryRefCount(addr)
+                        numAddedInventories = numAddedInventories + 1
+                    end
                 end
             end
         end
@@ -245,7 +255,12 @@ end
 local function PurgePadFromCache(pad)
     if not pad then return end
 
-    local padAddr = pad:GetAddress()
+    -- GetAddress() can throw during GC even after IsValid() check
+    local okAddr, padAddr = pcall(function()
+        return pad:GetAddress()
+    end)
+    if not okAddr or not padAddr then return end
+
     local padData = TrackedPads[padAddr]
 
     -- If we weren't tracking this pad, nothing to do
@@ -441,7 +456,12 @@ local function AppendDistPadText(widget)
     if indicatorConfig.Text == "" then return end
 
     -- Cache the textBlock reference when widget changes
-    local widgetAddr = widget:GetAddress()
+    -- GetAddress() can throw during GC even after IsValid() check
+    local okWidgetAddr, widgetAddr = pcall(function()
+        return widget:GetAddress()
+    end)
+    if not okWidgetAddr or not widgetAddr then return end
+
     if widgetAddr ~= TextBlockCache.widgetAddr then
         local ok, tb = pcall(function() return widget.InteractionObjectName end)
         if ok and tb and tb:IsValid() then
@@ -488,6 +508,11 @@ end
 -- Called from consolidated RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay") in main.lua
 -- Only called for Deployed_DistributionPad_C (filtering done in main.lua)
 function DistributionPadTweaks.OnDistPadBeginPlay(pad)
+    if not pad:IsValid() then
+        Log.Debug("OnDistPadBeginPlay: Invalid pad")
+        return
+    end
+
     local rangeConfig = Config.Range
     if not rangeConfig.Enabled then return end
 
@@ -499,7 +524,7 @@ function DistributionPadTweaks.OnDistPadBeginPlay(pad)
         return pad.ContainerOverlapSphere
     end)
 
-    if okSphere and sphere:IsValid() then
+    if okSphere and sphere and sphere:IsValid() then
         pcall(function()
             sphere:SetSphereRadius(newRadius, true)
         end)
@@ -510,15 +535,26 @@ end
 -- Called from RegisterHook("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers") in main.lua
 function DistributionPadTweaks.OnUpdateCompatibleContainers(Context)
     if isSyncingCache then return end
+
     isSyncingCache = true
+
     local pad = Context:get()
+    if not pad or not pad:IsValid() then
+        isSyncingCache = false
+        return
+    end
+
     SyncCacheFromPad(pad)
     isSyncingCache = false
 end
 
 -- Called from NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C") in main.lua
 function DistributionPadTweaks.OnNewPadSpawned(pad)
-    Log.Debug("New DistributionPad spawned: %s", tostring(pad:GetAddress()))
+    if not pad:IsValid() then return end
+
+    -- GetAddress() can throw during GC - wrap for logging safety
+    local okAddr, addr = pcall(function() return pad:GetAddress() end)
+    Log.Debug("New DistributionPad spawned: %s", okAddr and tostring(addr) or "unknown")
     ExecuteWithDelay(1000, function()
         ExecuteInGameThread(function()
             if pad:IsValid() then
@@ -530,11 +566,20 @@ end
 
 -- Called from RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay") in main.lua
 function DistributionPadTweaks.OnReceiveEndPlay(Context)
-    local actor = Context:get()
-    if not actor then return end
+    local okActor, actor = pcall(function()
+        return Context:get()
+    end)
 
-    local addr = actor:GetAddress()
-    if TrackedPads[addr] then
+    if not okActor or not actor or not actor:IsValid() then
+        return
+    end
+
+    -- GetAddress() can throw during GC
+    local okAddr, addr = pcall(function()
+        return actor:GetAddress()
+    end)
+
+    if okAddr and addr and TrackedPads[addr] then
         PurgePadFromCache(actor)
     end
 end
@@ -561,7 +606,7 @@ end
 ]]
 function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)
     local widget = Context:get()
-    if not widget:IsValid() then return end
+    if not widget or not widget:IsValid() then return end
 
     local okHitActor, hitActor = pcall(function()
         return HitActorParam:get()
@@ -574,7 +619,16 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam
         return
     end
 
-    local actorAddr = hitActor:GetAddress()
+    -- GetAddress() can throw during GC even after IsValid() check
+    local okActorAddr, actorAddr = pcall(function()
+        return hitActor:GetAddress()
+    end)
+    if not okActorAddr or not actorAddr then
+        InteractionPromptCache.lastActorAddr = nil
+        InteractionPromptCache.lastActorInRange = false
+        HideDistPadIcon()
+        return
+    end
 
     -- Fast path: same actor as last frame
     if actorAddr == InteractionPromptCache.lastActorAddr then
@@ -602,8 +656,15 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam
         return
     end
 
-    -- Check cache
-    local invAddr = containerInv:GetAddress()
+    -- Check cache - GetAddress() can throw during GC even after IsValid() check
+    local okInvAddr, invAddr = pcall(function()
+        return containerInv:GetAddress()
+    end)
+    if not okInvAddr or not invAddr then
+        HideDistPadIcon()
+        return
+    end
+
     local inRange = DistPadCache.inventories[invAddr] ~= nil
 
     if not inRange then
@@ -620,8 +681,17 @@ end
 
 -- Called from RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive") in main.lua
 function DistributionPadTweaks.OnContainerConstructionComplete(Context)
-    local deployable = Context:get()
-    if not deployable:IsValid() then return end
+    local okGet, deployable = pcall(function()
+        return Context:get()
+    end)
+
+    if not okGet or not deployable or not deployable:IsValid() then return end
+
+    -- Skip containers loading from save - they're not actually finishing construction
+    local okLoading, isLoading = pcall(function()
+        return deployable.IsCurrentlyLoadingFromSave
+    end)
+    if okLoading and isLoading then return end
 
     -- Only trigger when construction COMPLETES (ConstructionModeActive becomes false)
     local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)
@@ -676,44 +746,50 @@ end
 
     Called when a map loads. We can't assume the cache from the previous map
     is still valid (different map = different pads and containers), so we:
-    1. Clear all cached data
-    2. Find all distribution pads in the world
-    3. Ask each pad to update its container list (which triggers our hooks)
+    1. Wait 1 second for containers/pads to fully spawn
+    2. Clear all cached data
+    3. Find all distribution pads in the world
+    4. Ask each pad to update its container list (which triggers our hooks)
 
     This is the ONLY place we call FindAllOf (expensive). After this initial
     population, we rely on hooks to keep the cache updated incrementally.
 ]]
 function DistributionPadTweaks.RefreshCache()
-    -- Clear all existing cache data (stale from previous map)
-    DistPadCache.inventories = {}
-    TrackedPads = {}
+    -- Delay gives containers/pads time to fully spawn before we cache them
+    ExecuteWithDelay(5000, function()
+        ExecuteInGameThread(function()
+            -- Clear all existing cache data (stale from previous map)
+            DistPadCache.inventories = {}
+            TrackedPads = {}
 
-    -- Find all distribution pads currently in the world
-    local allPads = FindAllOf("Deployed_DistributionPad_C")
-    if not allPads then
-        Log.Debug("RefreshCache: No distribution pads found")
-        return
-    end
+            -- Find all distribution pads currently in the world
+            local allPads = FindAllOf("Deployed_DistributionPad_C")
+            if not allPads then
+                Log.Debug("RefreshCache: No distribution pads found")
+                return
+            end
 
-    local padCount = 0
+            local padCount = 0
 
-    -- Ask each pad to update its container list
-    -- This will trigger our UpdateCompatibleContainers hook for each pad,
-    -- which will call SyncCacheFromPad and populate our cache
-    for _, pad in pairs(allPads) do
-        if pad:IsValid() then
-            padCount = padCount + 1
-            pcall(function()
-                pad:UpdateCompatibleContainers()
-            end)
-        end
-    end
+            -- Ask each pad to update its container list
+            -- This will trigger our UpdateCompatibleContainers hook for each pad,
+            -- which will call SyncCacheFromPad and populate our cache
+            for _, pad in pairs(allPads) do
+                if pad:IsValid() then
+                    padCount = padCount + 1
+                    pcall(function()
+                        pad:UpdateCompatibleContainers()
+                    end)
+                end
+            end
 
-    -- Count total unique inventories for logging
-    local invCount = 0
-    for _ in pairs(DistPadCache.inventories) do invCount = invCount + 1 end
+            -- Count total unique inventories for logging
+            local invCount = 0
+            for _ in pairs(DistPadCache.inventories) do invCount = invCount + 1 end
 
-    Log.Debug("RefreshCache: %d pads, %d unique inventories cached", padCount, invCount)
+            Log.Debug("RefreshCache: %d pads, %d unique inventories cached", padCount, invCount)
+        end)
+    end)
 end
 
 --[[
