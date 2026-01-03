@@ -146,63 +146,57 @@ LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 -- ============================================================
 
 local function RegisterMenuTweaksHooks()
-    Log.MenuTweaks.Debug("Registering MenuTweaks hooks...")
-
-    local okConstruct, errConstruct = pcall(function()
+    local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct", function(Context)
-            Log.MenuTweaks.Debug("Construct hook fired")
             local popup = Context:get()
-            if not popup:IsValid() then
-                Log.MenuTweaks.Debug("Popup invalid after :get()")
-                return
-            end
+            if not popup:IsValid() then return end
             MenuTweaks.OnConstruct(popup)
         end)
     end)
-    if not okConstruct then
+    if not ok then
+        Log.MenuTweaks.Error("Construct hook failed: %s", tostring(err))
         return false
     end
 
-    local okCountdown, errCountdown = pcall(function()
+    ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay", function(Context)
             local popup = Context:get()
             if not popup:IsValid() then return end
             MenuTweaks.OnCountdownInputDelay(popup)
         end)
     end)
-    if not okCountdown then
+    if not ok then
+        Log.MenuTweaks.Error("CountdownInputDelay hook failed: %s", tostring(err))
         return false
     end
 
-    local okUpdate, errUpdate = pcall(function()
+    ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime", function(Context, TextParam, OriginalTextParam)
             local popup = Context:get()
             if not popup:IsValid() then return end
             MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
         end)
     end)
-    if not okUpdate then
+    if not ok then
+        Log.MenuTweaks.Error("UpdateButtonWithDelayTime hook failed: %s", tostring(err))
         return false
     end
 
-    Log.MenuTweaks.Debug("LAN popup hooks registered")
     return true
 end
 
 local function RegisterCraftingMenuBrightnessHook()
-    local okBrightness, errBrightness = pcall(function()
+    local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh", function(Context)
             local itemDisplay = Context:get()
             if not itemDisplay:IsValid() then return end
             CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
         end)
     end)
-
-    if not okBrightness then
-        Log.CraftingMenu.Error("Failed to register Set3DPreviewMesh hook: %s", tostring(errBrightness))
+    if not ok then
+        Log.CraftingMenu.Error("Set3DPreviewMesh hook failed: %s", tostring(err))
         return false
     end
-
     return true
 end
 
@@ -211,22 +205,17 @@ local function RegisterCraftingMenuResolutionFix()
 end
 
 local function RegisterLowHealthVignetteHooks()
-    Log.LowHealthVignette.Debug("Attempting to register vignette hook...")
-
-    -- Register UpdateHealth hook - widget will lazy-create on first health update
-    local okHook, errHook = pcall(function()
+    local ok, err = pcall(function()
         RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth", function(Context)
             local hud = Context:get()
             if not hud:IsValid() then return end
             LowHealthVignette.OnUpdateHealth(hud)
         end)
     end)
-
-    if not okHook then
-        Log.LowHealthVignette.Debug("Failed to register UpdateHealth hook (Blueprint may not exist yet): %s", tostring(errHook))
+    if not ok then
+        Log.LowHealthVignette.Error("UpdateHealth hook failed: %s", tostring(err))
         return false
     end
-
     return true
 end
 
@@ -238,7 +227,6 @@ end
 -- Lifecycle hook tracking flags
 local InitGameStatePostHookFired = false
 local LoadMapPostHookFired = false
-local menuTweaksHooksRegistered = false
 
 -- Run-once feature registration state (managed by TryRegister)
 local Registered = {}
@@ -406,6 +394,8 @@ local function OnLoadMap(world)
 
     local isGameplayMap = not mapName:match("MainMenu")
 
+    -- MenuTweaks registers on all maps (LAN hosting popup appears on MainMenu)
+    TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, RegisterMenuTweaksHooks)
     TryRegister("DeployedObjectHooks", Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled, RegisterDeployedObjectHooks)
     TryRegister("DistPadIndicatorHooks", Config.DistributionPad.Indicator.Enabled and isGameplayMap, RegisterDistPadIndicatorHooks)
 
@@ -449,99 +439,53 @@ Log.General.Info("Mod loaded")
 -- Again, **DO NOT DO THIS FOR OTHER UE4SS GAMES. THIS IS A SPECIAL CASE FOR ABIOTIC FACTOR.**
 -- ============================================================
 local function PollForMissedHooks(attempts)
-    Log.General.Debug("Entered Fallback")
     attempts = attempts or 0
 
     ExecuteInGameThread(function()
-        -- Fast path: if MenuTweaks registered and lifecycle hooks handled, nothing to do
-        if menuTweaksHooksRegistered and InitGameStatePostHookFired and LoadMapPostHookFired then
-            Log.General.Debug("Fallback check: All hooks registered, no fallback needed")
+        -- Fast path: all lifecycle hooks already fired
+        if InitGameStatePostHookFired and LoadMapPostHookFired then
             return
         end
-
-        Log.General.Debug("Fallback check: Polling for hooks (attempt %d)", attempts + 1)
-        Log.General.Debug("InitGameState=%s, LoadMap=%s (MenuTweaks registers lazily)",
-            tostring(InitGameStatePostHookFired), tostring(LoadMapPostHookFired))
 
         local ExistingActor = FindFirstOf("Actor")
-        if not ExistingActor or not ExistingActor:IsValid() then
-            -- No actors yet - either hooks will fire normally, or world hasn't loaded yet
-            if attempts < 100 then  -- Poll for up to 10 seconds (100 * 100ms) for potato PCs
-                Log.General.Debug("Fallback check: No actors found yet, polling again in 100ms")
+        if not ExistingActor:IsValid() then
+            if attempts < 100 then
                 ExecuteWithDelay(100, function()
                     PollForMissedHooks(attempts + 1)
                 end)
-            else
-                Log.General.Debug("Fallback check: Gave up after %d attempts, assuming hooks will fire normally", attempts + 1)
             end
             return
         end
 
-        Log.General.Debug("Fallback check: Game world loaded (main menu or gameplay)")
-
-        -- Attempt MenuTweaks registration if enabled and not already registered
-        -- This retries automatically via the outer polling loop
-        if Config.MenuTweaks.SkipLANHostingDelay and not menuTweaksHooksRegistered then
-            Log.MenuTweaks.Debug("Fallback: Attempting MenuTweaks hooks registration...")
-            local success, result = pcall(RegisterMenuTweaksHooks)
-            if success and result == true then
-                menuTweaksHooksRegistered = true
-                Log.MenuTweaks.Debug("Fallback: MenuTweaks hooks registered successfully")
-            else
-                Log.MenuTweaks.Debug("Fallback: MenuTweaks registration failed (Blueprint not loaded yet), will retry")
-            end
-        end
-
-        -- If InitGameState hook hasn't fired, manually invoke with real GameMode
+        -- World loaded - invoke missed lifecycle hooks
         if not InitGameStatePostHookFired then
-            Log.General.Debug("Fallback: Game already initialized, manually invoking OnInitGameState")
-
             local GameMode = UEHelpers.GetGameModeBase()
-            if GameMode and GameMode:IsValid() then
-                Log.General.Debug("Fallback: GameMode valid, invoking OnInitGameState")
-                -- Call the actual function with real GameMode directly
+            if GameMode:IsValid() then
                 OnInitGameState(GameMode)
-            else
-                Log.General.Debug("Fallback: GameMode not yet valid")
             end
         end
 
-        -- If LoadMap hook hasn't fired, manually invoke callback for current map
         if not LoadMapPostHookFired then
-            Log.General.Debug("Fallback: World already loaded, manually invoking OnLoadMap")
-
             local World = UEHelpers.GetWorld()
-            if World and World:IsValid() then
-                local okFullName, fullName = pcall(function()
-                    return World:GetFullName()
-                end)
-
-                if okFullName and fullName then
-                    -- Pass World directly (already a UWorld from UEHelpers)
-                    OnLoadMap(World)                
-                else
-                    Log.General.Debug("Fallback: Failed to get World:GetFullName()")
+            if World:IsValid() then
+                local okName, fullName = pcall(function() return World:GetFullName() end)
+                if okName and fullName then
+                    OnLoadMap(World)
                 end
-            else
-                Log.General.Debug("Fallback: World not valid yet")
             end
         end
 
-        -- Continue polling if gameplay hooks not registered
-        -- Note: MenuTweaks is excluded - it registers lazily when the Blueprint loads
-        local gameplayHooksComplete = InitGameStatePostHookFired and LoadMapPostHookFired
-
-        if not gameplayHooksComplete then
+        -- Continue polling if not complete
+        if not (InitGameStatePostHookFired and LoadMapPostHookFired) then
             if attempts < 100 then
-                Log.General.Debug("Fallback check: Not all hooks ready, polling again in 100ms")
                 ExecuteWithDelay(100, function()
                     PollForMissedHooks(attempts + 1)
                 end)
             else
-                Log.General.Error("Fallback check: Gave up after %d attempts. MenuTweaks Blueprint may not have loaded", attempts + 1)
+                Log.General.Error("Fallback polling gave up after %d attempts", attempts + 1)
             end
         else
-            Log.General.Debug("Fallback check: All hooks registered successfully. Stopping polling")
+            Log.General.Debug("Fallback succeeded on attempt %d", attempts + 1)
         end
     end)
 end
