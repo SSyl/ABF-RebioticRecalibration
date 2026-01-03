@@ -48,13 +48,6 @@ function LogUtil.CreateLogger(modName, debugEnabled)
         ErrorOnce = function(msg, ...) doLog("error", true, msg, ...) end,
     }
 
-    -- Backward compatible: Log("message", "level")
-    setmetatable(logger, {
-        __call = function(self, message, level)
-            doLog(level or "info", false, message)
-        end
-    })
-
     return logger
 end
 

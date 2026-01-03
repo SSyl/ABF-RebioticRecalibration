@@ -34,8 +34,6 @@ local MenuTweaks = {}
 local Config = nil
 local Log = nil
 
--- Cache for original button text values (populated on first UpdateButtonWithDelayTime call)
--- Keyed by widget name (e.g., "Text_Yes", "Text_No") since popup is short-lived
 local OriginalButtonText = {}
 
 -- ============================================================
@@ -84,14 +82,7 @@ end
 
 -- Called from RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct") in main.lua
 function MenuTweaks.OnConstruct(popup)
-    Log.Debug("OnConstruct called")
-
-    if not ShouldSkipDelay(popup) then
-        Log.Debug("Not a LAN hosting popup, skipping")
-        return
-    end
-
-    Log.Debug("LAN hosting popup detected - skipping delay")
+    if not ShouldSkipDelay(popup) then return end
 
     pcall(function()
         popup.DelayBeforeAllowingInput = 0
@@ -119,29 +110,19 @@ end
 function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
     if not ShouldSkipDelay(popup) then return end
 
-    -- Function already executed and formatted text with countdown
-    -- Override it back to the original text
     local okText, textWidget = pcall(function()
         return TextParam:get()
     end)
     if not okText or not textWidget or not textWidget:IsValid() then return end
 
-    -- Get widget name to use as cache key
-    local okName, widgetName = pcall(function()
-        return textWidget:GetFName():ToString()
-    end)
+    local okName, widgetName = pcall(function() return textWidget:GetFName():ToString() end)
     if not okName then return end
 
-    -- Get original text from parameter
-    local okOriginal, originalText = pcall(function()
-        return OriginalTextParam:get()
-    end)
+    local okOriginal, originalText = pcall(function() return OriginalTextParam:get() end)
 
     local originalStr = ""
     if okOriginal and originalText then
-        local okStr, str = pcall(function()
-            return originalText:ToString()
-        end)
+        local okStr, str = pcall(function() return originalText:ToString() end)
         if okStr then originalStr = str end
     end
 
@@ -155,9 +136,7 @@ function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextPa
     -- Use cached string to create fresh FText and set it
     local cachedStr = OriginalButtonText[widgetName]
     if cachedStr then
-        pcall(function()
-            textWidget:SetText(FText(cachedStr))
-        end)
+        pcall(function() textWidget:SetText(FText(cachedStr)) end) 
     end
 end
 

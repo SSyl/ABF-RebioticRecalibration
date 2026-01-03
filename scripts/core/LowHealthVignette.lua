@@ -81,7 +81,7 @@ local function GetOrCreateVignetteWidget(hud)
         return hud.EyeLid_Top
     end)
     if not okTemplate or not templateImage or not templateImage:IsValid() then
-        Log.Debug("Failed to get EyeLid_Top: okTemplate=%s", tostring(okTemplate))
+        Log.Debug("Failed to get EyeLid_Top template")
         return nil
     end
     Log.Debug("Got EyeLid_Top template: %s", templateImage:GetFullName())
@@ -248,7 +248,7 @@ local function StartPulseLoop()
 end
 
 local function ShowVignette(hud)
-    if IsVignetteVisible then return end  -- Already showing
+    if IsVignetteVisible then return end
 
     local widget = GetOrCreateVignetteWidget(hud)
     if not widget then return end  -- Widget creation failed, will retry next frame
@@ -263,7 +263,7 @@ local function ShowVignette(hud)
 end
 
 local function HideVignette()
-    if not IsVignetteVisible then return end  -- Already hidden
+    if not IsVignetteVisible then return end
     IsVignetteVisible = false
 
     -- Stop pulse animation
@@ -315,7 +315,6 @@ function LowHealthVignette.OnUpdateHealth(hud)
         return
     end
 
-    -- Dead = no vignette
     if healthPercent <= 0 then
         if LastBelowThreshold ~= false then
             LastBelowThreshold = false

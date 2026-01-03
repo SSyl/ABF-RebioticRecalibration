@@ -40,7 +40,6 @@ local CraftingPreviewFix = {}
 local Config = nil
 local Log = nil
 
--- Cached reference to KismetRenderingLibrary (used for render target resize)
 local KismetRenderingLibraryCache = nil
 
 -- ============================================================
@@ -90,7 +89,6 @@ function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
         end)
     end
 
-    -- Set light intensities directly
     local okLight, pointLight = pcall(function() return itemDisplay.PointLight end)
     if okLight and pointLight:IsValid() then
         pointLight:SetIntensity(lightIntensity)

@@ -103,7 +103,7 @@ end
 -- If count reaches 0, remove from cache entirely (no pads cover it anymore).
 local function DecrementInventoryRefCount(inventoryAddr)
     local currentCount = DistPadCache.inventories[inventoryAddr]
-    if not currentCount then return end  -- Already not in cache, nothing to do
+    if not currentCount then return end
 
     if currentCount > 1 then
         DistPadCache.inventories[inventoryAddr] = currentCount - 1

@@ -47,7 +47,6 @@ local Log = nil
 -- HELPER FUNCTIONS
 -- ============================================================
 
--- Resets a deployed food item's durability to max (removes visual cracks)
 local function ResetDeployedDurability(deployable)
     if not deployable or not deployable:IsValid() then return false end
 
@@ -102,7 +101,7 @@ end
 -- Only called for Deployed_Food_* classes (filtering done in main.lua)
 function FoodFix.OnBeginPlay(deployable)
     if not deployable:IsValid() then
-        Log.Debug("FoodFix.OnBeginPlay: Invalid deployable")
+        Log.Debug("Invalid deployable in OnBeginPlay")
         return
     end
 
