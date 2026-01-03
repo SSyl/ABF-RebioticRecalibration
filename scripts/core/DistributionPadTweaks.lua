@@ -62,6 +62,7 @@ local function SyncCacheFromPad(pad)
     end
 
     local newInventories = {}
+    local seenNew = {}  -- Guard against duplicate entries in AdditionalInventories
     local okRead, inventoryArray = pcall(function() return pad.AdditionalInventories end)
 
     if okRead and inventoryArray then
@@ -69,7 +70,8 @@ local function SyncCacheFromPad(pad)
             local inv = inventoryArray[i]
             if inv and inv:IsValid() then
                 local okAddr, addr = pcall(function() return inv:GetAddress() end)
-                if okAddr and addr then
+                if okAddr and addr and not seenNew[addr] then
+                    seenNew[addr] = true
                     newInventories[#newInventories + 1] = addr
                     if oldSet[addr] then
                         oldSet[addr] = nil  -- Unchanged, consume from old set
