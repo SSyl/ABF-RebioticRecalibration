@@ -63,8 +63,9 @@ return {
             -- Show an icon next to the container name
             IconEnabled = true, -- [default = true]
 
-            -- Which icon to use (see icon-list.txt for options)
-            Icon = "icon_hackingdevice", -- [default = "icon_hackingdevice"]
+            -- Which icon to use (see docs/icon-list.txt for full list)
+            -- Suggested: hackingdevice, allrecipes, container, wristwatch_compass_n, radialwheel
+            Icon = "hackingdevice", -- [default = "hackingdevice"]
 
             -- Icon color (RGB 0-255) [default = { R = 114, G = 242, B = 255 }]
             IconColor = {
@@ -73,8 +74,8 @@ return {
                 B = 255,
             },
 
-            -- Icon size in pixels [default = 32]
-            IconSize = 32,
+            -- Icon size in pixels [default = 24]
+            IconSize = 24,
 
             -- Adjust icon position relative to container name
             -- Example: { Horizontal = 10, Vertical = -5 } moves icon 10px right and 5px down

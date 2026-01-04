@@ -185,12 +185,19 @@ local function GetOrCreateDistPadIcon(widget)
     if iconName == "" then return nil end
 
     if not DistPadIconTexture then
-        local iconPath = "/Game/Textures/GUI/Icons/" .. iconName .. "." .. iconName
-        local okLoad, texture = pcall(function() return StaticFindObject(iconPath) end)
-        if okLoad and texture and texture:IsValid() then
-            DistPadIconTexture = texture
-        else
-            Log.Debug("Failed to load icon texture: %s", iconPath)
+        local searchPaths = {
+            "/Game/Textures/GUI/Icons/icon_" .. iconName .. ".icon_" .. iconName,
+            "/Game/Textures/GUI/icon_" .. iconName .. ".icon_" .. iconName,
+        }
+        for _, iconPath in ipairs(searchPaths) do
+            local okLoad, texture = pcall(function() return StaticFindObject(iconPath) end)
+            if okLoad and texture and texture:IsValid() then
+                DistPadIconTexture = texture
+                break
+            end
+        end
+        if not DistPadIconTexture then
+            Log.Debug("Failed to load icon texture: %s", iconName)
         end
     end
 
