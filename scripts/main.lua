@@ -85,6 +85,9 @@ local SCHEMA = {
     { path = "DistributionPad.Indicator.IconEnabled", type = "boolean", default = true },
     { path = "DistributionPad.Indicator.Icon", type = "string", default = "icon_hackingdevice" },
     { path = "DistributionPad.Indicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
+    { path = "DistributionPad.Indicator.IconSize", type = "number", default = 32, min = 1 },
+    { path = "DistributionPad.Indicator.IconOffset.Horizontal", type = "number", default = 0 },
+    { path = "DistributionPad.Indicator.IconOffset.Vertical", type = "number", default = 0 },
     { path = "DistributionPad.Indicator.TextEnabled", type = "boolean", default = false },
     { path = "DistributionPad.Indicator.Text", type = "string", default = "[DistPad]" },
 

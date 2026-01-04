@@ -73,6 +73,16 @@ return {
                 B = 255,
             },
 
+            -- Icon size in pixels [default = 32]
+            IconSize = 32,
+
+            -- Adjust icon position relative to container name
+            -- Example: { Horizontal = 10, Vertical = -5 } moves icon 10px right and 5px down
+            IconOffset = {
+                Horizontal = 0, -- [default = 0]
+                Vertical = 0,   -- [default = 0]
+            },
+
             -- Add text to the container name when looking at it
             TextEnabled = false, -- [default = false]
 

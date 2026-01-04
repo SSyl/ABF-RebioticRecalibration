@@ -172,10 +172,12 @@ local function GetOrCreateDistPadIcon(widget)
     if not newIcon then return nil end
 
     if slot and slot:IsValid() then
+        local offsetH = Config.Indicator.IconOffset.Horizontal
+        local offsetV = Config.Indicator.IconOffset.Vertical
         pcall(function()
             slot:SetHorizontalAlignment(1)
             slot:SetVerticalAlignment(2)
-            slot:SetPadding({ Left = -40, Top = -225, Right = 0, Bottom = 0 })
+            slot:SetPadding({ Left = -40 + offsetH, Top = -225 - offsetV, Right = 0, Bottom = 0 })
         end)
     end
 
@@ -193,9 +195,10 @@ local function GetOrCreateDistPadIcon(widget)
     end
 
     if DistPadIconTexture then
+        local size = Config.Indicator.IconSize
         pcall(function()
             newIcon:SetBrushFromTexture(DistPadIconTexture, false)
-            newIcon:SetDesiredSizeOverride({ X = 32, Y = 32 })
+            newIcon:SetDesiredSizeOverride({ X = size, Y = size })
             newIcon:SetColorAndOpacity(Config.Indicator.IconColor)
         end)
     end
