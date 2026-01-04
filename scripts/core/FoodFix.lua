@@ -50,40 +50,23 @@ local Log = nil
 local function ResetDeployedDurability(deployable)
     if not deployable or not deployable:IsValid() then return false end
 
-    local okMax, maxDur = pcall(function()
-        return deployable.MaxDurability
-    end)
+    local okMax, maxDur = pcall(function() return deployable.MaxDurability end)
     if not okMax or maxDur == nil then
         Log.Debug("Failed to get MaxDurability")
         return false
     end
 
-    local okCurrent, currentDur = pcall(function()
-        return deployable.CurrentDurability
-    end)
-
-    if okCurrent and currentDur == maxDur then
-        Log.Debug("Deployable already at max durability")
-        return false
-    end
-
-    Log.Debug("Resetting durability from %s to %s", tostring(currentDur), tostring(maxDur))
+    Log.Debug("Resetting durability to %s", tostring(maxDur))
 
     pcall(function()
         local changeableData = deployable.ChangeableData
-        if changeableData then
-            local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
-            if maxItemDur then
-                changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
-                Log.Debug("Fixed ChangeableData.CurrentItemDurability to %s", tostring(maxItemDur))
-            end
-        end
+        if not changeableData then return end
+        local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
+        if not maxItemDur then return end
+        changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
     end)
 
-    pcall(function()
-        deployable.CurrentDurability = maxDur
-    end)
-
+    pcall(function() deployable.CurrentDurability = maxDur end)
     return true
 end
 
@@ -105,58 +88,47 @@ function FoodFix.OnBeginPlay(deployable)
         return
     end
 
-    local okClass, className = pcall(function()
-        return deployable:GetClass():GetFName():ToString()
-    end)
+    local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
     Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
 
-    local okAuth, hasAuthority = pcall(function()
-        return deployable:HasAuthority()
-    end)
-
+    local okAuth, hasAuthority = pcall(function() return deployable:HasAuthority() end)
     if not okAuth then
         Log.Debug("Failed to check authority, skipping fix")
         return
     end
 
-    if hasAuthority then
-        local okLoading, isLoading = pcall(function()
-            return deployable.IsCurrentlyLoadingFromSave
-        end)
-
-        if okLoading and isLoading then
-            if not Config.FixExistingFoodOnLoad then
-                Log.Debug("Skipping - loading from save (FixExistingFoodOnLoad disabled)")
-                return
-            end
-
-            -- Poll until save loading completes
-            local function WaitForLoad(attempts)
-                if attempts > 20 then return end
-                ExecuteWithDelay(100, function()
-                    ExecuteInGameThread(function()
-                        if not deployable:IsValid() then return end
-                        local _, stillLoading = pcall(function()
-                            return deployable.IsCurrentlyLoadingFromSave
-                        end)
-                        if stillLoading then
-                            WaitForLoad(attempts + 1)
-                        else
-                            ResetDeployedDurability(deployable)
-                        end
-                    end)
-                end)
-            end
-            WaitForLoad(0)
-        else
-            ResetDeployedDurability(deployable)
-        end
-    else
+    if not hasAuthority then
         Log.Debug("Client: applying visual-only fix locally")
-        pcall(function()
-            deployable.CurrentDurability = deployable.MaxDurability
-        end)
+        pcall(function() deployable.CurrentDurability = deployable.MaxDurability end)
+        return
     end
+
+    local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
+    if okLoading and isLoading and not Config.FixExistingFoodOnLoad then
+        Log.Debug("Skipping - loading from save (FixExistingFoodOnLoad disabled)")
+        return
+    end
+
+    if okLoading and isLoading then
+        local function WaitForLoad(attempts)
+            if attempts > 20 then return end
+            ExecuteWithDelay(100, function()
+                ExecuteInGameThread(function()
+                    if not deployable:IsValid() then return end
+                    local _, stillLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
+                    if stillLoading then
+                        WaitForLoad(attempts + 1)
+                    else
+                        ResetDeployedDurability(deployable)
+                    end
+                end)
+            end)
+        end
+        WaitForLoad(0)
+        return
+    end
+
+    ResetDeployedDurability(deployable)
 end
 
 return FoodFix
