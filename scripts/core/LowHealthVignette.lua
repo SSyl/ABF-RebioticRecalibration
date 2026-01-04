@@ -315,16 +315,8 @@ function LowHealthVignette.OnUpdateHealth(hud)
         return
     end
 
-    if healthPercent <= 0 then
-        if LastBelowThreshold ~= false then
-            LastBelowThreshold = false
-            HideVignette()
-        end
-        return
-    end
-
-    -- Only update when crossing threshold, not every frame
-    local belowThreshold = healthPercent < Config.Threshold
+    -- Dead (hp <= 0) folds into belowThreshold = false, hiding vignette via state change
+    local belowThreshold = healthPercent > 0 and healthPercent < Config.Threshold
     if belowThreshold ~= LastBelowThreshold then
         LastBelowThreshold = belowThreshold
         if belowThreshold then
