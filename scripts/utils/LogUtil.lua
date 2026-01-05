@@ -1,7 +1,7 @@
 local LogUtil = {}
 
 -- CreateLogger creates a logger for a mod or feature
--- modName: Display name for log prefix (e.g., "QoL Tweaks|FoodFix")
+-- modName: Display name for log prefix (e.g., "Rebiotic Fixer|FoodFix")
 -- debugEnabled: Boolean - whether debug logging is enabled
 function LogUtil.CreateLogger(modName, debugEnabled)
     local loggedOnce = {}

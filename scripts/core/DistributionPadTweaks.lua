@@ -47,10 +47,16 @@ end
 -- Uses set difference: oldSet consumed by matches → remaining = removed, new entries = added.
 
 local function SyncCacheFromPad(pad)
-    if not pad or not pad:IsValid() then return end
+    if not pad or not pad:IsValid() then
+        Log.Debug("SyncCacheFromPad: invalid pad")
+        return
+    end
 
     local okPadAddr, padAddr = pcall(function() return pad:GetAddress() end)
-    if not okPadAddr or not padAddr then return end
+    if not okPadAddr or not padAddr then
+        Log.Debug("SyncCacheFromPad: couldn't get pad address")
+        return
+    end
 
     local padData = TrackedPads[padAddr]
     local oldInventories = (padData and padData.inventories) or {}
@@ -66,7 +72,10 @@ local function SyncCacheFromPad(pad)
     local okRead, inventoryArray = pcall(function() return pad.AdditionalInventories end)
 
     if okRead and inventoryArray then
-        for i = 1, #inventoryArray do
+        local arraySize = #inventoryArray
+        Log.Debug("SyncCacheFromPad: pad has %d inventories in AdditionalInventories", arraySize)
+
+        for i = 1, arraySize do
             local inv = inventoryArray[i]
             if inv and inv:IsValid() then
                 local okAddr, addr = pcall(function() return inv:GetAddress() end)
@@ -77,15 +86,23 @@ local function SyncCacheFromPad(pad)
                         oldSet[addr] = nil  -- Unchanged, consume from old set
                     else
                         IncrementInventoryRefCount(addr)  -- Added
+                        Log.Debug("SyncCacheFromPad: added new inventory to cache")
                     end
                 end
             end
         end
+    else
+        Log.Debug("SyncCacheFromPad: couldn't read AdditionalInventories")
     end
 
     -- Remaining in oldSet = removed
+    local removedCount = 0
     for addr in pairs(oldSet) do
         DecrementInventoryRefCount(addr)
+        removedCount = removedCount + 1
+    end
+    if removedCount > 0 then
+        Log.Debug("SyncCacheFromPad: removed %d inventories from cache", removedCount)
     end
 
     local okPos, position = pcall(function() return pad:K2_GetActorLocation() end)
@@ -95,6 +112,8 @@ local function SyncCacheFromPad(pad)
         position = okPos and position or nil,
         inventories = newInventories
     }
+
+    Log.Debug("SyncCacheFromPad: pad now tracking %d inventories (had %d)", #newInventories, #oldInventories)
 end
 
 -- Called when pad is destroyed - decrement ref counts for all its inventories
@@ -288,7 +307,15 @@ function DistributionPadTweaks.OnUpdateCompatibleContainers(Context)
     local ok, err = pcall(function()
         local pad = Context:get()
         if pad and pad:IsValid() then
+            Log.Debug("OnUpdateCompatibleContainers: syncing cache for pad")
             SyncCacheFromPad(pad)
+
+            -- Log cache state after sync
+            local invCount = 0
+            for _ in pairs(DistPadCache.inventories) do invCount = invCount + 1 end
+            local padCount = 0
+            for _ in pairs(TrackedPads) do padCount = padCount + 1 end
+            Log.Debug("OnUpdateCompatibleContainers: cache now has %d inventories, %d pads", invCount, padCount)
         end
     end)
 
@@ -301,11 +328,19 @@ end
 
 -- Called from NotifyOnNewObject in main.lua
 function DistributionPadTweaks.OnNewPadSpawned(pad)
-    if not pad:IsValid() then return end
+    Log.Debug("OnNewPadSpawned called, hook registered: %s", tostring(DistributionPadTweaks.UpdateCompatibleContainersHooked))
+
     ExecuteWithDelay(1000, function()
         ExecuteInGameThread(function()
-            if pad:IsValid() then
-                pcall(function() pad:UpdateCompatibleContainers() end)
+            if not pad:IsValid() then
+                Log.Debug("OnNewPadSpawned: pad invalid after delay")
+                return
+            end
+
+            Log.Debug("OnNewPadSpawned: calling UpdateCompatibleContainers")
+            local ok, err = pcall(function() pad:UpdateCompatibleContainers() end)
+            if not ok then
+                Log.Debug("OnNewPadSpawned: UpdateCompatibleContainers failed: %s", tostring(err))
             end
         end)
     end)
@@ -376,11 +411,12 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam
 end
 
 -- Called from OnRep_ConstructionModeActive hook in main.lua
-function DistributionPadTweaks.OnContainerConstructionComplete(Context)
+-- Detects when containers or pads finish construction (not loading from save)
+function DistributionPadTweaks.OnConstructionComplete(Context)
     local okGet, deployable = pcall(function() return Context:get() end)
     if not okGet or not deployable or not deployable:IsValid() then return end
 
-    -- Skip containers loading from save
+    -- Skip objects loading from save
     local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
     if okLoading and isLoading then return end
 
@@ -388,11 +424,21 @@ function DistributionPadTweaks.OnContainerConstructionComplete(Context)
     local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)
     if not okActive or isActive then return end
 
-    -- Filter: only containers
+    -- Check if it's a DistributionPad
+    local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
+    if okClass and className == "Deployed_DistributionPad_C" then
+        Log.Debug("OnConstructionComplete: new DistributionPad placed, calling UpdateCompatibleContainers")
+        pcall(function() deployable:UpdateCompatibleContainers() end)
+        return
+    end
+
+    -- Check if it's a Container
     local okIsContainer, isContainer = pcall(function()
         return deployable:IsA("/Game/Blueprints/DeployedObjects/Furniture/Deployed_Container_ParentBP.Deployed_Container_ParentBP_C")
     end)
     if not okIsContainer or not isContainer then return end
+
+    Log.Debug("OnConstructionComplete: new container placed, updating nearby pads")
 
     local okContainerPos, containerPos = pcall(function() return deployable:K2_GetActorLocation() end)
     if not okContainerPos then return end
@@ -416,19 +462,60 @@ function DistributionPadTweaks.OnContainerConstructionComplete(Context)
 end
 
 -- Rebuild cache on map load. Only place we call FindAllOf (expensive).
-function DistributionPadTweaks.RefreshCache()
-    ExecuteWithDelay(5000, function()
+-- UpdateCompatibleContainersHooked is set by main.lua when the hook registers
+DistributionPadTweaks.UpdateCompatibleContainersHooked = false
+
+function DistributionPadTweaks.RefreshCache(attempts)
+    attempts = attempts or 0
+
+    Log.Debug("RefreshCache called (attempt %d)", attempts + 1)
+
+    -- Longer initial delay to allow client replication
+    -- First attempt: 8 seconds to let clients fully replicate all pads
+    -- Subsequent attempts: 2.5 seconds
+    local delay = attempts == 0 and 8000 or 2500
+
+    ExecuteWithDelay(delay, function()
         ExecuteInGameThread(function()
+            Log.Debug("RefreshCache: executing after %dms delay (attempt %d)", delay, attempts + 1)
+
+            -- Wait for hook to be ready before refreshing
+            if not DistributionPadTweaks.UpdateCompatibleContainersHooked then
+                if attempts < 15 then
+                    Log.Debug("RefreshCache: waiting for hook (attempt %d/%d)", attempts + 1, 15)
+                    DistributionPadTweaks.RefreshCache(attempts + 1)
+                else
+                    Log.Debug("RefreshCache: gave up waiting for hook after %d attempts", attempts + 1)
+                end
+                return
+            end
+
+            Log.Debug("RefreshCache: hook is ready, clearing cache and finding pads")
             DistPadCache.inventories = {}
             TrackedPads = {}
 
             local allPads = FindAllOf("Deployed_DistributionPad_C")
-            if not allPads then return end
 
-            for _, pad in pairs(allPads) do
-                if pad:IsValid() then
-                    pcall(function() pad:UpdateCompatibleContainers() end)
+            -- Count valid pads
+            local padCount = 0
+            if allPads then
+                for _, pad in pairs(allPads) do
+                    if pad:IsValid() then
+                        padCount = padCount + 1
+                        Log.Debug("RefreshCache: triggering UpdateCompatibleContainers on pad %d", padCount)
+                        pcall(function() pad:UpdateCompatibleContainers() end)
+                    end
                 end
+            end
+
+            Log.Debug("RefreshCache: found %d valid pads (attempt %d)", padCount, attempts + 1)
+
+            -- Retry if no valid pads found (client replication may be delayed)
+            if padCount == 0 and attempts < 5 then
+                Log.Debug("RefreshCache: no pads found, retrying...")
+                DistributionPadTweaks.RefreshCache(attempts + 1)
+            elseif padCount == 0 then
+                Log.Debug("RefreshCache: no pads found after %d attempts, giving up", attempts + 1)
             end
         end)
     end)
