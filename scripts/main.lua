@@ -159,16 +159,58 @@ LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 -- MODULE STATE
 -- ============================================================
 
--- Hook tracking flags
-local GameStateHookFired = false
-local hookRegistered = false
+-- Hook/feature registration tracking (managed by TryRegister and manual registration)
+local HookRegistered = {
+    -- Manual hook registration
+    GameState = false,              -- Abiotic_Survival_GameState_C:ReceiveBeginPlay
+    DistActive = false,             -- Deployed_DistributionPad_C:OnRep_DistributionActive
 
--- Run-once feature registration state (managed by TryRegister)
-local Registered = {}
+    -- Feature registration (managed by TryRegister)
+    MenuTweaks = false,             -- W_MenuPopup_YesNo_C hooks (3 hooks)
+    DeployedObjects = false,        -- AbioticDeployed_ParentBP_C:ReceiveBeginPlay
+    CraftingMenuBrightness = false, -- 3D_ItemDisplay_BP_C:Set3DPreviewMesh
+    CraftingMenuResolution = false, -- One-time render target resize
+    LowHealthVignette = false,      -- W_PlayerHUD_Main_C:UpdateHealth
+    DistPadIndicator = false,       -- DistPad indicator hooks (3 hooks)
+}
+
+-- Lifecycle event tracking
+local GameStateHookFired = false
 
 -- ============================================================
 -- HOOK REGISTRATION FUNCTIONS
 -- ============================================================
+
+--- Registers a run-once feature if enabled and not already registered.
+--- State is tracked internally in the HookRegistered table.
+--- @param name string Feature/hook name (must be pre-defined in HookRegistered)
+--- @param enabled boolean Whether registration should attempt
+--- @param fn function Function that performs registration, returns true on success
+--- @param delay number|nil Optional delay in milliseconds before attempting registration
+local function TryRegister(name, enabled, fn, delay)
+    -- Validate name exists in HookRegistered (catches typos)
+    if HookRegistered[name] == nil then
+        error(string.format("TryRegister: '%s' is not defined in HookRegistered table", name))
+    end
+
+    if not enabled or HookRegistered[name] then return end
+
+    if delay and delay > 0 then
+        ExecuteWithDelay(delay, function()
+            if fn() then
+                HookRegistered[name] = true
+            else
+                Log.General.Debug("%s registration failed. Retrying on next level change...", name)
+            end
+        end)
+    else
+        if fn() then
+            HookRegistered[name] = true
+        else
+            Log.General.Debug("%s registration failed. Retrying on next level change...", name)
+        end
+    end
+end
 
 local function HookMenuTweaks()
     local ok, err = pcall(function()
@@ -240,56 +282,36 @@ local function HookLowHealthVignette()
     return true
 end
 
-local OnRepDistributionActiveHooked = false
+-- Called when first pad's BeginPlay fires - Blueprint guaranteed to be loaded
+local function RegisterDistActiveHook()
+    return TryRegister("DistActive", true, function()
+        local ok, err = pcall(function()
+            RegisterHook(
+                "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:OnRep_DistributionActive",
+                function(Context)
+                    local pad = Context:get()
+                    if not pad:IsValid() then return end
 
-local function TryRegisterOnRepDistributionActiveHook(attempts)
-    if OnRepDistributionActiveHooked then return true end
-    attempts = attempts or 0
+                    local okActive, isActive = pcall(function() return pad.DistributionActive end)
 
-    Log.DistPad.Debug("TryRegisterOnRepDistributionActiveHook: attempt %d", attempts + 1)
-
-    local ok, err = pcall(function()
-        RegisterHook(
-            "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:OnRep_DistributionActive",
-            function(Context)
-                local pad = Context:get()
-                if not pad:IsValid() then return end
-
-                local okActive, isActive = pcall(function() return pad.DistributionActive end)
-
-                -- Only sync when someone steps ON the pad (true), not when stepping OFF (false)
-                if okActive and isActive then
-                    Log.DistPad.Debug("OnRep_DistributionActive: DistributionActive = true, syncing pad")
-                    DistPadTweaks.SyncPad(pad)
-                end
-            end)
-    end)
-
-    if ok then
-        OnRepDistributionActiveHooked = true
-        Log.DistPad.Debug("OnRep_DistributionActive hook registered successfully (attempt %d)", attempts + 1)
-        return true
-    end
-
-    -- Retry with delay (500ms intervals, max 20 attempts = 10 seconds)
-    if attempts < 20 then
-        Log.DistPad.Debug("OnRep_DistributionActive hook not ready, retrying... (attempt %d)", attempts + 1)
-        ExecuteWithDelay(500, function()
-            ExecuteInGameThread(function()
-                TryRegisterOnRepDistributionActiveHook(attempts + 1)
-            end)
+                    -- Only sync when someone steps ON the pad (true), not when stepping OFF (false)
+                    if okActive and isActive then
+                        Log.DistPad.Debug("OnRep_DistributionActive: DistributionActive = true, syncing pad")
+                        DistPadTweaks.SyncPad(pad)
+                    end
+                end)
         end)
-    else
-        Log.DistPad.Error("OnRep_DistributionActive hook registration gave up after %d attempts", attempts + 1)
-    end
 
-    return false
+        if ok then
+            Log.DistPad.Debug("OnRep_DistributionActive hook registered successfully")
+        else
+            Log.DistPad.Error("OnRep_DistributionActive hook registration failed: %s", tostring(err))
+        end
+        return ok
+    end, 250) -- 250ms delay for Blueprint to fully initialize
 end
 
 local function HookDistPadIndicator()
-    -- Try immediate registration (works on host), with retry loop for clients
-    TryRegisterOnRepDistributionActiveHook()
-
     local ok, err = pcall(function()
         RegisterHook(
         "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
@@ -354,7 +376,9 @@ local function HookDeployedObjects()
 
             -- DistPad indicator detection (for newly placed or replicating pads)
             if Config.DistributionPad.Indicator.Enabled and className == "Deployed_DistributionPad_C" then
-                DistPadTweaks.OnPadBeginPlay(obj)
+                -- First pad triggers OnRep_DistributionActive hook registration (Blueprint now loaded)
+                local DistActiveHook = not HookRegistered.DistActive and RegisterDistActiveHook or nil
+                DistPadTweaks.OnPadBeginPlay(obj, DistActiveHook)
             end
         end)
     end)
@@ -370,18 +394,6 @@ end
 -- ============================================================
 -- LIFECYCLE HANDLERS
 -- ============================================================
-
---- Registers a run-once feature if enabled and not already registered.
---- State is tracked internally in the Registered table.
-local function TryRegister(name, enabled, fn)
-    if enabled and not Registered[name] then
-        if fn() then
-            Registered[name] = true
-        else
-            Log.General.Debug("%s registration failed. Retrying on next level change...", name)
-        end
-    end
-end
 
 local function OnGameState(world)
     GameStateHookFired = true
@@ -456,24 +468,24 @@ local function PollForMissedHook(attempts)
         end
 
         -- Register hook once any GameState exists (even main menu)
-        if not hookRegistered then
+        TryRegister("GameState", true, function()
             local ok = pcall(RegisterHook,
                 "/Game/Blueprints/Meta/Abiotic_Survival_GameState.Abiotic_Survival_GameState_C:ReceiveBeginPlay",
                 OnGameStateHook
             )
             if ok then
-                hookRegistered = true
-                Log.General.Debug("Hook registered")
+                Log.General.Debug("GameState hook registered")
             end
+            return ok
+        end)
 
-            -- MenuTweaks registers here (main menu) - LAN popup appears before gameplay
-            TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, HookMenuTweaks)
+        -- MenuTweaks registers here (main menu) - LAN popup appears before gameplay
+        TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, HookMenuTweaks)
 
-            -- DeployedObjects hook can register early - parent class always loaded
-            TryRegister("DeployedObjects",
-                Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled or Config.DistributionPad.Indicator.Enabled,
-                HookDeployedObjects)
-        end
+        -- DeployedObjects hook can register early - parent class always loaded
+        TryRegister("DeployedObjects",
+            Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled or Config.DistributionPad.Indicator.Enabled,
+            HookDeployedObjects)
 
         -- If already in gameplay map, handle current map manually
         local gameState = FindFirstOf("Abiotic_Survival_GameState_C")

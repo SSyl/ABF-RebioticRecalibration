@@ -314,9 +314,15 @@ end
 
 -- Called from consolidated ReceiveBeginPlay hook in main.lua (filtered to DistributionPad)
 -- Syncs each pad individually as it spawns
-function DistributionPadTweaks.OnPadBeginPlay(pad)
+-- First pad also triggers OnRep_DistributionActive hook registration (Blueprint guaranteed loaded)
+function DistributionPadTweaks.OnPadBeginPlay(pad, DistActiveHook)
     local okLoading, isLoading = pcall(function() return pad.IsCurrentlyLoadingFromSave end)
     isLoading = okLoading and isLoading or false
+
+    -- Register OnRep_DistributionActive hook now that Blueprint is loaded (one-time, passed from main.lua)
+    if DistActiveHook then
+        DistActiveHook()
+    end
 
     -- Wait for properties to replicate (longer delay if loading from save)
     ExecuteWithDelay(isLoading and 1000 or 500, function()
@@ -456,7 +462,7 @@ function DistributionPadTweaks.OnContainerConstructionComplete(Context)
             local dy = containerPos.Y - padData.position.Y
             local dz = containerPos.Z - padData.position.Z
             if dx*dx + dy*dy + dz*dz <= rangeSquared then
-                pcall(function() padData.pad:UpdateCompatibleContainers() end)
+                DistributionPadTweaks.SyncPad(padData.pad)
             end
         end
     end
