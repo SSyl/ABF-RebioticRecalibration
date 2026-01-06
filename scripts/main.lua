@@ -23,6 +23,7 @@ We register hooks at different lifecycle stages depending on what they need:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ PollForMissedHook - when GameStateBase exists (main menu or gameplay)       │
 │ - MenuTweaks hooks (LAN hosting popup appears on MainMenu)                 │
+│ - DeployedObjects hook (parent class always loaded)                        │
 └─────────────────────────────────────────────────────────────────────────────┘
          ↓
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -258,8 +259,8 @@ local function TryRegisterOnRepDistributionActiveHook(attempts)
 
                 -- Only sync when someone steps ON the pad (true), not when stepping OFF (false)
                 if okActive and isActive then
-                    Log.DistPad.Debug("OnRep_DistributionActive: DistributionActive = true, calling UpdateCompatibleContainers")
-                    pcall(function() pad:UpdateCompatibleContainers() end)
+                    Log.DistPad.Debug("OnRep_DistributionActive: DistributionActive = true, syncing pad")
+                    DistPadTweaks.SyncPad(pad)
                 end
             end)
     end)
@@ -268,55 +269,18 @@ local function TryRegisterOnRepDistributionActiveHook(attempts)
         OnRepDistributionActiveHooked = true
         Log.DistPad.Debug("OnRep_DistributionActive hook registered successfully (attempt %d)", attempts + 1)
         return true
-    else
-        Log.DistPad.Debug("OnRep_DistributionActive hook failed: %s", tostring(err))
     end
 
     -- Retry with delay (500ms intervals, max 20 attempts = 10 seconds)
     if attempts < 20 then
+        Log.DistPad.Debug("OnRep_DistributionActive hook not ready, retrying... (attempt %d)", attempts + 1)
         ExecuteWithDelay(500, function()
             ExecuteInGameThread(function()
                 TryRegisterOnRepDistributionActiveHook(attempts + 1)
             end)
         end)
     else
-        Log.DistPad.Debug("OnRep_DistributionActive hook registration gave up after %d attempts", attempts + 1)
-    end
-
-    return false
-end
-
-local function TryRegisterUpdateCompatibleContainersHook(attempts)
-    if DistPadTweaks.UpdateCompatibleContainersHooked then return true end
-    attempts = attempts or 0
-
-    Log.DistPad.Debug("TryRegisterUpdateCompatibleContainersHook: attempt %d", attempts + 1)
-
-    local ok, err = pcall(function()
-        RegisterHook(
-        "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:UpdateCompatibleContainers",
-            function(Context)
-                DistPadTweaks.OnUpdateCompatibleContainers(Context)
-            end)
-    end)
-
-    if ok then
-        DistPadTweaks.UpdateCompatibleContainersHooked = true
-        Log.DistPad.Debug("UpdateCompatibleContainers hook registered successfully (attempt %d)", attempts + 1)
-        return true
-    else
-        Log.DistPad.Debug("UpdateCompatibleContainers hook failed: %s", tostring(err))
-    end
-
-    -- Retry with delay (500ms intervals, max 20 attempts = 10 seconds)
-    if attempts < 20 then
-        ExecuteWithDelay(500, function()
-            ExecuteInGameThread(function()
-                TryRegisterUpdateCompatibleContainersHook(attempts + 1)
-            end)
-        end)
-    else
-        Log.DistPad.Debug("UpdateCompatibleContainers hook registration gave up after %d attempts", attempts + 1)
+        Log.DistPad.Error("OnRep_DistributionActive hook registration gave up after %d attempts", attempts + 1)
     end
 
     return false
@@ -324,17 +288,7 @@ end
 
 local function HookDistPadIndicator()
     -- Try immediate registration (works on host), with retry loop for clients
-    TryRegisterUpdateCompatibleContainersHook()
     TryRegisterOnRepDistributionActiveHook()
-
-    -- NotifyOnNewObject fires when pads spawn/replicate - also try registration there
-    NotifyOnNewObject("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C",
-        function(pad)
-            Log.DistPad.Debug("NotifyOnNewObject fired for DistributionPad")
-            TryRegisterUpdateCompatibleContainersHook()
-            TryRegisterOnRepDistributionActiveHook()
-            DistPadTweaks.OnNewPadSpawned(pad)
-        end)
 
     local ok, err = pcall(function()
         RegisterHook(
@@ -367,7 +321,7 @@ local function HookDistPadIndicator()
             RegisterHook(
             "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive",
                 function(Context)
-                    DistPadTweaks.OnConstructionComplete(Context)
+                    DistPadTweaks.OnContainerConstructionComplete(Context)
                 end)
         end)
         if not ok then
@@ -396,6 +350,11 @@ local function HookDeployedObjects()
 
             if Config.DistributionPad.Range.Enabled and className == "Deployed_DistributionPad_C" then
                 DistPadTweaks.OnDistPadBeginPlay(obj)
+            end
+
+            -- DistPad indicator detection (for newly placed or replicating pads)
+            if Config.DistributionPad.Indicator.Enabled and className == "Deployed_DistributionPad_C" then
+                DistPadTweaks.OnPadBeginPlay(obj)
             end
         end)
     end)
@@ -443,14 +402,8 @@ local function OnGameState(world)
 
     local isGameplayMap = not mapName:match("MainMenu")
 
-    -- MenuTweaks is registered earlier in PollForMissedHook (needs main menu)
-    TryRegister("DeployedObjects", Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled, HookDeployedObjects)
+    -- MenuTweaks and DeployedObjects registered earlier in PollForMissedHook
     TryRegister("DistPadIndicator", Config.DistributionPad.Indicator.Enabled and isGameplayMap, HookDistPadIndicator)
-
-    -- Cache refresh on every gameplay map load
-    if Config.DistributionPad.Indicator.Enabled and isGameplayMap then
-        DistPadTweaks.RefreshCache()
-    end
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -515,6 +468,11 @@ local function PollForMissedHook(attempts)
 
             -- MenuTweaks registers here (main menu) - LAN popup appears before gameplay
             TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, HookMenuTweaks)
+
+            -- DeployedObjects hook can register early - parent class always loaded
+            TryRegister("DeployedObjects",
+                Config.FoodDisplayFix.Enabled or Config.DistributionPad.Range.Enabled or Config.DistributionPad.Indicator.Enabled,
+                HookDeployedObjects)
         end
 
         -- If already in gameplay map, handle current map manually
