@@ -18,7 +18,7 @@ We hook three Blueprint functions to disable all three:
 - CountdownInputDelay: Called each tick during countdown - force to 0
 - UpdateButtonWithDelayTime: Updates button text with countdown - restore original
 
-HOOKS (registered in main.lua):
+HOOKS:
 - W_MenuPopup_YesNo_C:Construct           → OnConstruct()
 - W_MenuPopup_YesNo_C:CountdownInputDelay → OnCountdownInputDelay()
 - W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime → OnUpdateButtonWithDelayTime()
@@ -28,6 +28,7 @@ These hooks only fire when the LAN hosting popup is open (rare event).
 No per-frame overhead.
 ]]
 
+local HookUtil = require("utils/HookUtil")
 local MenuTweaks = {}
 
 -- Module state (set during Init)
@@ -61,8 +62,7 @@ local function EnablePopupButtons(popup)
 end
 
 local function ShouldSkipDelay(popup)
-    if not popup:IsValid() then return false end
-
+    -- popup is already validated by HookUtil.Register
     local ok, title = pcall(function()
         return popup.Text_Title:ToString()
     end)
@@ -77,10 +77,37 @@ end
 function MenuTweaks.Init(config, log)
     Config = config
     Log = log
-    Log.Debug("MenuTweaks initialized")
+
+    local status = Config.SkipLANHostingDelay and "Enabled" or "Disabled"
+    Log.Info("MenuTweaks - %s", status)
 end
 
--- Called from RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct") in main.lua
+-- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
+
+function MenuTweaks.RegisterPrePlayHooks()
+    return HookUtil.Register({
+        {
+            path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct",
+            callback = MenuTweaks.OnConstruct
+        },
+        {
+            path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay",
+            callback = MenuTweaks.OnCountdownInputDelay
+        },
+        {
+            path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime",
+            callback = MenuTweaks.OnUpdateButtonWithDelayTime
+        },
+    }, Log)
+end
+
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Called when popup is constructed
 function MenuTweaks.OnConstruct(popup)
     if not ShouldSkipDelay(popup) then return end
 
@@ -93,7 +120,7 @@ function MenuTweaks.OnConstruct(popup)
     EnablePopupButtons(popup)
 end
 
--- Called from RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay") in main.lua
+-- Called each tick during countdown
 function MenuTweaks.OnCountdownInputDelay(popup)
     if not ShouldSkipDelay(popup) then return end
 
@@ -105,7 +132,7 @@ function MenuTweaks.OnCountdownInputDelay(popup)
     EnablePopupButtons(popup)
 end
 
--- Called from RegisterHook("/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime") in main.lua
+-- Called when button text is updated with countdown time
 -- TextParam and OriginalTextParam are RemoteUnrealParam from the hook
 function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
     if not ShouldSkipDelay(popup) then return end

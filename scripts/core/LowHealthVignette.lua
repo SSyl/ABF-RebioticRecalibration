@@ -29,7 +29,7 @@ Pulse Animation:
   to update the widget's alpha.
 - The pulse oscillates between 40% and 100% of the base alpha.
 
-HOOKS (registered in main.lua):
+HOOKS:
 - W_PlayerHUD_Main_C:UpdateHealth → OnUpdateHealth()
 
 PERFORMANCE:
@@ -43,6 +43,8 @@ POTENTIAL OPTIMIZATION NOTES:
   if we had access to widget animation APIs.
 ]]
 
+local HookUtil = require("utils/HookUtil")
+local WidgetUtil = require("utils/WidgetUtil")
 local LowHealthVignette = {}
 
 -- Module state (set during Init)
@@ -96,40 +98,13 @@ local function GetOrCreateVignetteWidget(hud)
     end
     Log.Debug("Got parent: %s", parent:GetFullName())
 
-    -- Clone the UImage widget
-    local widgetClass = templateImage:GetClass()
-    local newWidget = StaticConstructObject(
-        widgetClass,
-        parent,
-        FName("LowHealthVignetteWidget"),
-        0, 0, false, false,
-        templateImage  -- Template parameter - copies all properties
-    )
-
-    if not newWidget or not newWidget:IsValid() then
-        Log.Debug("StaticConstructObject failed for vignette widget")
+    -- Clone widget using WidgetUtil
+    local newWidget, slot = WidgetUtil.CloneWidget(templateImage, parent, "LowHealthVignetteWidget")
+    if not newWidget then
+        Log.Debug("WidgetUtil.CloneWidget failed")
         return nil
     end
     Log.Debug("Created vignette widget: %s", newWidget:GetFullName())
-
-    -- Add to parent
-    local parentClassName = parent:GetClass():GetFName():ToString()
-    Log.Debug("Parent class: %s", parentClassName)
-
-    local okAdd, slot
-    if parentClassName == "Overlay" then
-        okAdd, slot = pcall(function() return parent:AddChildToOverlay(newWidget) end)
-    elseif parentClassName == "CanvasPanel" then
-        okAdd, slot = pcall(function() return parent:AddChildToCanvas(newWidget) end)
-    else
-        okAdd, slot = pcall(function() return parent:AddChild(newWidget) end)
-    end
-
-    if not okAdd or not slot then
-        Log.Debug("Failed to add vignette widget to parent")
-        return nil
-    end
-    Log.Debug("Added vignette widget to parent")
 
     -- Configure slot for fullscreen
     if slot and slot:IsValid() then
@@ -286,25 +261,52 @@ end
 function LowHealthVignette.Init(config, log)
     Config = config
     Log = log
-    Log.Debug("LowHealthVignette initialized (threshold: %.0f%%)", Config.Threshold * 100)
+
+    local status = Config.Enabled and "Enabled" or "Disabled"
+    Log.Info("LowHealthVignette - %s", status)
 end
 
--- Called from main.lua when returning to main menu to clean up cached widgets
+-- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
+
+function LowHealthVignette.RegisterInPlayHooks()
+    return HookUtil.Register(
+        "/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth",
+        LowHealthVignette.OnUpdateHealth,
+        Log
+    )
+end
+
+-- ============================================================
+-- LIFECYCLE
+-- ============================================================
+
+-- Called when returning to main menu to clean up cached widgets
 function LowHealthVignette.Cleanup()
     Log.Debug("Cleaning up vignette state")
+
+    -- Stop pulse animation
+    IsPulsing = false
+
+    -- TODO: Verify in LiveView that widget is destroyed when parent HUD is destroyed
+    -- Currently we only clear references, assuming UE destroys children with parent.
+    -- If widgets accumulate across map transitions, add RemoveFromParent() here.
+
     VignetteWidget = nil
     VignetteTexture = nil
     IsVignetteVisible = false
     LastBelowThreshold = nil
-    IsPulsing = false
     PulseTime = 0
 end
 
--- Called from RegisterHook("/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth") in main.lua
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Called when player health updates
 -- Widget lazy-creates on first call via ShowVignette -> GetOrCreateVignetteWidget
 function LowHealthVignette.OnUpdateHealth(hud)
-    if not hud:IsValid() then return end
-
     -- Get health percentage from the HUD's cached value
     local okHealth, healthPercent = pcall(function()
         return hud.LastHealthPercentage

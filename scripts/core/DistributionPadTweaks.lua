@@ -1,8 +1,13 @@
+local HookUtil = require("utils/HookUtil")
+local WidgetUtil = require("utils/WidgetUtil")
 local DistributionPadTweaks = {}
 
 -- Module state (set during Init)
 local Config = nil
 local Log = nil
+
+-- Late-binding hook registration flag
+local onRepHookRegistered = false
 
 -- ============================================================
 -- CACHE STATE
@@ -148,39 +153,6 @@ end
 -- ============================================================
 -- WIDGET HELPERS
 -- ============================================================
--- Clone existing widget via StaticConstructObject template param (copies all properties)
-
-local function CloneWidget(templateWidget, parent, widgetName)
-    local newWidget = StaticConstructObject(
-        templateWidget:GetClass(), parent, FName(widgetName),
-        0, 0, false, false, templateWidget
-    )
-    if not newWidget or not newWidget:IsValid() then
-        Log.Debug("StaticConstructObject failed for %s", widgetName)
-        return nil
-    end
-
-    local parentClass = parent:GetClass():GetFName():ToString()
-    local ok, slot
-    if parentClass == "Overlay" then
-        ok, slot = pcall(function() return parent:AddChildToOverlay(newWidget) end)
-    elseif parentClass == "HorizontalBox" then
-        ok, slot = pcall(function() return parent:AddChildToHorizontalBox(newWidget) end)
-    elseif parentClass == "VerticalBox" then
-        ok, slot = pcall(function() return parent:AddChildToVerticalBox(newWidget) end)
-    elseif parentClass == "CanvasPanel" then
-        ok, slot = pcall(function() return parent:AddChildToCanvas(newWidget) end)
-    else
-        ok, slot = pcall(function() return parent:AddChild(newWidget) end)
-    end
-
-    if not ok or not slot then
-        Log.Debug("Failed to add %s to %s", widgetName, parentClass)
-        return nil
-    end
-
-    return newWidget, slot
-end
 
 -- Lazily create icon widget by cloning RadioactiveIcon, cached until Cleanup()
 local function GetOrCreateDistPadIcon(widget)
@@ -199,8 +171,11 @@ local function GetOrCreateDistPadIcon(widget)
         return nil
     end
 
-    local newIcon, slot = CloneWidget(radioactiveIcon, parent, "DistPadIcon")
-    if not newIcon then return nil end
+    local newIcon, slot = WidgetUtil.CloneWidget(radioactiveIcon, parent, "DistPadIcon")
+    if not newIcon then
+        Log.Debug("WidgetUtil.CloneWidget failed for DistPadIcon")
+        return nil
+    end
 
     if slot and slot:IsValid() then
         local offsetH = Config.Indicator.IconOffset.Horizontal
@@ -298,10 +273,88 @@ end
 function DistributionPadTweaks.Init(config, log)
     Config = config
     Log = log
+
+    local anyEnabled = Config.Range.Enabled or Config.Indicator.Enabled
+    local status = anyEnabled and "Enabled" or "Disabled"
+    Log.Info("DistPadTweaks - %s", status)
 end
 
--- Called from consolidated ReceiveBeginPlay hook in main.lua (filtered to DistributionPad)
--- Adjusts pad range if enabled
+-- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
+
+-- Register hooks that must exist before gameplay starts (catches objects loading from save)
+function DistributionPadTweaks.RegisterPrePlayHooks()
+    Log.Debug("RegisterPrePlayHooks called")
+
+    -- Register to ReceiveBeginPlay for pads (both range and indicator features)
+    if Config.Range.Enabled or Config.Indicator.Enabled then
+        return HookUtil.RegisterABFDeployedReceiveBeginPlay(
+            "Deployed_DistributionPad_C",
+            DistributionPadTweaks.OnPadReceiveBeginPlay,
+            Log
+        )
+    end
+
+    return true
+end
+
+-- Register hooks for active gameplay (HUD, interactions)
+function DistributionPadTweaks.RegisterInPlayHooks()
+    Log.Debug("RegisterInPlayHooks called")
+    local success = true
+
+    -- Indicator feature hooks (gameplay only)
+    if Config.Indicator.Enabled then
+        success = HookUtil.Register({
+            {
+                path = "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
+                callback = DistributionPadTweaks.OnReceiveEndPlay
+            },
+            {
+                path = "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
+                callback = function(widget, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
+                                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
+                                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+                    DistributionPadTweaks.OnUpdateInteractionPrompts(widget, HitActorParam)
+                end
+            },
+        }, Log) and success
+
+        -- Optional: refresh on container construction
+        if Config.Indicator.RefreshOnBuiltContainer then
+            success = HookUtil.Register(
+                "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive",
+                DistributionPadTweaks.OnContainerConstructionComplete,
+                Log
+            ) and success
+        end
+    end
+
+    Log.Debug("RegisterInPlayHooks complete (success: %s)", tostring(success))
+    return success
+end
+
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Consolidated callback for pad BeginPlay (handles both range and indicator features)
+function DistributionPadTweaks.OnPadReceiveBeginPlay(pad)
+    Log.Debug("OnPadReceiveBeginPlay fired")
+
+    -- Range feature
+    if Config.Range.Enabled then
+        DistributionPadTweaks.OnDistPadBeginPlay(pad)
+    end
+
+    -- Indicator feature
+    if Config.Indicator.Enabled then
+        DistributionPadTweaks.OnPadBeginPlay(pad)
+    end
+end
+
+-- Adjusts pad range if enabled (Range feature)
 function DistributionPadTweaks.OnDistPadBeginPlay(pad)
     if not pad:IsValid() or not Config.Range.Enabled then return end
 
@@ -312,16 +365,22 @@ function DistributionPadTweaks.OnDistPadBeginPlay(pad)
     end
 end
 
--- Called from consolidated ReceiveBeginPlay hook in main.lua (filtered to DistributionPad)
--- Syncs each pad individually as it spawns
+-- Syncs each pad individually as it spawns (Indicator feature)
 -- First pad also triggers OnRep_DistributionActive hook registration (Blueprint guaranteed loaded)
-function DistributionPadTweaks.OnPadBeginPlay(pad, DistActiveHook)
+function DistributionPadTweaks.OnPadBeginPlay(pad)
     local okLoading, isLoading = pcall(function() return pad.IsCurrentlyLoadingFromSave end)
     isLoading = okLoading and isLoading or false
 
-    -- Register OnRep_DistributionActive hook now that Blueprint is loaded (one-time, passed from main.lua)
-    if DistActiveHook then
-        DistActiveHook()
+    -- Register OnRep_DistributionActive hook when first pad spawns (Blueprint now loaded)
+    if not onRepHookRegistered then
+        onRepHookRegistered = true
+        ExecuteWithDelay(250, function()
+            HookUtil.Register(
+                "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:OnRep_DistributionActive",
+                DistributionPadTweaks.OnRepDistributionActive,
+                Log
+            )
+        end)
     end
 
     -- Wait for properties to replicate (longer delay if loading from save)
@@ -334,7 +393,18 @@ function DistributionPadTweaks.OnPadBeginPlay(pad, DistActiveHook)
     end)
 end
 
--- Public wrapper to sync a single pad's cache (called from main.lua)
+-- Called when pad's DistributionActive property replicates (late-bound hook)
+function DistributionPadTweaks.OnRepDistributionActive(pad)
+    local okActive, isActive = pcall(function() return pad.DistributionActive end)
+
+    -- Only sync when someone steps ON the pad (true), not when stepping OFF (false)
+    if okActive and isActive then
+        Log.Debug("OnRep_DistributionActive: DistributionActive = true, syncing pad")
+        DistributionPadTweaks.SyncPad(pad)
+    end
+end
+
+-- Syncs a single pad's cache
 -- TODO: Add HasAuthority check to skip UpdateCompatibleContainers on host (already called by native game)
 function DistributionPadTweaks.SyncPad(pad)
     if not pad:IsValid() then return end
@@ -361,11 +431,8 @@ function DistributionPadTweaks.SyncPad(pad)
     end
 end
 
--- Called from ReceiveEndPlay hook in main.lua
-function DistributionPadTweaks.OnReceiveEndPlay(Context)
-    local okActor, actor = pcall(function() return Context:get() end)
-    if not okActor or not actor or not actor:IsValid() then return end
-
+-- Called from ReceiveEndPlay hook
+function DistributionPadTweaks.OnReceiveEndPlay(actor)
     local okAddr, addr = pcall(function() return actor:GetAddress() end)
     if okAddr and addr and TrackedPads[addr] then
         PurgePadFromCache(actor)
@@ -373,10 +440,7 @@ function DistributionPadTweaks.OnReceiveEndPlay(Context)
 end
 
 -- Per-frame hook: O(1) cache lookup instead of O(pads). Caches last actor to skip repeat lookups.
-function DistributionPadTweaks.OnUpdateInteractionPrompts(Context, HitActorParam)
-    local widget = Context:get()
-    if not widget or not widget:IsValid() then return end
-
+function DistributionPadTweaks.OnUpdateInteractionPrompts(widget, HitActorParam)
     local okHitActor, hitActor = pcall(function() return HitActorParam:get() end)
     if not okHitActor or not hitActor or not hitActor:IsValid() then
         InteractionPromptCache.lastActorAddr = nil
@@ -428,10 +492,7 @@ end
 -- Called from OnRep_ConstructionModeActive hook in main.lua
 -- Detects when containers finish construction (not loading from save)
 -- Updates nearby pads to include the new container in their cache
-function DistributionPadTweaks.OnContainerConstructionComplete(Context)
-    local okGet, deployable = pcall(function() return Context:get() end)
-    if not okGet or not deployable or not deployable:IsValid() then return end
-
+function DistributionPadTweaks.OnContainerConstructionComplete(deployable)
     -- Checking if this is really needed, as shouldn't ever finish building while loading from save.
     -- Skip objects loading from save
     -- local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
@@ -479,6 +540,10 @@ function DistributionPadTweaks.Cleanup()
     TextBlockCache.widgetAddr = nil
     TextBlockCache.textBlock = nil
     DistPadIconTexture = nil
+
+    -- TODO: Verify in LiveView that icon widget is destroyed when parent HUD is destroyed
+    -- Currently we only clear references, assuming UE destroys children with parent.
+    -- If widgets accumulate across map transitions, add RemoveFromParent() here.
     DistPadIconWidget = nil
 end
 

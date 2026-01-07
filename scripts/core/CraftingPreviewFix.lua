@@ -22,11 +22,11 @@ Resolution Fix:
 - The render target texture (3DItem_RenderTarget) is 512x512 in vanilla.
 - We use KismetRenderingLibrary:ResizeRenderTarget2D to resize it to the
   configured resolution (default 1024, must be power of 2).
-- This is a one-time fix applied at InitGameStatePostHook.
+- This is a one-time fix applied at OnGameState.
 
-HOOKS (registered in main.lua):
+HOOKS:
 - 3D_ItemDisplay_BP_C:Set3DPreviewMesh → OnSet3DPreviewMesh() [brightness]
-- InitGameStatePostHook → ApplyResolutionFix() [resolution, one-time]
+- ApplyResolutionFix() called directly by main.lua [resolution, one-time]
 
 PERFORMANCE:
 - Brightness: Fires when preview item changes (user scrolls crafting menu)
@@ -34,6 +34,7 @@ PERFORMANCE:
 Both are infrequent, no per-frame overhead.
 ]]
 
+local HookUtil = require("utils/HookUtil")
 local CraftingPreviewFix = {}
 
 -- Module state (set during Init)
@@ -68,13 +69,31 @@ end
 function CraftingPreviewFix.Init(config, log)
     Config = config
     Log = log
-    Log.Debug("CraftingPreviewFix initialized")
+
+    local anyEnabled = Config.Brightness.Enabled or Config.Resolution.Enabled
+    local status = anyEnabled and "Enabled" or "Disabled"
+    Log.Info("CraftingPreviewFix - %s", status)
 end
 
--- Called from RegisterHook("/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh") in main.lua
-function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
-    if not itemDisplay:IsValid() then return end
+-- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
 
+function CraftingPreviewFix.RegisterInPlayHooks()
+    return HookUtil.Register(
+        "/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh",
+        CraftingPreviewFix.OnSet3DPreviewMesh,
+        Log
+    )
+end
+
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Called when crafting preview item changes
+function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
+    -- itemDisplay is already validated by HookUtil.Register
     local lightIntensity = Config.Brightness.LightIntensity
 
     -- Disable auto-exposure so light changes actually take effect

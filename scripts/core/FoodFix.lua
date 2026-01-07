@@ -29,14 +29,15 @@ The FixExistingFoodOnLoad config controls whether we fix food that was placed
 in a previous session. If enabled, we poll until IsCurrentlyLoadingFromSave
 becomes false before applying the fix.
 
-HOOKS (registered in main.lua via consolidated ReceiveBeginPlay hook):
+HOOKS:
 - AbioticDeployed_ParentBP_C:ReceiveBeginPlay → OnBeginPlay()
-  (only called for classes matching "Deployed_Food_*")
+  (filtered to classes matching "^Deployed_Food_")
 
 PERFORMANCE:
 Only fires when food is placed or loaded - not per-frame.
 ]]
 
+local HookUtil = require("utils/HookUtil")
 local FoodFix = {}
 
 -- Module state (set during Init)
@@ -77,17 +78,29 @@ end
 function FoodFix.Init(config, log)
     Config = config
     Log = log
-    Log.Debug("FoodFix initialized")
+
+    local status = Config.Enabled and "Enabled" or "Disabled"
+    Log.Info("FoodFix - %s", status)
 end
 
--- Called from consolidated RegisterHook("/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay") in main.lua
--- Only called for Deployed_Food_* classes (filtering done in main.lua)
-function FoodFix.OnBeginPlay(deployable)
-    if not deployable:IsValid() then
-        Log.Debug("Invalid deployable in OnBeginPlay")
-        return
-    end
+-- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
 
+function FoodFix.RegisterPrePlayHooks()
+    return HookUtil.RegisterABFDeployedReceiveBeginPlay(
+        "^Deployed_Food_",  -- Match any food deployable
+        FoodFix.OnBeginPlay,
+        Log
+    )
+end
+
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Called when food deployable spawns (placed or loaded from save)
+function FoodFix.OnBeginPlay(deployable)
     local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
     Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
 
