@@ -139,7 +139,7 @@ local function TryRegister(name, enabled, fn)
     if fn() then
         HookRegistered[name] = true
     else
-        Log.General.Debug("%s registration failed. Retrying on next level change...", name)
+        Log.General.Debug("%s registration failed (Blueprint not loaded yet). Will retry on next map load.", name)
     end
 end
 
