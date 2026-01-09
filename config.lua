@@ -126,6 +126,16 @@ return {
     },
 
     -- ============================================================
+    -- Flashlight Flicker
+    -- Disables flashlight flicker during ambient earthquakes
+    -- ============================================================
+    FlashlightFlicker = {
+        -- Prevents flashlight from flickering during earthquakes while keeping
+        -- camera shake/audio. Reaper disruption flicker still works as a warning.
+        Enabled = true, -- [default = true]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -136,5 +146,6 @@ return {
         CraftingMenu = true,
         DistributionPad = true,
         LowHealthVignette = true,
+        FlashlightFlicker = false, -- Debug logging for flashlight flicker feature
     },
 }

@@ -58,6 +58,9 @@ local SCHEMA = {
     { path = "LowHealthVignette.Color", type = "color", default = { R = 128, G = 0, B = 0, A = 0.3 } },
     { path = "LowHealthVignette.PulseEnabled", type = "boolean", default = true },
 
+    -- FlashlightFlicker
+    { path = "FlashlightFlicker.Enabled", type = "boolean", default = true },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -65,6 +68,7 @@ local SCHEMA = {
     { path = "DebugFlags.CraftingMenu", type = "boolean", default = false },
     { path = "DebugFlags.DistributionPad", type = "boolean", default = false },
     { path = "DebugFlags.LowHealthVignette", type = "boolean", default = false },
+    { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -84,6 +88,7 @@ local FoodFix = require("core/FoodFix")
 local CraftingPreviewFix = require("core/CraftingPreviewFix")
 local DistPadTweaks = require("core/DistributionPadTweaks")
 local LowHealthVignette = require("core/LowHealthVignette")
+local FlashlightFlicker = require("core/FlashlightFlicker")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -92,6 +97,7 @@ local Log = {
     CraftingMenu = LogUtil.CreateLogger("Rebiotic Fixer|CraftingMenu", Config.DebugFlags.CraftingMenu),
     DistPad = LogUtil.CreateLogger("Rebiotic Fixer|DistPad", Config.DebugFlags.DistributionPad),
     LowHealthVignette = LogUtil.CreateLogger("Rebiotic Fixer|LowHealthVignette", Config.DebugFlags.LowHealthVignette),
+    FlashlightFlicker = LogUtil.CreateLogger("Rebiotic Fixer|FlashlightFlicker", Config.DebugFlags.FlashlightFlicker),
 }
 
 -- Initialize feature modules
@@ -100,6 +106,7 @@ FoodFix.Init(Config.FoodDisplayFix, Log.FoodFix)
 CraftingPreviewFix.Init(Config.CraftingMenu, Log.CraftingMenu)
 DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
 LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
+FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
 
 -- ============================================================
 -- MODULE STATE
@@ -115,6 +122,7 @@ local HookRegistered = {
     LowHealthVignette = false,
     DistPadTweaksPrePlay = false,   -- DistPad early registration (catches objects from save)
     DistPadTweaks = false,          -- DistPad standard registration (gameplay hooks)
+    FlashlightFlicker = false,      -- Disable ambient flashlight flicker
 }
 
 -- Lifecycle event tracking
@@ -157,6 +165,7 @@ local function OnGameState(world)
     TryRegister("CraftingMenuResolution", Config.CraftingMenu.Resolution.Enabled, CraftingPreviewFix.ApplyResolutionFix)
     TryRegister("LowHealthVignette", Config.LowHealthVignette.Enabled, LowHealthVignette.RegisterInPlayHooks)
     TryRegister("DistPadTweaks", Config.DistributionPad.Indicator.Enabled, DistPadTweaks.RegisterInPlayHooks)
+    TryRegister("FlashlightFlicker", Config.FlashlightFlicker.Enabled, FlashlightFlicker.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
