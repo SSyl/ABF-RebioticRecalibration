@@ -61,6 +61,12 @@ local SCHEMA = {
     -- FlashlightFlicker
     { path = "FlashlightFlicker.Enabled", type = "boolean", default = true },
 
+    -- AutoJumpCrouch
+    { path = "AutoJumpCrouch.Enabled", type = "boolean", default = false },
+    { path = "AutoJumpCrouch.Delay", type = "number", default = 50, min = 0, max = 1000 },
+    { path = "AutoJumpCrouch.ClearSprintOnJump", type = "boolean", default = true },
+    { path = "AutoJumpCrouch.DisableAutoUncrouch", type = "boolean", default = false },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -69,6 +75,7 @@ local SCHEMA = {
     { path = "DebugFlags.DistributionPad", type = "boolean", default = false },
     { path = "DebugFlags.LowHealthVignette", type = "boolean", default = false },
     { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
+    { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -89,6 +96,7 @@ local CraftingPreviewFix = require("core/CraftingPreviewFix")
 local DistPadTweaks = require("core/DistributionPadTweaks")
 local LowHealthVignette = require("core/LowHealthVignette")
 local FlashlightFlicker = require("core/FlashlightFlicker")
+local AutoJumpCrouch = require("core/AutoJumpCrouch")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -98,6 +106,7 @@ local Log = {
     DistPad = LogUtil.CreateLogger("Rebiotic Fixer|DistPad", Config.DebugFlags.DistributionPad),
     LowHealthVignette = LogUtil.CreateLogger("Rebiotic Fixer|LowHealthVignette", Config.DebugFlags.LowHealthVignette),
     FlashlightFlicker = LogUtil.CreateLogger("Rebiotic Fixer|FlashlightFlicker", Config.DebugFlags.FlashlightFlicker),
+    AutoJumpCrouch = LogUtil.CreateLogger("Rebiotic Fixer|AutoJumpCrouch", Config.DebugFlags.AutoJumpCrouch),
 }
 
 -- Initialize feature modules
@@ -107,6 +116,7 @@ CraftingPreviewFix.Init(Config.CraftingMenu, Log.CraftingMenu)
 DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
 LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
+AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
 
 -- ============================================================
 -- MODULE STATE
@@ -120,9 +130,10 @@ local HookRegistered = {
     CraftingMenuBrightness = false,
     CraftingMenuResolution = false,
     LowHealthVignette = false,
-    DistPadTweaksPrePlay = false,   -- DistPad early registration (catches objects from save)
-    DistPadTweaks = false,          -- DistPad standard registration (gameplay hooks)
-    FlashlightFlicker = false,      -- Disable ambient flashlight flicker
+    DistPadTweaksPrePlay = false,
+    DistPadTweaks = false,
+    FlashlightFlicker = false,
+    AutoJumpCrouch = false,
 }
 
 -- Lifecycle event tracking
@@ -166,6 +177,7 @@ local function OnGameState(world)
     TryRegister("LowHealthVignette", Config.LowHealthVignette.Enabled, LowHealthVignette.RegisterInPlayHooks)
     TryRegister("DistPadTweaks", Config.DistributionPad.Indicator.Enabled, DistPadTweaks.RegisterInPlayHooks)
     TryRegister("FlashlightFlicker", Config.FlashlightFlicker.Enabled, FlashlightFlicker.RegisterInPlayHooks)
+    TryRegister("AutoJumpCrouch", Config.AutoJumpCrouch.Enabled, AutoJumpCrouch.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -194,6 +206,10 @@ RegisterInitGameStatePreHook(function(Context)
     if Config.DistributionPad.Indicator.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up DistPad cache and widgets")
         DistPadTweaks.Cleanup()
+    end
+    if Config.AutoJumpCrouch.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up AutoJumpCrouch state")
+        AutoJumpCrouch.Cleanup()
     end
 end)
 

@@ -20,7 +20,7 @@ return {
 
         -- When enabled, retroactively fixes existing placed food when loading a save
         -- If false, only newly placed food is fixed
-        FixExistingFoodOnLoad = false, -- [default = false]
+        FixExistingFoodOnLoad = true, -- [default = false]
     },
 
     -- ============================================================
@@ -130,9 +130,31 @@ return {
     -- Disables flashlight flicker during ambient earthquakes
     -- ============================================================
     FlashlightFlicker = {
-        -- Prevents flashlight from flickering during earthquakes while keeping
-        -- camera shake/audio. Reaper disruption flicker still works as a warning.
+        -- Prevents flashlight from flickering during earthquakes while keeping camera shake/audio.
+        -- Other causes of flashlight flickering (like from enemies) will still happen.
         Enabled = true, -- [default = true]
+    },
+
+    -- ============================================================
+    -- Auto Jump-Crouch
+    -- Automatically crouches during jumps for extra height/distance
+    -- ============================================================
+    AutoJumpCrouch = {
+        -- Automatically crouch mid-air during jumps for extra height
+        Enabled = false, -- [default = false]
+
+        -- Delay in milliseconds before crouching after jump starts
+        -- Adjust if crouch feels too early or too late (0-1000ms)
+        Delay = 50, -- [default = 50]
+
+        -- Stop sprinting when mid-jump
+        -- Useful if you have toggle-sprint enabled (otherwise sprint+jump prevents crouch)
+        -- Note: Stopping sprint mid air doesn't slow you down. It just stops you from crouching.
+        ClearSprintOnJump = true, -- [default = true]
+
+        -- Disable auto-uncrouch on landing (manage crouch manually)
+        -- Mod automatically uncrouches when you land. Set this to true to stay crouched after landing.
+        DisableAutoUncrouch = false, -- [default = false]
     },
 
     -- ============================================================
@@ -147,5 +169,6 @@ return {
         DistributionPad = false,
         LowHealthVignette = false,
         FlashlightFlicker = false,
+        AutoJumpCrouch = false,
     },
 }
