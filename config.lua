@@ -140,12 +140,12 @@ return {
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
     DebugFlags = {
-        Misc = true, -- Debug logging for main.lua (hook registration, cleanup, etc.)
-        MenuTweaks = true,
-        FoodDisplayFix = true,
-        CraftingMenu = true,
-        DistributionPad = true,
-        LowHealthVignette = true,
-        FlashlightFlicker = false, -- Debug logging for flashlight flicker feature
+        Misc = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
+        MenuTweaks = false,
+        FoodDisplayFix = false,
+        CraftingMenu = false,
+        DistributionPad = false,
+        LowHealthVignette = false,
+        FlashlightFlicker = false,
     },
 }
