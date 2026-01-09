@@ -35,6 +35,7 @@ local cachedPlayerPawn = nil
 
 -- State tracking
 local hasAmbientDebuff = false
+local hasReaperDebuff = false
 
 -- ============================================================
 -- CORE LOGIC
@@ -48,19 +49,23 @@ function FlashlightFlicker.Init(config, log)
     Log.Info("FlashlightFlicker - %s", status)
 end
 
--- Helper to get/refresh cached player pawn, optionally validating against an actor
+function FlashlightFlicker.Cleanup()
+    -- Reset state flags on respawn/zone transition
+    hasAmbientDebuff = false
+    hasReaperDebuff = false
+    cachedPlayerPawn = nil
+
+    Log.Debug("FlashlightFlicker state cleaned up")
+end
+
+-- Helper to get/refresh cached player pawn and validate against an actor
 local function GetLocalPlayer(actor)
     -- Refresh cache if needed
     if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then
         cachedPlayerPawn = UEHelpers.GetPlayer()
     end
 
-    -- If no actor provided, just return cached player
-    if not actor then
-        return cachedPlayerPawn
-    end
-
-    -- If actor provided, validate and compare addresses
+    -- Validate actor is the local player
     if not actor:IsValid() then return nil end
     if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then return nil end
 
@@ -104,6 +109,19 @@ function FlashlightFlicker.OnBuffReceived(buffComponent, BuffRowHandleParam)
     local okRowName, rowName = pcall(function() return buffHandle.RowName:ToString() end)
     if not okRowName then return end
 
+    -- Track reaper disruption (critical warning - takes priority)
+    if rowName == "Debuff_Disruption" then
+        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
+        if not okOwner then return end
+
+        local player = GetLocalPlayer(owner)
+        if not player then return end
+
+        hasReaperDebuff = true
+        Log.Debug("Reaper disruption detected - allowing flicker")
+    end
+
+    -- Track ambient earthquake disruption
     if rowName == "Debuff_QuakeDisruption" then
         local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
         if not okOwner then return end
@@ -112,21 +130,23 @@ function FlashlightFlicker.OnBuffReceived(buffComponent, BuffRowHandleParam)
         if not player then return end
 
         hasAmbientDebuff = true
-        Log.Debug("Ambient earthquake debuff applied - stopping timeline")
 
-        pcall(function()
-            player.LightFlickerEnabled = false
+        -- Only stop timeline if no reaper is present (reaper takes priority)
+        if not hasReaperDebuff then
+            Log.Debug("Ambient earthquake - stopping timeline")
+            pcall(function()
+                -- Stop the timeline directly
+                local timeline = player.FlashlightFlickerTimeline
+                if timeline and timeline:IsValid() then
+                    timeline:Stop()
+                end
 
-            -- Stop the timeline directly
-            local timeline = player.FlashlightFlickerTimeline
-            if timeline and timeline:IsValid() then
-                timeline:Stop()
-                Log.Debug("Stopped FlashlightFlickerTimeline")
-            end
-
-            -- Reset alpha to 1.0 (no flicker)
-            player.Light_FlickerAlpha = 1.0
-        end)
+                -- Reset alpha to 1.0 (no flicker)
+                player.Light_FlickerAlpha = 1.0
+            end)
+        else
+            Log.Debug("Reaper active - not stopping timeline")
+        end
     end
 end
 
@@ -138,6 +158,19 @@ function FlashlightFlicker.OnBuffRemoved(buffComponent, BuffRowHandleParam)
     local okRowName, rowName = pcall(function() return buffHandle.RowName:ToString() end)
     if not okRowName then return end
 
+    -- Clear reaper disruption flag
+    if rowName == "Debuff_Disruption" then
+        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
+        if not okOwner then return end
+
+        local player = GetLocalPlayer(owner)
+        if not player then return end
+
+        hasReaperDebuff = false
+        Log.Debug("Reaper disruption removed")
+    end
+
+    -- Clear ambient earthquake flag
     if rowName == "Debuff_QuakeDisruption" then
         local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
         if not okOwner then return end
@@ -146,15 +179,11 @@ function FlashlightFlicker.OnBuffRemoved(buffComponent, BuffRowHandleParam)
         if not player then return end
 
         hasAmbientDebuff = false
-        Log.Debug("Ambient earthquake debuff removed - re-enabling flicker")
-
-        pcall(function()
-            player.LightFlickerEnabled = true
-        end)
+        Log.Debug("Ambient earthquake debuff removed")
     end
 end
 
--- Block flicker if caused by ambient earthquake
+-- Block flicker if caused by ambient earthquake (unless reaper is present)
 function FlashlightFlicker.OnToggleFlickering(player, StartParam)
     local okStart, start = pcall(function() return StartParam:get() end)
     if not okStart then return end
@@ -165,13 +194,17 @@ function FlashlightFlicker.OnToggleFlickering(player, StartParam)
     local cachedPlayer = GetLocalPlayer(player)
     if not cachedPlayer then return end
 
-    -- If ambient earthquake debuff is active, block the flicker
+    -- Reaper takes priority - always allow reaper flicker
+    if hasReaperDebuff then
+        Log.Debug("Allowed flicker (reaper warning)")
+        return
+    end
+
+    -- Block ambient earthquake flicker only if no reaper is present
     if hasAmbientDebuff then
         Log.Debug("Blocked ambient earthquake flicker - stopping timeline")
 
         pcall(function()
-            cachedPlayer.LightFlickerEnabled = false
-
             -- Stop timeline if it's running
             local timeline = cachedPlayer.FlashlightFlickerTimeline
             if timeline and timeline:IsValid() then
@@ -181,13 +214,11 @@ function FlashlightFlicker.OnToggleFlickering(player, StartParam)
             -- Reset alpha to 1.0
             cachedPlayer.Light_FlickerAlpha = 1.0
         end)
-
-        StartParam:set(false)
         return
     end
 
-    -- Allow flicker for reapers and any other sources
-    Log.Debug("Allowed flicker (reaper or other threat)")
+    -- Allow flicker for any other sources
+    Log.Debug("Allowed flicker (other threat)")
 end
 
 return FlashlightFlicker

@@ -187,6 +187,10 @@ RegisterInitGameStatePreHook(function(Context)
         Log.General.Debug("InitGameStatePRE: Cleaning up vignette")
         LowHealthVignette.Cleanup()
     end
+    if Config.FlashlightFlicker.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up flashlight flicker state")
+        FlashlightFlicker.Cleanup()
+    end
     if Config.DistributionPad.Indicator.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up DistPad cache and widgets")
         DistPadTweaks.Cleanup()
