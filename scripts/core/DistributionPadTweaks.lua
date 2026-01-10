@@ -283,7 +283,7 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
--- Register hooks that must exist before gameplay starts (catches objects loading from save)
+-- Register hooks that must exist before gameplay starts
 function DistributionPadTweaks.RegisterPrePlayHooks()
     Log.Debug("RegisterPrePlayHooks called")
 
@@ -383,7 +383,7 @@ function DistributionPadTweaks.OnPadBeginPlay(pad)
         end)
     end
 
-    -- Wait for properties to replicate (longer delay if loading from save)
+    -- Wait for properties to replicate (longer delay if IsCurrentlyLoadingFromSave is true)
     ExecuteWithDelay(isLoading and 1000 or 500, function()
         ExecuteInGameThread(function()
             if not pad:IsValid() then return end
@@ -490,13 +490,15 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(widget, HitActorParam)
 end
 
 -- Called from OnRep_ConstructionModeActive hook in main.lua
--- Detects when containers finish construction (not loading from save)
+-- Detects when containers finish construction
 -- Updates nearby pads to include the new container in their cache
 function DistributionPadTweaks.OnContainerConstructionComplete(deployable)
-    -- Checking if this is really needed, as shouldn't ever finish building while loading from save.
-    -- Skip objects loading from save
-    -- local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
-    -- if okLoading and isLoading then return end
+    -- Skip if IsCurrentlyLoadingFromSave (shouldn't happen, but let's verify)
+    local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
+    if okLoading and isLoading then
+        Log.Debug("Skipping container construction - IsCurrentlyLoadingFromSave == true")
+        return
+    end
 
     -- Only trigger when construction COMPLETES (ConstructionModeActive becomes false)
     local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)

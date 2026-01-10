@@ -99,7 +99,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called when food deployable spawns (placed or loaded from save)
+-- Called when food deployable spawns (ReceiveBeginPlay hook)
 function FoodFix.OnBeginPlay(deployable)
     local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
     Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
@@ -118,7 +118,7 @@ function FoodFix.OnBeginPlay(deployable)
 
     local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
     if okLoading and isLoading and not Config.FixExistingFoodOnLoad then
-        Log.Debug("Skipping - loading from save (FixExistingFoodOnLoad disabled)")
+        Log.Debug("Skipping - IsCurrentlyLoadingFromSave=true and FixExistingFoodOnLoad disabled")
         return
     end
 
