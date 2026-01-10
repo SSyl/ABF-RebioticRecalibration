@@ -68,6 +68,9 @@ local SCHEMA = {
     { path = "AutoJumpCrouch.SkipIfJumpHeld", type = "boolean", default = true },
     { path = "AutoJumpCrouch.DisableAutoUncrouch", type = "boolean", default = false },
 
+    -- VehicleLights
+    { path = "VehicleLights.Enabled", type = "boolean", default = true },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -77,6 +80,7 @@ local SCHEMA = {
     { path = "DebugFlags.LowHealthVignette", type = "boolean", default = false },
     { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
     { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
+    { path = "DebugFlags.VehicleLights", type = "boolean", default = true },
 }
 
 local UserConfig = require("../config")
@@ -98,6 +102,7 @@ local DistPadTweaks = require("core/DistributionPadTweaks")
 local LowHealthVignette = require("core/LowHealthVignette")
 local FlashlightFlicker = require("core/FlashlightFlicker")
 local AutoJumpCrouch = require("core/AutoJumpCrouch")
+local VehicleLights = require("core/VehicleLights")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -108,6 +113,7 @@ local Log = {
     LowHealthVignette = LogUtil.CreateLogger("Rebiotic Fixer|LowHealthVignette", Config.DebugFlags.LowHealthVignette),
     FlashlightFlicker = LogUtil.CreateLogger("Rebiotic Fixer|FlashlightFlicker", Config.DebugFlags.FlashlightFlicker),
     AutoJumpCrouch = LogUtil.CreateLogger("Rebiotic Fixer|AutoJumpCrouch", Config.DebugFlags.AutoJumpCrouch),
+    VehicleLights = LogUtil.CreateLogger("Rebiotic Fixer|VehicleLights", Config.DebugFlags.VehicleLights),
 }
 
 -- Initialize feature modules
@@ -118,6 +124,7 @@ DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
 LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
 AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
+VehicleLights.Init(Config.VehicleLights, Log.VehicleLights)
 
 -- ============================================================
 -- MODULE STATE
@@ -135,6 +142,7 @@ local HookRegistered = {
     DistPadTweaks = false,
     FlashlightFlicker = false,
     AutoJumpCrouch = false,
+    VehicleLights = false,
 }
 
 -- Lifecycle event tracking
@@ -179,6 +187,7 @@ local function OnGameState(world)
     TryRegister("DistPadTweaks", Config.DistributionPad.Indicator.Enabled, DistPadTweaks.RegisterInPlayHooks)
     TryRegister("FlashlightFlicker", Config.FlashlightFlicker.Enabled, FlashlightFlicker.RegisterInPlayHooks)
     TryRegister("AutoJumpCrouch", Config.AutoJumpCrouch.Enabled, AutoJumpCrouch.RegisterInPlayHooks)
+    TryRegister("VehicleLights", Config.VehicleLights.Enabled, VehicleLights.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -211,6 +220,10 @@ RegisterInitGameStatePreHook(function(Context)
     if Config.AutoJumpCrouch.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up AutoJumpCrouch state")
         AutoJumpCrouch.Cleanup()
+    end
+    if Config.VehicleLights.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up VehicleLights state")
+        VehicleLights.Cleanup()
     end
 end)
 
@@ -250,7 +263,7 @@ local function PollForMissedHook(attempts)
             return ok
         end)
 
-        -- PrePlay hooks - must register before gameplay to catch objects from save and main menu popups
+        -- PrePlay hooks - register early (before gameplay map loads)
         TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, MenuTweaks.RegisterPrePlayHooks)
         TryRegister("FoodFix", Config.FoodDisplayFix.Enabled, FoodFix.RegisterPrePlayHooks)
         TryRegister("DistPadTweaksPrePlay",

@@ -145,7 +145,7 @@ return {
 
         -- Delay in milliseconds before crouching after jump starts
         -- Adjust if crouch feels too early or too late (0-1000ms)
-        Delay = 100, -- [default = 100]
+        Delay = 200, -- [default = 100]
 
         -- Stop sprinting when mid-jump
         -- Useful if you have toggle-sprint enabled (otherwise sprint+jump prevents crouch)
@@ -162,6 +162,16 @@ return {
     },
 
     -- ============================================================
+    -- Vehicle Lights
+    -- Manual control for vehicle headlights via F key on driver seat
+    -- ============================================================
+    VehicleLights = {
+        -- Allows you to toggle vehicle lights on/off using F key on driver's seat
+        -- Works on SUV, Forklift, and Security Cart (Sleigh has no lights)
+        Enabled = true, -- [default = true]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -174,5 +184,6 @@ return {
         LowHealthVignette = false,
         FlashlightFlicker = false,
         AutoJumpCrouch = false,
+        VehicleLights = true,
     },
 }
