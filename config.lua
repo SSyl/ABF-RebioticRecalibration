@@ -145,12 +145,16 @@ return {
 
         -- Delay in milliseconds before crouching after jump starts
         -- Adjust if crouch feels too early or too late (0-1000ms)
-        Delay = 50, -- [default = 50]
+        Delay = 100, -- [default = 100]
 
         -- Stop sprinting when mid-jump
         -- Useful if you have toggle-sprint enabled (otherwise sprint+jump prevents crouch)
         -- Note: Stopping sprint mid air doesn't slow you down. It just stops you from crouching.
         ClearSprintOnJump = true, -- [default = true]
+
+        -- Skip auto-crouch if jump button is held down
+        -- Prevents auto-crouch when swimming up or spam-jumping
+        SkipIfJumpHeld = true, -- [default = true]
 
         -- Disable auto-uncrouch on landing (manage crouch manually)
         -- Mod automatically uncrouches when you land. Set this to true to stay crouched after landing.

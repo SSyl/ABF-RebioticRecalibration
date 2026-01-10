@@ -7,7 +7,7 @@ local Config = nil
 local Log = nil
 
 local cachedPlayerPawn = nil
-local didAutoCrouch = false
+local autoCrouched = false
 
 -- ============================================================
 -- CORE LOGIC
@@ -37,7 +37,7 @@ function AutoJumpCrouch.Init(config, log)
 end
 
 function AutoJumpCrouch.Cleanup()
-    didAutoCrouch = false
+    autoCrouched = false
     cachedPlayerPawn = nil
 end
 
@@ -46,16 +46,23 @@ end
 -- ============================================================
 
 function AutoJumpCrouch.RegisterInPlayHooks()
-    return HookUtil.Register({
-        {
-            path = "/Script/Engine.Character:Jump",
-            callback = AutoJumpCrouch.OnJump
-        },
+    -- POST-HOOK: Jump (fires AFTER jump launches, preserves sprint momentum)
+    local success1 = HookUtil.RegisterNative(
+        "/Script/Engine.Character:Jump",
+        nil,  -- No PRE-HOOK
+        AutoJumpCrouch.OnJump,  -- POST-HOOK
+        Log
+    )
+
+    -- Blueprint hooks (always POST)
+    local success2 = HookUtil.Register({
         {
             path = "/Game/Blueprints/Characters/Abiotic_Character_ParentBP.Abiotic_Character_ParentBP_C:TryApplyFallDamage",
             callback = AutoJumpCrouch.OnTryApplyFallDamage
         },
     }, Log)
+
+    return success1 and success2
 end
 
 -- ============================================================
@@ -66,21 +73,23 @@ function AutoJumpCrouch.OnJump(character)
     local player = GetLocalPlayer(character)
     if not player then return end
 
-    local okSwimming, isSwimming = pcall(function()
-        return player.CharacterMovement and player.CharacterMovement:IsSwimming()
-    end)
-    if okSwimming and isSwimming then
-        Log.Debug("Swimming, skipping auto-crouch")
-        didAutoCrouch = false  -- Clear stale flag from previous jump
-        return
-    end
+    autoCrouched = false  -- Clear stale state from previous jump
 
-    -- Spam prevention - skip if already mid-air
+    -- Spam prevention - check falling first (more common than swimming)
     local okFalling, isFalling = pcall(function()
-        return player.CharacterMovement and player.CharacterMovement:IsFalling()
+        return player.CharacterMovement:IsValid() and player.CharacterMovement:IsFalling()
     end)
     if okFalling and isFalling then
         Log.Debug("Already mid-air, skipping auto-crouch (spam prevention)")
+        return
+    end
+
+    -- Swimming check (less common)
+    local okSwimming, isSwimming = pcall(function()
+        return player.CharacterMovement:IsValid() and player.CharacterMovement:IsSwimming()
+    end)
+    if okSwimming and isSwimming then
+        Log.Debug("Swimming, skipping auto-crouch")
         return
     end
 
@@ -108,10 +117,19 @@ function AutoJumpCrouch.OnJump(character)
                 return
             end
 
+            -- Skip if jump button still held (swimming up, spam-jumping)
+            if Config.SkipIfJumpHeld then
+                local okJumpHoldTime, jumpHoldTime = pcall(function() return player.JumpKeyHoldTime end)
+                if okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0 then
+                    Log.Debug("Jump button still held after delay, skipping auto-crouch")
+                    return
+                end
+            end
+
             local okCrouch, err = pcall(function() player:Crouch(false) end)
 
             if okCrouch then
-                didAutoCrouch = true
+                autoCrouched = true
             else
                 Log.Debug("Crouch() failed: %s", tostring(err))
             end
@@ -128,16 +146,16 @@ function AutoJumpCrouch.OnTryApplyFallDamage(character)
     if not player then return end
 
     if Config.DisableAutoUncrouch then
-        didAutoCrouch = false
+        autoCrouched = false
         return
     end
 
-    if not didAutoCrouch then return end
+    if not autoCrouched then return end
 
     local okKeyHeld, isKeyHeld = pcall(function() return player.Local_KeyHeld_Crouch end)
     if okKeyHeld and isKeyHeld then
         Log.Debug("Crouch button held, staying crouched")
-        didAutoCrouch = false
+        autoCrouched = false
         return
     end
 
@@ -147,7 +165,7 @@ function AutoJumpCrouch.OnTryApplyFallDamage(character)
     if not okUncrouch then
         Log.Debug("UnCrouch() failed: %s", tostring(err))
     end
-    didAutoCrouch = false
+    autoCrouched = false
 end
 
 return AutoJumpCrouch

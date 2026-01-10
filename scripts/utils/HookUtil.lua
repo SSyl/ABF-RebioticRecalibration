@@ -13,7 +13,7 @@ boilerplate for:
 
 USAGE:
 
-Single hook:
+Single hook (Blueprint or simple native):
 ```lua
 HookUtil.Register(
     "/Game/BP.BP_C:Function",
@@ -31,6 +31,18 @@ HookUtil.Register({
     {path = "/Game/BP.BP_C:Func1", callback = Module.OnFunc1},
     {path = "/Game/BP.BP_C:Func2", callback = Module.OnFunc2},
 }, Log)
+```
+
+Native C++ hooks with PRE/POST timing control:
+```lua
+-- POST-HOOK only (most common)
+HookUtil.RegisterNative("/Script/Engine.Character:Jump", nil, OnJump, Log)
+
+-- PRE-HOOK only
+HookUtil.RegisterNative("/Script/Engine.Character:Jump", OnJump, nil, Log)
+
+-- Both PRE and POST
+HookUtil.RegisterNative("/Script/Engine.Character:Jump", OnJumpPre, OnJumpPost, Log)
 ```
 
 Consolidated hook (AbioticDeployed_ParentBP ReceiveBeginPlay):
@@ -90,6 +102,8 @@ local function RegisterMultiple(hooks, log)
 end
 
 --- Polymorphic hook registration - handles single or multiple hooks
+--- For Blueprint functions and simple native hooks where timing doesn't matter.
+--- For native C++ functions where PRE/POST timing matters, use RegisterNative() instead.
 --- @param pathOrTable string|table Either a Blueprint path (single) or array of {path, callback} (multiple)
 --- @param callbackOrLog function|table Either callback (single) or logger (multiple)
 --- @param log table|nil Logger (single) or nil (multiple - log is 2nd param)
@@ -105,6 +119,64 @@ function HookUtil.Register(pathOrTable, callbackOrLog, log)
     else
         error("HookUtil.Register: first parameter must be string (path) or table (hooks array)")
     end
+end
+
+-- ============================================================
+-- NATIVE C++ FUNCTION HOOKS (PRE/POST CONTROL)
+-- ============================================================
+
+--- Registers hooks for native C++ functions with explicit PRE/POST timing control
+--- Use for native engine functions (usually /Script/Engine paths) where execution timing matters.
+---
+--- PRE-HOOK: Executes BEFORE the native function (can modify parameters)
+--- POST-HOOK: Executes AFTER the native function (can read return values)
+---
+--- @param path string Full UFunction path (usually /Script/Engine.ClassName:FunctionName)
+--- @param preCallback function|nil PRE-HOOK callback (or nil if not needed)
+--- @param postCallback function|nil POST-HOOK callback (or nil if not needed)
+--- @param log table Logger instance (must have Error method)
+--- @return boolean True if registration succeeded
+---
+--- Examples:
+---   PRE-HOOK only:  RegisterNative("/Script/Engine.Character:Jump", OnJump, nil, Log)
+---   POST-HOOK only: RegisterNative("/Script/Engine.Character:Jump", nil, OnJump, Log)
+---   Both hooks:     RegisterNative("/Script/Engine.Character:Jump", OnJumpPre, OnJumpPost, Log)
+function HookUtil.RegisterNative(path, preCallback, postCallback, log)
+    if not preCallback and not postCallback then
+        log.Error("RegisterNative '%s': At least one of preCallback or postCallback must be provided", path)
+        return false
+    end
+
+    -- Wrap callbacks with Context extraction and validation
+    local wrappedPre = nil
+    local wrappedPost = nil
+
+    if preCallback then
+        wrappedPre = function(Context, ...)
+            local obj = Context:get()
+            if not obj or not obj:IsValid() then return end
+            preCallback(obj, ...)
+        end
+    end
+
+    if postCallback then
+        wrappedPost = function(Context, ...)
+            local obj = Context:get()
+            if not obj or not obj:IsValid() then return end
+            postCallback(obj, ...)
+        end
+    end
+
+    local ok, err = pcall(function()
+        RegisterHook(path, wrappedPre or function() end, wrappedPost or function() end)
+    end)
+
+    if not ok then
+        log.Error("Failed to register native hook '%s': %s", path, tostring(err))
+        return false
+    end
+
+    return true
 end
 
 -- ============================================================
