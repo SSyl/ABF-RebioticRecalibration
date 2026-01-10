@@ -55,62 +55,12 @@ function VehicleLights.RegisterInPlayHooks()
         Log
     )
 
-    -- Hook OnRep for client-side visual updates
-    local onRepSuccess = HookUtil.Register(
-        "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:OnRep_VehicleLightsOn",
-        function(vehicle)
-            VehicleLights.OnRepVehicleLightsOn(vehicle)
-        end,
-        Log
-    )
-
-    return canInteractSuccess and interactSuccess and onRepSuccess
+    return canInteractSuccess and interactSuccess
 end
 
 -- ============================================================
 -- HOOK CALLBACKS
 -- ============================================================
-
--- Called when VehicleLightsOn property replicates (client-side)
-function VehicleLights.OnRepVehicleLightsOn(vehicle)
-    Log.Debug("OnRepVehicleLightsOn fired (property changed)")
-
-    -- Get current light state
-    local okLights, lightsOn = pcall(function()
-        return vehicle.VehicleLightsOn
-    end)
-
-    if not okLights then
-        Log.Debug("OnRepVehicleLightsOn: Failed to get VehicleLightsOn")
-        return
-    end
-
-    Log.Debug("OnRepVehicleLightsOn: VehicleLightsOn = %s", tostring(lightsOn))
-
-    -- Update cosmetic effects
-    local okToggle = pcall(function()
-        vehicle:ToggleHeadlightsFX(lightsOn)
-    end)
-
-    if okToggle then
-        Log.Debug("OnRepVehicleLightsOn: Called ToggleHeadlightsFX(%s)", tostring(lightsOn))
-    end
-
-    -- Update actual light component
-    local okHeadlights, headlights = pcall(function()
-        return vehicle.Headlights
-    end)
-
-    if okHeadlights and headlights and headlights:IsValid() then
-        local okSetVis = pcall(function()
-            headlights:SetVisibility(lightsOn, false)
-        end)
-
-        if okSetVis then
-            Log.Debug("OnRepVehicleLightsOn: Set Headlights visibility to %s", tostring(lightsOn))
-        end
-    end
-end
 
 -- Called to check if tap F should be available (CanInteractWith_B)
 function VehicleLights.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
@@ -165,72 +115,56 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
         return
     end
 
-    -- Check if we have authority (are we on the server?)
-    local okAuth, hasAuth = pcall(function() return vehicle:HasAuthority() end)
-    Log.Debug("OnVehicleInteractB: HasAuthority = %s", tostring(hasAuth))
-
     Log.Debug("OnVehicleInteractB: Supported vehicle, toggling lights")
 
-    -- Get current light state
-    local okLights, lightsOn = pcall(function()
-        return vehicle.VehicleLightsOn
+    -- Get Headlights component to check current state
+    local okHeadlights, headlights = pcall(function()
+        return vehicle.Headlights
     end)
 
-    if not okLights then
-        Log.Debug("OnVehicleInteractB: Failed to get VehicleLightsOn property")
+    if not okHeadlights or not headlights or not headlights:IsValid() then
+        Log.Debug("OnVehicleInteractB: Failed to get Headlights component")
         return
     end
 
-    Log.Debug("OnVehicleInteractB: Current VehicleLightsOn = %s", tostring(lightsOn))
-
-    local newState = not lightsOn
-
-    -- Set the property
-    local okSet = pcall(function()
-        vehicle.VehicleLightsOn = newState
+    -- Get current visibility state
+    local okVisible, isVisible = pcall(function()
+        return headlights:IsVisible()
     end)
 
-    if not okSet then
-        Log.Debug("OnVehicleInteractB: Failed to set VehicleLightsOn")
+    if not okVisible then
+        Log.Debug("OnVehicleInteractB: Failed to get Headlights visibility")
         return
     end
 
-    Log.Debug("OnVehicleInteractB: Set VehicleLightsOn = %s", tostring(newState))
+    local newState = not isVisible
+    Log.Debug("OnVehicleInteractB: Current visibility = %s, toggling to %s", tostring(isVisible), tostring(newState))
 
-    -- Call OnRep to trigger replication (for multiplayer)
-    local okOnRep = pcall(function()
-        vehicle:OnRep_VehicleLightsOn()
+    -- Enable replication for this component (so visibility changes replicate to clients)
+    pcall(function()
+        headlights:SetIsReplicated(true)
     end)
 
-    if okOnRep then
-        Log.Debug("OnVehicleInteractB: Called OnRep_VehicleLightsOn()")
-    else
-        Log.Debug("OnVehicleInteractB: Failed to call OnRep_VehicleLightsOn")
+    -- Set visibility (this replicates to clients automatically)
+    local okSetVis = pcall(function()
+        headlights:SetVisibility(newState, false)
+    end)
+
+    if not okSetVis then
+        Log.Debug("OnVehicleInteractB: Failed to set Headlights visibility")
+        return
     end
 
-    -- Also manually update visuals (OnRep might not do everything we need)
+    Log.Debug("OnVehicleInteractB: Set Headlights visibility to %s", tostring(newState))
+
+    -- Update cosmetic effects (host-side only, client syncs via SetVisibility hook)
     local okToggle = pcall(function()
         vehicle:ToggleHeadlightsFX(newState)
     end)
 
     if okToggle then
         Log.Debug("OnVehicleInteractB: Called ToggleHeadlightsFX(%s)", tostring(newState))
-    end
-
-    -- Enable/disable the actual light component
-    local okHeadlights, headlights = pcall(function()
-        return vehicle.Headlights
-    end)
-
-    if okHeadlights and headlights and headlights:IsValid() then
-        local okSetVis = pcall(function()
-            headlights:SetVisibility(newState, false)
-        end)
-
-        if okSetVis then
-            Log.Debug("OnVehicleInteractB: Set Headlights visibility to %s", tostring(newState))
-            Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
-        end
+        Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
     end
 
     -- Play light switch sound (local-only)
