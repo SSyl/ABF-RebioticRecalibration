@@ -172,6 +172,15 @@ return {
     },
 
     -- ============================================================
+    -- Hide Hotbar Hotkeys
+    -- Removes the on-screen hotbar key hints (1,2,3,4,5,6,7,8,9,0)
+    -- ============================================================
+    HideHotbarHotkeys = {
+        -- Hide the numeric hotkey indicators on the hotbar
+        Enabled = false, -- [default = false]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -185,5 +194,6 @@ return {
         FlashlightFlicker = false,
         AutoJumpCrouch = false,
         VehicleLights = false,
+        HideHotbarHotkeys = false,
     },
 }

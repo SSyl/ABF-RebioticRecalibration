@@ -71,6 +71,9 @@ local SCHEMA = {
     -- VehicleLights
     { path = "VehicleLights.Enabled", type = "boolean", default = true },
 
+    -- HideHotbarHotkeys
+    { path = "HideHotbarHotkeys.Enabled", type = "boolean", default = false },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -81,6 +84,7 @@ local SCHEMA = {
     { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
     { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
     { path = "DebugFlags.VehicleLights", type = "boolean", default = true },
+    { path = "DebugFlags.HideHotbarHotkeys", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -103,6 +107,7 @@ local LowHealthVignette = require("core/LowHealthVignette")
 local FlashlightFlicker = require("core/FlashlightFlicker")
 local AutoJumpCrouch = require("core/AutoJumpCrouch")
 local VehicleLights = require("core/VehicleLights")
+local HideHotbarHotkeys = require("core/HideHotbarHotkeys")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -114,6 +119,7 @@ local Log = {
     FlashlightFlicker = LogUtil.CreateLogger("Rebiotic Fixer|FlashlightFlicker", Config.DebugFlags.FlashlightFlicker),
     AutoJumpCrouch = LogUtil.CreateLogger("Rebiotic Fixer|AutoJumpCrouch", Config.DebugFlags.AutoJumpCrouch),
     VehicleLights = LogUtil.CreateLogger("Rebiotic Fixer|VehicleLights", Config.DebugFlags.VehicleLights),
+    HideHotbarHotkeys = LogUtil.CreateLogger("Rebiotic Fixer|HideHotbarHotkeys", Config.DebugFlags.HideHotbarHotkeys),
 }
 
 -- Initialize feature modules
@@ -125,6 +131,7 @@ LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
 FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
 AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
 VehicleLights.Init(Config.VehicleLights, Log.VehicleLights)
+HideHotbarHotkeys.Init(Config.HideHotbarHotkeys, Log.HideHotbarHotkeys)
 
 -- ============================================================
 -- MODULE STATE
@@ -143,6 +150,7 @@ local HookRegistered = {
     FlashlightFlicker = false,
     AutoJumpCrouch = false,
     VehicleLights = false,
+    HideHotbarHotkeys = false,
 }
 
 -- Lifecycle event tracking
@@ -188,6 +196,7 @@ local function OnGameState(world)
     TryRegister("FlashlightFlicker", Config.FlashlightFlicker.Enabled, FlashlightFlicker.RegisterInPlayHooks)
     TryRegister("AutoJumpCrouch", Config.AutoJumpCrouch.Enabled, AutoJumpCrouch.RegisterInPlayHooks)
     TryRegister("VehicleLights", Config.VehicleLights.Enabled, VehicleLights.RegisterInPlayHooks)
+    TryRegister("HideHotbarHotkeys", Config.HideHotbarHotkeys.Enabled, HideHotbarHotkeys.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -224,6 +233,10 @@ RegisterInitGameStatePreHook(function(Context)
     if Config.VehicleLights.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up VehicleLights state")
         VehicleLights.Cleanup()
+    end
+    if Config.HideHotbarHotkeys.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up HideHotbarHotkeys cache")
+        HideHotbarHotkeys.Cleanup()
     end
 end)
 
