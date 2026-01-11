@@ -171,8 +171,6 @@ function VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
 end
 
 function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
-    Log.Debug("OnVehicleInteractB fired")
-
     local okClass, className = pcall(function()
         return vehicle:GetClass():GetFName():ToString()
     end)
@@ -182,14 +180,9 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
         return
     end
 
-    Log.Debug("OnVehicleInteractB: Vehicle class = %s", className)
-
     if not SUPPORTED_VEHICLES[className] then
-        Log.Debug("OnVehicleInteractB: Vehicle type not supported (no headlights)")
         return
     end
-
-    Log.Debug("OnVehicleInteractB: Supported vehicle, toggling lights")
 
     local okHeadlights, headlights = pcall(function()
         return vehicle.Headlights
@@ -225,7 +218,6 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
     end
 
     local newState = not isVisible
-    Log.Debug("OnVehicleInteractB: Current visibility = %s, toggling to %s", tostring(isVisible), tostring(newState))
 
     -- Set SpotLight visibility (replicates to clients via SetIsReplicated)
     local okSetVis = pcall(function()
@@ -237,7 +229,6 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
         return
     end
 
-    Log.Debug("OnVehicleInteractB: Set Headlights visibility to %s", tostring(newState))
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 
     -- Play light switch sound (local-only)
