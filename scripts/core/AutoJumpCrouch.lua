@@ -33,7 +33,8 @@ function AutoJumpCrouch.Init(config, log)
     Log = log
 
     local status = Config.Enabled and "Enabled" or "Disabled"
-    Log.Info("AutoJumpCrouch - %s (Delay: %dms)", status, Config.Delay)
+    local mode = Config.RequireJumpHeld and "Hold to crouch" or "Tap to crouch"
+    Log.Info("AutoJumpCrouch - %s (Delay: %dms, Mode: %s)", status, Config.Delay, mode)
 end
 
 function AutoJumpCrouch.Cleanup()
@@ -117,10 +118,19 @@ function AutoJumpCrouch.OnJump(character)
                 return
             end
 
-            -- Skip if jump button still held (swimming up, spam-jumping)
-            if Config.SkipIfJumpHeld then
-                local okJumpHoldTime, jumpHoldTime = pcall(function() return player.JumpKeyHoldTime end)
-                if okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0 then
+            -- Check jump button hold state
+            local okJumpHoldTime, jumpHoldTime = pcall(function() return player.JumpKeyHoldTime end)
+            local isJumpHeld = okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0
+
+            if Config.RequireJumpHeld then
+                -- Only crouch if jump IS held (hold to crouch)
+                if not isJumpHeld then
+                    Log.Debug("Jump button not held after delay, skipping auto-crouch")
+                    return
+                end
+            else
+                -- Only crouch if jump is NOT held (tap to crouch)
+                if isJumpHeld then
                     Log.Debug("Jump button still held after delay, skipping auto-crouch")
                     return
                 end

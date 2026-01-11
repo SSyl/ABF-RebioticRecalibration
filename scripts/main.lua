@@ -63,9 +63,9 @@ local SCHEMA = {
 
     -- AutoJumpCrouch
     { path = "AutoJumpCrouch.Enabled", type = "boolean", default = false },
-    { path = "AutoJumpCrouch.Delay", type = "number", default = 50, min = 0, max = 1000 },
+    { path = "AutoJumpCrouch.Delay", type = "number", default = 200, min = 0, max = 1000 },
     { path = "AutoJumpCrouch.ClearSprintOnJump", type = "boolean", default = true },
-    { path = "AutoJumpCrouch.SkipIfJumpHeld", type = "boolean", default = true },
+    { path = "AutoJumpCrouch.RequireJumpHeld", type = "boolean", default = true },
     { path = "AutoJumpCrouch.DisableAutoUncrouch", type = "boolean", default = false },
 
     -- VehicleLights

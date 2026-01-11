@@ -152,9 +152,9 @@ return {
         -- Note: Stopping sprint mid air doesn't slow you down. It just stops you from crouching.
         ClearSprintOnJump = true, -- [default = true]
 
-        -- Skip auto-crouch if jump button is held down
-        -- Prevents auto-crouch when swimming up or spam-jumping
-        SkipIfJumpHeld = true, -- [default = true]
+        -- When true: only crouch if jump button is HELD after delay (hold to crouch)
+        -- When false: only crouch if jump button is NOT held after delay (tap to crouch)
+        RequireJumpHeld = true, -- [default = true]
 
         -- Disable auto-uncrouch on landing (manage crouch manually)
         -- Mod automatically uncrouches when you land. Set this to true to stay crouched after landing.
