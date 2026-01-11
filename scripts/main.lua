@@ -74,6 +74,9 @@ local SCHEMA = {
     -- HideHotbarHotkeys
     { path = "HideHotbarHotkeys.Enabled", type = "boolean", default = false },
 
+    -- MinigameBarFix
+    { path = "MinigameBarFix.Enabled", type = "boolean", default = true },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -85,6 +88,7 @@ local SCHEMA = {
     { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
     { path = "DebugFlags.VehicleLights", type = "boolean", default = true },
     { path = "DebugFlags.HideHotbarHotkeys", type = "boolean", default = false },
+    { path = "DebugFlags.MinigameBarFix", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -108,6 +112,7 @@ local FlashlightFlicker = require("core/FlashlightFlicker")
 local AutoJumpCrouch = require("core/AutoJumpCrouch")
 local VehicleLights = require("core/VehicleLights")
 local HideHotbarHotkeys = require("core/HideHotbarHotkeys")
+local MinigameBarFix = require("core/MinigameBarFix")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -120,6 +125,7 @@ local Log = {
     AutoJumpCrouch = LogUtil.CreateLogger("Rebiotic Fixer|AutoJumpCrouch", Config.DebugFlags.AutoJumpCrouch),
     VehicleLights = LogUtil.CreateLogger("Rebiotic Fixer|VehicleLights", Config.DebugFlags.VehicleLights),
     HideHotbarHotkeys = LogUtil.CreateLogger("Rebiotic Fixer|HideHotbarHotkeys", Config.DebugFlags.HideHotbarHotkeys),
+    MinigameBarFix = LogUtil.CreateLogger("Rebiotic Fixer|MinigameBarFix", Config.DebugFlags.MinigameBarFix),
 }
 
 -- Initialize feature modules
@@ -132,6 +138,7 @@ FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
 AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
 VehicleLights.Init(Config.VehicleLights, Log.VehicleLights)
 HideHotbarHotkeys.Init(Config.HideHotbarHotkeys, Log.HideHotbarHotkeys)
+MinigameBarFix.Init(Config.MinigameBarFix, Log.MinigameBarFix)
 
 -- ============================================================
 -- MODULE STATE
@@ -151,6 +158,7 @@ local HookRegistered = {
     AutoJumpCrouch = false,
     VehicleLights = false,
     HideHotbarHotkeys = false,
+    MinigameBarFix = false,
 }
 
 -- Lifecycle event tracking
@@ -197,6 +205,7 @@ local function OnGameState(world)
     TryRegister("AutoJumpCrouch", Config.AutoJumpCrouch.Enabled, AutoJumpCrouch.RegisterInPlayHooks)
     TryRegister("VehicleLights", Config.VehicleLights.Enabled, VehicleLights.RegisterInPlayHooks)
     TryRegister("HideHotbarHotkeys", Config.HideHotbarHotkeys.Enabled, HideHotbarHotkeys.RegisterInPlayHooks)
+    TryRegister("MinigameBarFix", Config.MinigameBarFix.Enabled, MinigameBarFix.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -237,6 +246,10 @@ RegisterInitGameStatePreHook(function(Context)
     if Config.HideHotbarHotkeys.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up HideHotbarHotkeys cache")
         HideHotbarHotkeys.Cleanup()
+    end
+    if Config.MinigameBarFix.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up MinigameBarFix cache")
+        MinigameBarFix.Cleanup()
     end
 end)
 

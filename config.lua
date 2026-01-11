@@ -181,6 +181,16 @@ return {
     },
 
     -- ============================================================
+    -- Minigame Bar Fix
+    -- Fixes visual size of small success zone to match actual hitbox
+    -- ============================================================
+    MinigameBarFix = {
+        -- Fixes the small green bar in continence minigames
+        -- The visual is too small compared to the actual success zone hitbox
+        Enabled = true, -- [default = true]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -195,5 +205,6 @@ return {
         AutoJumpCrouch = false,
         VehicleLights = false,
         HideHotbarHotkeys = false,
+        MinigameBarFix = true,
     },
 }
