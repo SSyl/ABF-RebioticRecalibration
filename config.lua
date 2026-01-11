@@ -184,6 +184,6 @@ return {
         LowHealthVignette = false,
         FlashlightFlicker = false,
         AutoJumpCrouch = false,
-        VehicleLights = true,
+        VehicleLights = false,
     },
 }
