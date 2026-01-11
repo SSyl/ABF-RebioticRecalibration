@@ -72,6 +72,17 @@ function VehicleLights.RegisterInPlayHooks()
         Log
     )
 
+    -- Pre-load light switch sound (must be on game thread)
+    ExecuteInGameThread(function()
+        local sound, wasFound, didLoad = LoadAsset("SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'")
+        if wasFound and didLoad and sound and sound:IsValid() then
+            LightSwitchSound = sound
+            Log.Debug("Pre-loaded light switch sound")
+        else
+            Log.Debug("Failed to pre-load light switch sound (found=%s, loaded=%s)", tostring(wasFound), tostring(didLoad))
+        end
+    end)
+
     return canInteractSuccess and promptTextSuccess and interactSuccess
 end
 
@@ -231,19 +242,8 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
 
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 
-    -- Play light switch sound (local-only)
+    -- Play light switch sound (local-only, pre-loaded in RegisterInPlayHooks)
     ExecuteInGameThread(function()
-        -- Load sound if not cached (must be on game thread)
-        if not LightSwitchSound then
-            local sound, wasFound, didLoad = LoadAsset("SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'")
-            if wasFound and didLoad and sound and sound:IsValid() then
-                LightSwitchSound = sound
-                Log.Debug("OnVehicleInteractB: Loaded light switch sound")
-            else
-                Log.Debug("OnVehicleInteractB: Failed to load light switch sound (found=%s, loaded=%s)", tostring(wasFound), tostring(didLoad))
-            end
-        end
-
         if LightSwitchSound and LightSwitchSound:IsValid() then
             local UEHelpers = require("UEHelpers")
 
