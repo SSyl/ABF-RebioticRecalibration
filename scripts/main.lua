@@ -63,7 +63,7 @@ local SCHEMA = {
 
     -- AutoJumpCrouch
     { path = "AutoJumpCrouch.Enabled", type = "boolean", default = false },
-    { path = "AutoJumpCrouch.Delay", type = "number", default = 200, min = 0, max = 1000 },
+    { path = "AutoJumpCrouch.Delay", type = "number", default = 150, min = 0, max = 1000 },
     { path = "AutoJumpCrouch.ClearSprintOnJump", type = "boolean", default = true },
     { path = "AutoJumpCrouch.RequireJumpHeld", type = "boolean", default = true },
     { path = "AutoJumpCrouch.DisableAutoUncrouch", type = "boolean", default = false },
@@ -86,7 +86,7 @@ local SCHEMA = {
     { path = "DebugFlags.LowHealthVignette", type = "boolean", default = false },
     { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
     { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
-    { path = "DebugFlags.VehicleLights", type = "boolean", default = true },
+    { path = "DebugFlags.VehicleLights", type = "boolean", default = false },
     { path = "DebugFlags.HideHotbarHotkeys", type = "boolean", default = false },
     { path = "DebugFlags.MinigameBarFix", type = "boolean", default = false },
 }
