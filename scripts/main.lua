@@ -32,6 +32,7 @@ local MODULE_PATHS = {
     "core/HideHotbarHotkeys",
     "core/MinigameBarFix",
     "core/CorpseGibFix",
+    "core/PlayerTracker",
 }
 
 -- ============================================================

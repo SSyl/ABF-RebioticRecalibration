@@ -203,6 +203,15 @@ return {
     },
 
     -- ============================================================
+    -- Player Tracker
+    -- Highlights other players with a permanent outline
+    -- ============================================================
+    PlayerTracker = {
+        -- Shows a colored outline around other players in multiplayer
+        Enabled = false, -- [default = false]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -219,5 +228,6 @@ return {
         HideHotbarHotkeys = false,
         MinigameBarFix = false,
         CorpseGibFix = false,
+        PlayerTracker = false,
     },
 }
