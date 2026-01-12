@@ -36,11 +36,6 @@ PERFORMANCE:
 - Health updates fire when health changes (not every frame).
 - Pulse loop only runs when vignette is visible (player is low health).
 - Cleanup() clears state when returning to menu.
-
-POTENTIAL OPTIMIZATION NOTES:
-- The LoopAsync + ExecuteInGameThread pattern runs every 33ms when pulsing.
-  This is fine for a visual effect but could be replaced with UE animation
-  if we had access to widget animation APIs.
 ]]
 
 local HookUtil = require("utils/HookUtil")
