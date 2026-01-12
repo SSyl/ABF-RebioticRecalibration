@@ -1,37 +1,17 @@
 --[[
 ============================================================================
-CraftingPreviewFix - Fix Dark/Blurry 3D Item Preview in Crafting Menu
+CraftingPreviewFix - Fix Dark/Blurry 3D Item Preview
 ============================================================================
 
-PURPOSE:
-The 3D item preview in the crafting menu has two issues:
-1. DARK: Items appear too dark due to low light intensity + auto-exposure
-2. BLURRY: Low render target resolution (vanilla is 512x512)
-
-HOW WE FIX IT:
-
-Brightness Fix:
-- The 3D preview uses a SceneCaptureComponent2D (Item_RenderTarget) to render
-  the item to a texture, which is then displayed in the UI.
-- Vanilla auto-exposure causes inconsistent brightness. We disable it by
-  setting AutoExposureMethod to AEM_Manual (value 2).
-- Then we set PointLight and PointLight1 to configured intensity (default 10,
-  vs vanilla 4), and PointLight2 to half for subtle rim lighting.
-
-Resolution Fix:
-- The render target texture (3DItem_RenderTarget) is 512x512 in vanilla.
-- We use KismetRenderingLibrary:ResizeRenderTarget2D to resize it to the
-  configured resolution (default 1024, must be power of 2).
-- This is a one-time fix applied at OnGameState.
+Fixes dark and blurry 3D preview in crafting menu. Disables auto-exposure
+(sets to AEM_Manual), increases light intensity, and resizes render target
+from 512x512 to configurable resolution (default 1024, must be power of 2).
 
 HOOKS:
-- 3D_ItemDisplay_BP_C:Set3DPreviewMesh → OnSet3DPreviewMesh() [brightness]
-- ApplyResolutionFix() called directly by main.lua [resolution, one-time]
+- 3D_ItemDisplay_BP_C:Set3DPreviewMesh (brightness, fires on item change)
+- ApplyResolutionFix() called by main.lua (one-time at game start)
 
-PERFORMANCE:
-- Brightness: Fires when preview item changes (user scrolls crafting menu)
-- Resolution: Fires once at game start
-Both are infrequent, no per-frame overhead.
+PERFORMANCE: Brightness hook fires on preview item change, resolution once at startup
 ]]
 
 local HookUtil = require("utils/HookUtil")

@@ -3,22 +3,12 @@
 WidgetUtil - Widget Creation and Manipulation Helpers
 ============================================================================
 
-PURPOSE:
-Provides helpers for common UMG widget operations:
-- Cloning widgets with StaticConstructObject
-- Adding widgets to parents (smart parent type detection)
+Helpers for UMG widget operations. CloneWidget uses StaticConstructObject with
+template parameter to copy all styling, then auto-detects parent type (Overlay,
+HorizontalBox, VerticalBox, CanvasPanel) to add child appropriately.
 
-Eliminates duplication between LowHealthVignette and DistributionPadTweaks.
-
-USAGE:
-```lua
-local newWidget, slot = WidgetUtil.CloneWidget(templateWidget, parentWidget, "MyWidgetName")
-if newWidget then
-    -- Configure the slot (feature-specific)
-    slot:SetAnchors({...})
-    slot:SetPadding({...})
-end
-```
+API:
+- CloneWidget(templateWidget, parent, widgetName) -> newWidget, slot
 ]]
 
 local WidgetUtil = {}

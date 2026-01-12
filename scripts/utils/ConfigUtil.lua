@@ -1,3 +1,19 @@
+--[[
+============================================================================
+ConfigUtil - Configuration Schema Validation
+============================================================================
+
+Schema-based config validation with automatic type checking, range validation,
+and default value substitution. Supports boolean, number, string, and color types.
+
+API:
+- ValidateFromSchema(userConfig, schema, logFunc) -> validatedConfig
+- ValidateBoolean(value, default, logFunc, fieldName) -> boolean
+- ValidateNumber(value, default, min, max, logFunc, fieldName) -> number
+- ValidateString(value, default, maxLength, trim, logFunc, fieldName) -> string
+- ValidateColor(value, default, logFunc, fieldName) -> {R, G, B, A} (normalized 0-1)
+]]
+
 local ConfigUtil = {}
 
 -- ============================================================

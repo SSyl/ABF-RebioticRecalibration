@@ -3,22 +3,14 @@
 FlashlightFlicker - Disable Ambient Flashlight Flicker
 ============================================================================
 
-PURPOSE:
-Prevents flashlight from flickering during ambient earthquake events while
-keeping the immersive camera shake and audio. Flicker is still triggered
-by threats like Reapers.
-
-BEHAVIOR:
-- Ambient earthquakes: No flicker (camera shake + audio still work)
-- Reaper disruption: Flicker works normally (warning system intact)
-
-IMPLEMENTATION:
-When Debuff_QuakeDisruption (ambient earthquake) is applied to the local player,
-stops the FlashlightFlickerTimeline directly and resets the alpha to 1.0.
-Debuff_Disruption (Reaper) works normally since we don't intercept it.
+Disables flashlight flicker during ambient earthquakes (Debuff_QuakeDisruption)
+while preserving camera shake and audio. Reaper disruption (Debuff_Disruption)
+still triggers flicker normally. Stops FlashlightFlickerTimeline and resets alpha.
 
 HOOKS:
-- Abiotic_CharacterBuffComponent_C:BuffReceived → Stop timeline when QuakeDisruption detected
+- Abiotic_CharacterBuffComponent_C:BuffReceived
+- Abiotic_CharacterBuffComponent_C:BuffRemoved
+- Abiotic_PlayerCharacter_C:ToggleFlickering
 ]]
 
 local HookUtil = require("utils/HookUtil")
@@ -141,7 +133,6 @@ function FlashlightFlicker.OnBuffReceived(buffComponent, BuffRowHandleParam)
                     timeline:Stop()
                 end
 
-                -- Reset alpha to 1.0 (no flicker)
                 player.Light_FlickerAlpha = 1.0
             end)
         else
@@ -211,7 +202,6 @@ function FlashlightFlicker.OnToggleFlickering(player, StartParam)
                 timeline:Stop()
             end
 
-            -- Reset alpha to 1.0
             cachedPlayer.Light_FlickerAlpha = 1.0
         end)
         return

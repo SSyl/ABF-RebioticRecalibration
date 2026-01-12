@@ -3,38 +3,15 @@
 FoodFix - Fix Visual Damage Cracks on Placed Food
 ============================================================================
 
-PURPOSE:
-When you place partially-decayed food from your inventory, the placed food
-item shows visual damage cracks (the same cracks that appear on damaged
-deployables). This is a visual bug - the food isn't actually damaged.
+Fixes visual bug where placed food shows damage cracks matching its decay %.
+Game incorrectly copies inventory decay to deployed durability. On ReceiveBeginPlay,
+resets CurrentDurability and ChangeableData to max values (full health = no cracks).
 
-THE BUG:
-Food items have two durability values:
-1. Item durability (decay level when in inventory)
-2. Deployed durability (physical damage when placed)
+Multiplayer: Host applies full fix, clients apply visual-only fix.
+Load from save: Polls IsCurrentlyLoadingFromSave before applying fix (if config enabled).
 
-When placing food, the game incorrectly copies the inventory decay value
-to the deployed durability, causing visual cracks.
-
-HOW WE FIX IT:
-On ReceiveBeginPlay for food deployables, we reset CurrentDurability to
-MaxDurability (full health = no cracks). We also fix ChangeableData if present.
-
-HOST vs CLIENT:
-- Host: Full fix (has authority over the deployable)
-- Client: Visual-only fix (just sets local CurrentDurability)
-
-LOADING FROM SAVE:
-The FixExistingFoodOnLoad config controls whether we fix food that was placed
-in a previous session. If enabled, we poll until IsCurrentlyLoadingFromSave
-becomes false before applying the fix.
-
-HOOKS:
-- AbioticDeployed_ParentBP_C:ReceiveBeginPlay → OnBeginPlay()
-  (filtered to classes matching "^Deployed_Food_")
-
-PERFORMANCE:
-Only fires when food is placed or loaded - not per-frame.
+HOOKS: AbioticDeployed_ParentBP_C:ReceiveBeginPlay (^Deployed_Food_)
+PERFORMANCE: Fires on food placement/load, not per-frame
 ]]
 
 local HookUtil = require("utils/HookUtil")

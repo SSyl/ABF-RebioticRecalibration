@@ -1,3 +1,19 @@
+--[[
+============================================================================
+AutoJumpCrouch - Automatically Crouch During Jumps
+============================================================================
+
+Automatically crouches player after jump with configurable delay. Supports two modes:
+tap-to-crouch (default) or hold-to-crouch. Auto-uncrouches on landing unless crouch
+key is held. Clears sprint on jump for toggle-sprint users (config option).
+
+HOOKS:
+- Character:Jump (POST, native)
+- Abiotic_Character_ParentBP_C:TryApplyFallDamage
+
+PERFORMANCE: Fires on jump/landing, not per-frame
+]]
+
 local HookUtil = require("utils/HookUtil")
 local UEHelpers = require("UEHelpers")
 local AutoJumpCrouch = {}
@@ -123,13 +139,11 @@ function AutoJumpCrouch.OnJump(character)
             local isJumpHeld = okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0
 
             if Config.RequireJumpHeld then
-                -- Only crouch if jump IS held (hold to crouch)
                 if not isJumpHeld then
                     Log.Debug("Jump button not held after delay, skipping auto-crouch")
                     return
                 end
             else
-                -- Only crouch if jump is NOT held (tap to crouch)
                 if isJumpHeld then
                     Log.Debug("Jump button still held after delay, skipping auto-crouch")
                     return

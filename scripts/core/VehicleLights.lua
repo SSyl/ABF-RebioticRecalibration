@@ -1,3 +1,20 @@
+--[[
+============================================================================
+VehicleLights - Manual Headlight Control for Vehicles
+============================================================================
+
+Adds tap-F interaction to toggle vehicle headlights (SUV, Forklift, SecurityCart).
+Enables SpotLight replication for multiplayer sync. Changes interaction prompt
+text from "package" to "toggle lights". Plays light switch sound on toggle.
+
+HOOKS:
+- ABF_Vehicle_ParentBP_C:CanInteractWith_B (enable tap-F prompt)
+- ABF_Vehicle_ParentBP_C:InteractWith_B (toggle lights)
+- W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts (custom prompt text)
+
+PERFORMANCE: Per-frame prompt hook with address caching
+]]
+
 local HookUtil = require("utils/HookUtil")
 local VehicleLights = {}
 
@@ -106,7 +123,6 @@ function VehicleLights.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
 
     Log.Debug("OnCanInteractB: Supported vehicle, enabling tap F prompt for first time")
 
-    -- Set Success parameter to true (enables tap F prompt)
     local okSet = pcall(function()
         SuccessParam:set(true)
     end)
@@ -132,12 +148,9 @@ function VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    -- Fast path: same vehicle as last frame
     if actorAddr == PromptTextCache.lastVehicleAddr then
         if not PromptTextCache.isSupported then return end
-        -- Supported vehicle, update text
     else
-        -- New actor - check if it's a supported vehicle
         PromptTextCache.lastVehicleAddr = actorAddr
         PromptTextCache.isSupported = false
 
@@ -230,7 +243,6 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
 
     local newState = not isVisible
 
-    -- Set SpotLight visibility (replicates to clients via SetIsReplicated)
     local okSetVis = pcall(function()
         headlights:SetVisibility(newState, false)
     end)
@@ -242,7 +254,6 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
 
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 
-    -- Play light switch sound (local-only, pre-loaded in RegisterInPlayHooks)
     ExecuteInGameThread(function()
         if LightSwitchSound and LightSwitchSound:IsValid() then
             local UEHelpers = require("UEHelpers")

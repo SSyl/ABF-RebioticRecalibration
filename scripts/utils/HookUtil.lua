@@ -3,56 +3,14 @@
 HookUtil - Safe Hook Registration Helpers
 ============================================================================
 
-PURPOSE:
-Provides simplified wrappers around UE4SS RegisterHook to eliminate
-boilerplate for:
-- pcall wrapping
-- Context:get() extraction
-- IsValid() validation
-- Error logging
+Wrappers around UE4SS RegisterHook that handle Context:get() extraction,
+IsValid() validation, pcall wrapping, and error logging.
 
-USAGE:
-
-Single hook (Blueprint or simple native):
-```lua
-HookUtil.Register(
-    "/Game/BP.BP_C:Function",
-    function(obj)
-        -- obj is already validated, no need for IsValid() check
-        obj:DoSomething()
-    end,
-    Log
-)
-```
-
-Multiple hooks:
-```lua
-HookUtil.Register({
-    {path = "/Game/BP.BP_C:Func1", callback = Module.OnFunc1},
-    {path = "/Game/BP.BP_C:Func2", callback = Module.OnFunc2},
-}, Log)
-```
-
-Native C++ hooks with PRE/POST timing control:
-```lua
--- POST-HOOK only (most common)
-HookUtil.RegisterNative("/Script/Engine.Character:Jump", nil, OnJump, Log)
-
--- PRE-HOOK only
-HookUtil.RegisterNative("/Script/Engine.Character:Jump", OnJump, nil, Log)
-
--- Both PRE and POST
-HookUtil.RegisterNative("/Script/Engine.Character:Jump", OnJumpPre, OnJumpPost, Log)
-```
-
-Consolidated hook (AbioticDeployed_ParentBP ReceiveBeginPlay):
-```lua
-HookUtil.RegisterABFDeployedReceiveBeginPlay(
-    "^Deployed_Food_",  -- Pattern or exact match
-    FoodFix.OnBeginPlay,
-    Log
-)
-```
+API:
+- Register(path, callback, log) - Single Blueprint/native hook
+- Register({hooks}, log) - Multiple hooks
+- RegisterNative(path, preCallback, postCallback, log) - Native C++ (typically /Script/Engine) with PRE/POST timing
+- RegisterABFDeployedReceiveBeginPlay(pattern, callback, log) - Consolidated ReceiveBeginPlay
 ]]
 
 local HookUtil = {}

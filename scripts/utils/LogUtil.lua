@@ -1,8 +1,18 @@
+--[[
+============================================================================
+LogUtil - Logger Factory
+============================================================================
+
+Creates per-feature loggers with debug flag control and log-once functionality.
+Supports Info, Warning, Error, Debug levels (each with Once variants).
+
+API:
+- CreateLogger(modName, debugEnabled) -> logger
+  logger methods: Debug, Info, Warning, Error, DebugOnce, InfoOnce, WarningOnce, ErrorOnce
+]]
+
 local LogUtil = {}
 
--- CreateLogger creates a logger for a mod or feature
--- modName: Display name for log prefix (e.g., "Rebiotic Fixer|FoodFix")
--- debugEnabled: Boolean - whether debug logging is enabled
 function LogUtil.CreateLogger(modName, debugEnabled)
     local loggedOnce = {}
 

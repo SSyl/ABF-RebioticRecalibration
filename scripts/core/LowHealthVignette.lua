@@ -1,41 +1,14 @@
 --[[
 ============================================================================
-LowHealthVignette - Red Screen Edge Effect When Low on Health
+LowHealthVignette - Red Screen Edge Effect When Low Health
 ============================================================================
 
-PURPOSE:
-Adds a red vignette effect around the screen edges when the player's health
-drops below a configurable threshold. Provides visual feedback that you're
-in danger. Optionally pulses for a "heartbeat" effect.
+Shows red vignette when health drops below threshold. Clones EyeLid_Top widget,
+replaces texture with T_Gradient_Radial, and tints red. Optional pulse animation
+uses LoopAsync (33ms, ~30 FPS) with sine wave to oscillate alpha 40%-100%.
 
-HOW IT WORKS:
-
-Widget Creation:
-- We clone the existing EyeLid_Top UImage widget (used for the blindfold
-  effect) because it's already configured for fullscreen overlay.
-- We replace its texture with T_Gradient_Radial (a radial gradient that
-  fades from transparent center to opaque edges - perfect for vignette).
-- We tint it with the configured color (default: dark red).
-- Widget is created lazily on first health update below threshold.
-
-Health Tracking:
-- We hook W_PlayerHUD_Main_C:UpdateHealth which fires when health changes.
-- We read hud.LastHealthPercentage and compare against Config.Threshold.
-- We only show/hide on threshold crossing, not every health update.
-
-Pulse Animation:
-- When visible and PulseEnabled, we run a LoopAsync at ~30 FPS.
-- The async loop does pure Lua math (sine wave), then uses ExecuteInGameThread
-  to update the widget's alpha.
-- The pulse oscillates between 40% and 100% of the base alpha.
-
-HOOKS:
-- W_PlayerHUD_Main_C:UpdateHealth → OnUpdateHealth()
-
-PERFORMANCE:
-- Health updates fire when health changes (not every frame).
-- Pulse loop only runs when vignette is visible (player is low health).
-- Cleanup() clears state when returning to menu.
+HOOKS: W_PlayerHUD_Main_C:UpdateHealth
+PERFORMANCE: Fires on health changes. Pulse loop only runs when vignette visible.
 ]]
 
 local HookUtil = require("utils/HookUtil")
@@ -167,7 +140,6 @@ local function StartPulseLoop()
     Log.Debug("Started pulse animation")
 
     LoopAsync(33, function()
-        -- Stop condition (pure Lua check) - check FIRST before any other work
         if not IsPulsing then return true end
 
         -- Check if widget was cleared during map transition
@@ -189,9 +161,7 @@ local function StartPulseLoop()
         local pulseAlpha = baseAlpha * multiplier
         local color = Config.Color
 
-        -- UObject access requires game thread
         ExecuteInGameThread(function()
-            -- Double-check conditions on game thread (widget might have been cleaned up)
             if not IsPulsing or not VignetteWidget then
                 return
             end
@@ -207,7 +177,6 @@ local function StartPulseLoop()
                 VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
             end)
 
-            -- If SetColorAndOpacity failed, widget is being destroyed - stop pulsing
             if not ok then
                 IsPulsing = false
             end
@@ -299,10 +268,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called when player health updates
--- Widget lazy-creates on first call via ShowVignette -> GetOrCreateVignetteWidget
 function LowHealthVignette.OnUpdateHealth(hud)
-    -- Get health percentage from the HUD's cached value
     local okHealth, healthPercent = pcall(function()
         return hud.LastHealthPercentage
     end)

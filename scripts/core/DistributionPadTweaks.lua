@@ -1,3 +1,22 @@
+--[[
+============================================================================
+DistributionPadTweaks - Distribution Pad Range + Indicator
+============================================================================
+
+Increases pad range (configurable multiplier) and shows icon/text when looking at
+containers in range. Uses O(1) cache with ref-counting for overlapping coverage
+and delta-based sync to minimize updates. Per-frame cache prevents repeated lookups.
+
+HOOKS:
+- AbioticDeployed_ParentBP_C:ReceiveBeginPlay (Deployed_DistributionPad_C)
+- AbioticDeployed_ParentBP_C:ReceiveEndPlay (cleanup)
+- Deployed_DistributionPad_C:OnRep_DistributionActive (late-binding)
+- W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts (per-frame indicator)
+- AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive (optional refresh)
+
+PERFORMANCE: Per-frame indicator hook with O(1) cache lookup and address caching
+]]
+
 local HookUtil = require("utils/HookUtil")
 local WidgetUtil = require("utils/WidgetUtil")
 local DistributionPadTweaks = {}
@@ -130,8 +149,6 @@ end
 
 -- Called when pad is destroyed - decrement ref counts for all its inventories
 local function PurgePadFromCache(pad)
-    -- Defensive check: pad should always be valid during ReceiveEndPlay, but log if not
-    -- This helps us detect if cache cleanup ever fails and leaves stale data
     if not pad:IsValid() then
         Log.Debug("PurgePadFromCache: pad was invalid, cannot purge from cache")
         return
@@ -456,7 +473,6 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    -- Fast path: same actor as last frame
     if actorAddr == InteractionPromptCache.lastActorAddr then
         if InteractionPromptCache.lastActorInRange then
             AppendDistPadText(widget)
@@ -467,7 +483,6 @@ function DistributionPadTweaks.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    -- New actor - full check
     InteractionPromptCache.lastActorAddr = actorAddr
     InteractionPromptCache.lastActorInRange = false
 

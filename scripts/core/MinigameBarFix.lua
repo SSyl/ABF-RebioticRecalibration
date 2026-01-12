@@ -1,3 +1,19 @@
+--[[
+============================================================================
+MinigameBarFix - Fix Success Zone Visual Size Mismatch
+============================================================================
+
+Fixes minigame success zones appearing smaller than hitbox. Uses SetRenderScale
+to stretch zones (1.14x large, 1.25x small). Traverses WidgetTree to find Image
+widgets by slot name (CanvasPanelSlot_9/10) due to name collision on direct access.
+
+HOOKS:
+- W_HUD_ContinenceMinigame_C:Tick (one-time fix per widget)
+- W_HUD_WeightliftingMinigame_C:Tick (one-time fix per widget)
+
+PERFORMANCE: Tick hook with address-based guard, only modifies once per widget instance
+]]
+
 local HookUtil = require("utils/HookUtil")
 local MinigameBarFix = {}
 

@@ -1,3 +1,15 @@
+--[[
+============================================================================
+HideHotbarHotkeys - Hide Numeric Hotbar Indicators
+============================================================================
+
+Hides HotkeyNumberBox and HotkeyNumberText widgets on hotbar slots.
+Uses address-based cache to identify hotbar slots (vs other inventory slots).
+
+HOOKS: W_InventoryItemSlot_C:UpdateSlot_UI
+PERFORMANCE: Fires on slot content changes with address caching
+]]
+
 local HookUtil = require("utils/HookUtil")
 local HideHotbarHotkeys = {}
 
@@ -54,7 +66,6 @@ function HideHotbarHotkeys.OnInventorySlotUpdate(slotWidget)
     local isHotbarSlot = slotAddressCache[addr]
 
     if isHotbarSlot == nil then
-        -- First time seeing this slot - check if hotbar and cache result
         local okName, fullName = pcall(function() return slotWidget:GetFullName() end)
         isHotbarSlot = okName and fullName and fullName:match("HotbarSlot") ~= nil
         slotAddressCache[addr] = isHotbarSlot
