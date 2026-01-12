@@ -25,13 +25,8 @@ local WidgetUtil = {}
 --- @return UObject|nil newWidget The cloned widget (or nil on failure)
 --- @return UObject|nil slot The slot object for positioning (or nil on failure)
 function WidgetUtil.CloneWidget(templateWidget, parent, widgetName)
-    if not templateWidget or not templateWidget:IsValid() then
-        return nil, nil
-    end
-
-    if not parent or not parent:IsValid() then
-        return nil, nil
-    end
+    if not templateWidget:IsValid() then return nil, nil end
+    if not parent:IsValid() then return nil, nil end
 
     -- Clone widget using template parameter (copies all properties)
     local newWidget = StaticConstructObject(
@@ -42,9 +37,7 @@ function WidgetUtil.CloneWidget(templateWidget, parent, widgetName)
         templateWidget  -- Template - auto-copies font, colors, shadows, all styling
     )
 
-    if not newWidget or not newWidget:IsValid() then
-        return nil, nil
-    end
+    if not newWidget:IsValid() then return nil, nil end
 
     -- Add to parent based on parent's class type
     local okClass, parentClassName = pcall(function()

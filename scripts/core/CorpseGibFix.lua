@@ -70,7 +70,7 @@ function Module.RegisterHooks()
 
     ExecuteInGameThread(function()
         pcall(function()
-            LoadAsset("/Game/Blueprints/Environment/Special/CharacterCorpse_ParentBP")
+            LoadAsset("/Game/Blueprints/Environment/Special/CharacterCorpse_ParentBP.CharacterCorpse_ParentBP_C")
         end)
 
         local success = HookUtil.Register(
@@ -99,10 +99,10 @@ function Module.OnReceiveBeginPlay(corpse)
 
     -- Pre-emptive fix: Cache and clear gib assets to prevent save-load gibsplosion
     local okParticles, particles = pcall(function() return corpse.GibParticles end)
-    local hasParticles = okParticles and particles and particles:IsValid()
+    local hasParticles = okParticles and particles:IsValid()
 
     local okSound, sound = pcall(function() return corpse.GibbedSound end)
-    local hasSound = okSound and sound and sound:IsValid()
+    local hasSound = okSound and sound:IsValid()
 
     if not hasParticles and not hasSound then
         return

@@ -44,7 +44,7 @@ local Log = nil
 -- ============================================================
 
 local function ResetDeployedDurability(deployable)
-    if not deployable or not deployable:IsValid() then return false end
+    if not deployable:IsValid() then return false end
 
     local okMax, maxDur = pcall(function() return deployable.MaxDurability end)
     if not okMax or maxDur == nil then

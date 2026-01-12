@@ -163,12 +163,12 @@ local function GetOrCreateDistPadIcon(widget)
     if DistPadIconWidget and DistPadIconWidget:IsValid() then return DistPadIconWidget end
 
     local okRadio, radioactiveIcon = pcall(function() return widget.RadioactiveIcon end)
-    if not okRadio or not radioactiveIcon or not radioactiveIcon:IsValid() then
+    if not okRadio or not radioactiveIcon:IsValid() then
         return nil
     end
 
     local okParent, parent = pcall(function() return radioactiveIcon:GetParent() end)
-    if not okParent or not parent or not parent:IsValid() then
+    if not okParent or not parent:IsValid() then
         return nil
     end
 
@@ -195,7 +195,7 @@ local function GetOrCreateDistPadIcon(widget)
         }
         for _, iconPath in ipairs(searchPaths) do
             local okLoad, texture = pcall(function() return StaticFindObject(iconPath) end)
-            if okLoad and texture and texture:IsValid() then
+            if okLoad and texture:IsValid() then
                 DistPadIconTexture = texture
                 break
             end
@@ -234,7 +234,7 @@ local function AppendDistPadText(widget)
 
     if widgetAddr ~= TextBlockCache.widgetAddr then
         local ok, tb = pcall(function() return widget.InteractionObjectName end)
-        if ok and tb and tb:IsValid() then
+        if ok and tb:IsValid() then
             TextBlockCache.widgetAddr = widgetAddr
             TextBlockCache.textBlock = tb
         else
@@ -357,7 +357,7 @@ function Module.OnDistPadBeginPlay(pad)
     if not pad:IsValid() or not Config.Range.Enabled then return end
 
     local okSphere, sphere = pcall(function() return pad.ContainerOverlapSphere end)
-    if okSphere and sphere and sphere:IsValid() then
+    if okSphere and sphere:IsValid() then
         local newRadius = 1000 * Config.Range.Multiplier
         pcall(function() sphere:SetSphereRadius(newRadius, true) end)
     end
@@ -418,7 +418,7 @@ end
 
 function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     local okHitActor, hitActor = pcall(function() return HitActorParam:get() end)
-    if not okHitActor or not hitActor or not hitActor:IsValid() then
+    if not okHitActor or not hitActor:IsValid() then
         InteractionPromptCache.lastActorAddr = nil
         InteractionPromptCache.lastActorInRange = false
         HideDistPadIcon()
@@ -447,7 +447,7 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     InteractionPromptCache.lastActorInRange = false
 
     local okInv, containerInv = pcall(function() return hitActor.ContainerInventory end)
-    if not okInv or not containerInv or not containerInv:IsValid() then
+    if not okInv or not containerInv:IsValid() then
         HideDistPadIcon()
         return
     end

@@ -87,7 +87,7 @@ function Module.OnInventorySlotUpdate(slotWidget)
     if not isHotbarSlot then return end
 
     local okBox, numberBox = pcall(function() return slotWidget.HotkeyNumberBox end)
-    if okBox and numberBox and numberBox:IsValid() then
+    if okBox and numberBox:IsValid() then
         local okVis, currentVis = pcall(function() return numberBox:GetVisibility() end)
         if okVis and currentVis ~= 1 then
             pcall(function() numberBox:SetVisibility(1) end)
@@ -95,7 +95,7 @@ function Module.OnInventorySlotUpdate(slotWidget)
     end
 
     local okText, numberText = pcall(function() return slotWidget.HotkeyNumberText end)
-    if okText and numberText and numberText:IsValid() then
+    if okText and numberText:IsValid() then
         local okVis, currentVis = pcall(function() return numberText:GetVisibility() end)
         if okVis and currentVis ~= 1 then
             pcall(function() numberText:SetVisibility(1) end)

@@ -109,7 +109,7 @@ function Module.RegisterHooks()
 
     ExecuteInGameThread(function()
         local sound, wasFound, didLoad = LoadAsset("SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'")
-        if wasFound and didLoad and sound and sound:IsValid() then
+        if wasFound and didLoad and sound:IsValid() then
             LightSwitchSound = sound
             Log.Debug("Pre-loaded light switch sound")
         end
@@ -148,7 +148,7 @@ end
 
 function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     local okHitActor, hitActor = pcall(function() return HitActorParam:get() end)
-    if not okHitActor or not hitActor or not hitActor:IsValid() then
+    if not okHitActor or not hitActor:IsValid() then
         PromptTextCache.lastVehicleAddr = nil
         PromptTextCache.isSupported = false
         return
@@ -183,7 +183,7 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
 
     if widgetAddr ~= TextBlockCache.widgetAddr then
         local ok, tb = pcall(function() return widget.PressPackageSuffix end)
-        if ok and tb and tb:IsValid() then
+        if ok and tb:IsValid() then
             TextBlockCache.widgetAddr = widgetAddr
             TextBlockCache.textBlock = tb
         else
@@ -218,7 +218,7 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
         return vehicle.Headlights
     end)
 
-    if not okHeadlights or not headlights or not headlights:IsValid() then
+    if not okHeadlights or not headlights:IsValid() then
         Log.Debug("OnVehicleInteractB: Failed to get Headlights component")
         return
     end
@@ -254,27 +254,23 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
         return
     end
 
-    Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
+    Log.Debug("Vehicle lights: %s", newState and "ON" or "OFF")
 
-    ExecuteInGameThread(function()
-        if LightSwitchSound and LightSwitchSound:IsValid() then
-            local UEHelpers = require("UEHelpers")
+    if LightSwitchSound and LightSwitchSound:IsValid() then
+        local UEHelpers = require("UEHelpers")
 
-            local playerController = UEHelpers.GetPlayerController()
-            if not playerController or not playerController:IsValid() then
-                return
-            end
+        local playerController = UEHelpers.GetPlayerController()
+        if not playerController:IsValid() then return end
 
-            local okLoc, location = pcall(function() return vehicle:K2_GetActorLocation() end)
-            if not okLoc or not location then
-                return
-            end
-
-            pcall(function()
-                playerController:ClientPlaySoundAtLocation(LightSwitchSound, location, 1.0, 1.0)
-            end)
+        local okLoc, location = pcall(function() return vehicle:K2_GetActorLocation() end)
+        if not okLoc or not location then
+            return
         end
-    end)
+
+        pcall(function()
+            playerController:ClientPlaySoundAtLocation(LightSwitchSound, location, 1.0, 1.0)
+        end)
+    end
 end
 
 return Module

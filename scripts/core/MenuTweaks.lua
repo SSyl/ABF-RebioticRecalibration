@@ -138,7 +138,7 @@ function Module.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
     local okText, textWidget = pcall(function()
         return TextParam:get()
     end)
-    if not okText or not textWidget or not textWidget:IsValid() then return end
+    if not okText or not textWidget:IsValid() then return end
 
     local okName, widgetName = pcall(function() return textWidget:GetFName():ToString() end)
     if not okName then return end

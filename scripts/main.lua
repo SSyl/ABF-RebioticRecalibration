@@ -206,7 +206,7 @@ local function OnGameStateHook(Context)
     if not gameState:IsValid() then return end
 
     local okWorld, world = pcall(function() return gameState:GetWorld() end)
-    if okWorld and world and world:IsValid() then
+    if okWorld and world:IsValid() then
         OnGameState(world)
     end
 end
@@ -285,7 +285,7 @@ local function PollForMissedHook(attempts)
         if gameState:IsValid() then
             Log.General.Debug("Gameplay GameState found, invoking OnGameState")
             local okWorld, world = pcall(function() return gameState:GetWorld() end)
-            if okWorld and world and world:IsValid() then
+            if okWorld and world:IsValid() then
                 OnGameState(world)
             end
         end

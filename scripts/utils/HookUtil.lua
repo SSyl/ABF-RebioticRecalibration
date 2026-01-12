@@ -28,9 +28,7 @@ local function RegisterSingle(blueprintPath, callback, log)
     local ok, err = pcall(function()
         RegisterHook(blueprintPath, function(Context, ...)
             local obj = Context:get()
-            if not obj or not obj:IsValid() then
-                return
-            end
+            if not obj:IsValid() then return end
             -- Pass validated object and any additional hook parameters
             callback(obj, ...)
         end)
@@ -112,7 +110,7 @@ function HookUtil.RegisterNative(path, preCallback, postCallback, log)
     if preCallback then
         wrappedPre = function(Context, ...)
             local obj = Context:get()
-            if not obj or not obj:IsValid() then return end
+            if not obj:IsValid() then return end
             preCallback(obj, ...)
         end
     end
@@ -120,7 +118,7 @@ function HookUtil.RegisterNative(path, preCallback, postCallback, log)
     if postCallback then
         wrappedPost = function(Context, ...)
             local obj = Context:get()
-            if not obj or not obj:IsValid() then return end
+            if not obj:IsValid() then return end
             postCallback(obj, ...)
         end
     end
@@ -165,7 +163,7 @@ function HookUtil.RegisterABFDeployedReceiveBeginPlay(classMatchPattern, callbac
                 "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveBeginPlay",
                 function(Context)
                     local obj = Context:get()
-                    if not obj or not obj:IsValid() then return end
+                    if not obj:IsValid() then return end
 
                     local okClass, className = pcall(function()
                         return obj:GetClass():GetFName():ToString()

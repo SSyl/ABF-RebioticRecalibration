@@ -190,7 +190,7 @@ function Module.OnMinigameTick(minigameWidget)
     end)
 
     if needsReapply then
-        Log.Warning("Minigame scale was reset by game, re-applying every Tick")
+        Log.WarningOnce("Minigame scale was reset by game, re-applying every Tick")
         ApplyMinigameScale(minigameWidget)
     else
         verifiedWidgets[addr] = true

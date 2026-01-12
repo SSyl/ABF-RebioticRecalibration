@@ -65,7 +65,7 @@ local function GetOrCreateVignetteWidget(hud)
     local okTemplate, templateImage = pcall(function()
         return hud.EyeLid_Top
     end)
-    if not okTemplate or not templateImage or not templateImage:IsValid() then
+    if not okTemplate or not templateImage:IsValid() then
         Log.Debug("Failed to get EyeLid_Top template")
         return nil
     end
@@ -73,7 +73,7 @@ local function GetOrCreateVignetteWidget(hud)
     local okParent, parent = pcall(function()
         return templateImage:GetParent()
     end)
-    if not okParent or not parent or not parent:IsValid() then
+    if not okParent or not parent:IsValid() then
         Log.Debug("Failed to get EyeLid_Top parent")
         return nil
     end
@@ -101,7 +101,7 @@ local function GetOrCreateVignetteWidget(hud)
         local okTexture, texture = pcall(function()
             return StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
         end)
-        if okTexture and texture and texture:IsValid() then
+        if okTexture and texture:IsValid() then
             VignetteTexture = texture
         else
             Log.Debug("Failed to load T_Gradient_Radial texture")
