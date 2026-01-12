@@ -182,11 +182,10 @@ return {
 
     -- ============================================================
     -- Minigame Bar Fix
-    -- Fixes visual size of small success zone to match actual hitbox
+    -- Fixes visual size of success zones to match actual hitbox
     -- ============================================================
     MinigameBarFix = {
-        -- Fixes the small green bar in continence minigames
-        -- The visual is too small compared to the actual success zone hitbox
+        -- Makes the success zones true-to-size in bathroom and weightlifting minigames
         Enabled = true, -- [default = true]
     },
 
@@ -205,6 +204,6 @@ return {
         AutoJumpCrouch = false,
         VehicleLights = false,
         HideHotbarHotkeys = false,
-        MinigameBarFix = true,
+        MinigameBarFix = false,
     },
 }

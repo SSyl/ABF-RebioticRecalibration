@@ -5,8 +5,11 @@ local MinigameBarFix = {}
 local Config = nil
 local Log = nil
 
--- Track which widgets we've already modified (by address)
+-- Track which widgets we've modified (by address)
 local modifiedWidgets = {}
+
+-- Track widgets where we've verified scale persists (by address)
+local verifiedWidgets = {}
 
 -- Scale values for success zones
 local LARGE_ZONE_SCALE = 1.14
@@ -25,8 +28,9 @@ function MinigameBarFix.Init(config, log)
 end
 
 function MinigameBarFix.Cleanup()
-    -- Clear modified widgets cache on map transition
+    -- Clear widget caches on map transition
     modifiedWidgets = {}
+    verifiedWidgets = {}
 end
 
 -- ============================================================
@@ -42,11 +46,7 @@ function MinigameBarFix.RegisterInPlayHooks()
         if okLoadContinence then
             HookUtil.Register(
                 "/Game/Blueprints/Widgets/HUD/W_HUD_ContinenceMinigame.W_HUD_ContinenceMinigame_C:Tick",
-                function(minigameWidget)
-                    local addr = minigameWidget:GetAddress()
-                    if modifiedWidgets[addr] then return end
-                    MinigameBarFix.OnMinigameCreated(minigameWidget)
-                end,
+                MinigameBarFix.OnMinigameTick,
                 Log
             )
         end
@@ -58,11 +58,7 @@ function MinigameBarFix.RegisterInPlayHooks()
         if okLoadWeightlifting then
             HookUtil.Register(
                 "/Game/Blueprints/Widgets/HUD/W_HUD_WeightliftingMinigame.W_HUD_WeightliftingMinigame_C:Tick",
-                function(minigameWidget)
-                    local addr = minigameWidget:GetAddress()
-                    if modifiedWidgets[addr] then return end
-                    MinigameBarFix.OnMinigameCreated(minigameWidget)
-                end,
+                MinigameBarFix.OnMinigameTick,
                 Log
             )
         end
@@ -72,26 +68,23 @@ function MinigameBarFix.RegisterInPlayHooks()
 end
 
 -- ============================================================
--- HOOK CALLBACKS
+-- HELPER FUNCTIONS
 -- ============================================================
 
-function MinigameBarFix.OnMinigameCreated(minigameWidget)
-    local addr = minigameWidget:GetAddress()
-    if modifiedWidgets[addr] then return end
-    modifiedWidgets[addr] = true
-
-    Log.Debug("Applying minigame bar fixes to widget at %s", tostring(addr))
-
+-- Shared function to apply scale to minigame success zones
+local function ApplyMinigameScale(minigameWidget)
     -- Navigate widget tree to access Image widgets individually
     -- Direct property access (widget.Image_0) always resolves to widget.Image
     local widgetTree = minigameWidget.WidgetTree
-    if not (widgetTree and widgetTree:IsValid()) then return end
+    if not (widgetTree and widgetTree:IsValid()) then return false end
 
     local canvasPanel = widgetTree.RootWidget
-    if not (canvasPanel and canvasPanel:IsValid()) then return end
+    if not (canvasPanel and canvasPanel:IsValid()) then return false end
 
     local slots = canvasPanel.Slots
-    if not slots then return end
+    if not slots then return false end
+
+    local appliedCount = 0
 
     slots:ForEach(function(index, slotElement)
         local slot = slotElement:get()
@@ -106,15 +99,83 @@ function MinigameBarFix.OnMinigameCreated(minigameWidget)
         if not okSlotName then return end
 
         if slotName == "CanvasPanelSlot_9" then
-            Log.Debug("Fixing CanvasPanelSlot_9 (large success zone) - Scale.X = %.2f", LARGE_ZONE_SCALE)
             content:SetRenderTransformPivot({X = 0.0, Y = 0.5})
             content:SetRenderScale({X = LARGE_ZONE_SCALE, Y = 1.0})
+            appliedCount = appliedCount + 1
         elseif slotName == "CanvasPanelSlot_10" then
-            Log.Debug("Fixing CanvasPanelSlot_10 (small success zone) - Scale.X = %.2f", SMALL_ZONE_SCALE)
             content:SetRenderTransformPivot({X = 0.0, Y = 0.5})
             content:SetRenderScale({X = SMALL_ZONE_SCALE, Y = 1.0})
+            appliedCount = appliedCount + 1
         end
     end)
+
+    return appliedCount > 0
+end
+
+-- ============================================================
+-- HOOK CALLBACKS
+-- ============================================================
+
+-- Called on every Tick - applies scale on first Tick, then verifies persistence
+function MinigameBarFix.OnMinigameTick(minigameWidget)
+    local addr = minigameWidget:GetAddress()
+    if not addr then return end
+
+    -- Already verified this widget's scale persists, early out
+    if verifiedWidgets[addr] then return end
+
+    -- First Tick: apply scale
+    if not modifiedWidgets[addr] then
+        modifiedWidgets[addr] = true
+        Log.Debug("Minigame Tick - applying scale (first time)")
+        ApplyMinigameScale(minigameWidget)
+        return
+    end
+
+    -- Second+ Tick: check if scale persisted
+    local widgetTree = minigameWidget.WidgetTree
+    if not (widgetTree and widgetTree:IsValid()) then return end
+
+    local canvasPanel = widgetTree.RootWidget
+    if not (canvasPanel and canvasPanel:IsValid()) then return end
+
+    local slots = canvasPanel.Slots
+    if not slots then return end
+
+    local needsReapply = false
+
+    slots:ForEach(function(index, slotElement)
+        if needsReapply then return end  -- Already detected reset, skip rest
+
+        local slot = slotElement:get()
+        if not slot:IsValid() then return end
+
+        local content = slot.Content
+        if not (content and content:IsValid()) then return end
+
+        if not content:IsA("/Script/UMG.Image") then return end
+
+        local okSlotName, slotName = pcall(function() return slot:GetFName():ToString() end)
+        if not okSlotName then return end
+
+        if slotName == "CanvasPanelSlot_9" or slotName == "CanvasPanelSlot_10" then
+            local expectedScale = slotName == "CanvasPanelSlot_9" and LARGE_ZONE_SCALE or SMALL_ZONE_SCALE
+            local okScale, currentScale = pcall(function() return content.RenderTransform.Scale.X end)
+
+            if not okScale or math.abs(currentScale - expectedScale) > 0.01 then
+                needsReapply = true
+            end
+        end
+    end)
+
+    if needsReapply then
+        Log.Warning("Minigame scale was reset by game, re-applying every Tick")
+        ApplyMinigameScale(minigameWidget)
+    else
+        -- Scale persisted! Mark as verified so we don't check again
+        verifiedWidgets[addr] = true
+        Log.Debug("Minigame scale persisted correctly, Tick check disabled for this widget")
+    end
 end
 
 return MinigameBarFix
