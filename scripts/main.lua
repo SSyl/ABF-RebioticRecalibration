@@ -77,6 +77,10 @@ local SCHEMA = {
     -- MinigameBarFix
     { path = "MinigameBarFix.Enabled", type = "boolean", default = true },
 
+    -- CorpseGibFix
+    { path = "CorpseGibFix.Enabled", type = "boolean", default = true },
+    { path = "CorpseGibFix.Threshold", type = "number", default = 500 },
+
     -- DebugFlags
     { path = "DebugFlags.Misc", type = "boolean", default = false },
     { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
@@ -89,6 +93,7 @@ local SCHEMA = {
     { path = "DebugFlags.VehicleLights", type = "boolean", default = false },
     { path = "DebugFlags.HideHotbarHotkeys", type = "boolean", default = false },
     { path = "DebugFlags.MinigameBarFix", type = "boolean", default = false },
+    { path = "DebugFlags.CorpseGibFix", type = "boolean", default = false },
 }
 
 local UserConfig = require("../config")
@@ -113,6 +118,7 @@ local AutoJumpCrouch = require("core/AutoJumpCrouch")
 local VehicleLights = require("core/VehicleLights")
 local HideHotbarHotkeys = require("core/HideHotbarHotkeys")
 local MinigameBarFix = require("core/MinigameBarFix")
+local CorpseGibFix = require("core/CorpseGibFix")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
@@ -126,6 +132,7 @@ local Log = {
     VehicleLights = LogUtil.CreateLogger("Rebiotic Fixer|VehicleLights", Config.DebugFlags.VehicleLights),
     HideHotbarHotkeys = LogUtil.CreateLogger("Rebiotic Fixer|HideHotbarHotkeys", Config.DebugFlags.HideHotbarHotkeys),
     MinigameBarFix = LogUtil.CreateLogger("Rebiotic Fixer|MinigameBarFix", Config.DebugFlags.MinigameBarFix),
+    CorpseGibFix = LogUtil.CreateLogger("Rebiotic Fixer|CorpseGibFix", Config.DebugFlags.CorpseGibFix),
 }
 
 -- Initialize feature modules
@@ -139,6 +146,7 @@ AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
 VehicleLights.Init(Config.VehicleLights, Log.VehicleLights)
 HideHotbarHotkeys.Init(Config.HideHotbarHotkeys, Log.HideHotbarHotkeys)
 MinigameBarFix.Init(Config.MinigameBarFix, Log.MinigameBarFix)
+CorpseGibFix.Init(Config.CorpseGibFix, Log.CorpseGibFix)
 
 -- ============================================================
 -- MODULE STATE
@@ -159,6 +167,7 @@ local HookRegistered = {
     VehicleLights = false,
     HideHotbarHotkeys = false,
     MinigameBarFix = false,
+    CorpseGibFix = false,
 }
 
 -- Lifecycle event tracking
@@ -206,6 +215,7 @@ local function OnGameState(world)
     TryRegister("VehicleLights", Config.VehicleLights.Enabled, VehicleLights.RegisterInPlayHooks)
     TryRegister("HideHotbarHotkeys", Config.HideHotbarHotkeys.Enabled, HideHotbarHotkeys.RegisterInPlayHooks)
     TryRegister("MinigameBarFix", Config.MinigameBarFix.Enabled, MinigameBarFix.RegisterInPlayHooks)
+    TryRegister("CorpseGibFix", Config.CorpseGibFix.Enabled, CorpseGibFix.RegisterInPlayHooks)
 end
 
 -- Hook callback for GameState:ReceiveBeginPlay
@@ -250,6 +260,10 @@ RegisterInitGameStatePreHook(function(Context)
     if Config.MinigameBarFix.Enabled then
         Log.General.Debug("InitGameStatePRE: Cleaning up MinigameBarFix cache")
         MinigameBarFix.Cleanup()
+    end
+    if Config.CorpseGibFix.Enabled then
+        Log.General.Debug("InitGameStatePRE: Cleaning up CorpseGibFix state")
+        CorpseGibFix.Cleanup()
     end
 end)
 

@@ -190,6 +190,19 @@ return {
     },
 
     -- ============================================================
+    -- Corpse Gib Fix
+    -- Prevents gibsplosion effect when loading areas with previously-removed corpses
+    -- ============================================================
+    CorpseGibFix = {
+        Enabled = true, -- [default = true]
+
+        -- Time window (ms) to suppress gib VFX after corpse spawns.
+        -- Save-load gibs happen ~260-290ms after spawn. Increase if clients with
+        -- slow connections still see gibsplosions on area load.
+        Threshold = 500, -- [default = 500]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -205,5 +218,6 @@ return {
         VehicleLights = false,
         HideHotbarHotkeys = false,
         MinigameBarFix = false,
+        CorpseGibFix = false,
     },
 }
