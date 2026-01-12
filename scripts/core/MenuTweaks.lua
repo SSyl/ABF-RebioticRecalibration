@@ -16,9 +16,29 @@ PERFORMANCE: Only fires when LAN popup is open (rare event)
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local MenuTweaks = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "MenuTweaks",
+    configKey = "MenuTweaks",
+
+    schema = {
+        { path = "SkipLANHostingDelay", type = "boolean", default = true },
+    },
+
+    hookPoint = "PreInit",
+
+    -- Custom enable check (not standard "Enabled" field)
+    isEnabled = function(cfg) return cfg.SkipLANHostingDelay end,
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
@@ -49,7 +69,6 @@ local function EnablePopupButtons(popup)
 end
 
 local function ShouldSkipDelay(popup)
-    -- popup is already validated by HookUtil.Register
     local ok, title = pcall(function()
         return popup.Text_Title:ToString()
     end)
@@ -58,10 +77,10 @@ local function ShouldSkipDelay(popup)
 end
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function MenuTweaks.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -69,23 +88,19 @@ function MenuTweaks.Init(config, log)
     Log.Info("MenuTweaks - %s", status)
 end
 
--- ============================================================
--- HOOK REGISTRATION
--- ============================================================
-
-function MenuTweaks.RegisterPrePlayHooks()
+function Module.RegisterHooks()
     return HookUtil.Register({
         {
             path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:Construct",
-            callback = MenuTweaks.OnConstruct
+            callback = Module.OnConstruct
         },
         {
             path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:CountdownInputDelay",
-            callback = MenuTweaks.OnCountdownInputDelay
+            callback = Module.OnCountdownInputDelay
         },
         {
             path = "/Game/Blueprints/Widgets/MenuSystem/W_MenuPopup_YesNo.W_MenuPopup_YesNo_C:UpdateButtonWithDelayTime",
-            callback = MenuTweaks.OnUpdateButtonWithDelayTime
+            callback = Module.OnUpdateButtonWithDelayTime
         },
     }, Log)
 end
@@ -94,8 +109,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called when popup is constructed
-function MenuTweaks.OnConstruct(popup)
+function Module.OnConstruct(popup)
     if not ShouldSkipDelay(popup) then return end
 
     pcall(function()
@@ -107,8 +121,7 @@ function MenuTweaks.OnConstruct(popup)
     EnablePopupButtons(popup)
 end
 
--- Called each tick during countdown
-function MenuTweaks.OnCountdownInputDelay(popup)
+function Module.OnCountdownInputDelay(popup)
     if not ShouldSkipDelay(popup) then return end
 
     pcall(function()
@@ -119,9 +132,7 @@ function MenuTweaks.OnCountdownInputDelay(popup)
     EnablePopupButtons(popup)
 end
 
--- Called when button text is updated with countdown time
--- TextParam and OriginalTextParam are RemoteUnrealParam from the hook
-function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
+function Module.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
     if not ShouldSkipDelay(popup) then return end
 
     local okText, textWidget = pcall(function()
@@ -140,18 +151,15 @@ function MenuTweaks.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextPa
         if okStr then originalStr = str end
     end
 
-    -- Cache original text STRING on first call (when it's not empty)
-    -- We cache the string, not the FText object, because FText may become invalid
     if originalStr ~= "" and not OriginalButtonText[widgetName] then
         OriginalButtonText[widgetName] = originalStr
         Log.Debug("Cached original text for %s: '%s'", widgetName, originalStr)
     end
 
-    -- Use cached string to create fresh FText and set it
     local cachedStr = OriginalButtonText[widgetName]
     if cachedStr then
-        pcall(function() textWidget:SetText(FText(cachedStr)) end) 
+        pcall(function() textWidget:SetText(FText(cachedStr)) end)
     end
 end
 
-return MenuTweaks
+return Module

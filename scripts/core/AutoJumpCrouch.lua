@@ -16,9 +16,30 @@ PERFORMANCE: Fires on jump/landing, not per-frame
 
 local HookUtil = require("utils/HookUtil")
 local UEHelpers = require("UEHelpers")
-local AutoJumpCrouch = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "AutoJumpCrouch",
+    configKey = "AutoJumpCrouch",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = false },
+        { path = "Delay", type = "number", default = 150, min = 0, max = 1000 },
+        { path = "ClearSprintOnJump", type = "boolean", default = true },
+        { path = "RequireJumpHeld", type = "boolean", default = true },
+        { path = "DisableAutoUncrouch", type = "boolean", default = false },
+    },
+
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
@@ -26,7 +47,7 @@ local cachedPlayerPawn = nil
 local autoCrouched = false
 
 -- ============================================================
--- CORE LOGIC
+-- HELPER FUNCTIONS
 -- ============================================================
 
 local function GetLocalPlayer(character)
@@ -44,7 +65,11 @@ local function GetLocalPlayer(character)
     return cachedPlayerPawn
 end
 
-function AutoJumpCrouch.Init(config, log)
+-- ============================================================
+-- LIFECYCLE FUNCTIONS
+-- ============================================================
+
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -53,7 +78,7 @@ function AutoJumpCrouch.Init(config, log)
     Log.Info("AutoJumpCrouch - %s (Delay: %dms, Mode: %s)", status, Config.Delay, mode)
 end
 
-function AutoJumpCrouch.Cleanup()
+function Module.Cleanup()
     autoCrouched = false
     cachedPlayerPawn = nil
 end
@@ -62,20 +87,18 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function AutoJumpCrouch.RegisterInPlayHooks()
-    -- POST-HOOK: Jump (fires AFTER jump launches, preserves sprint momentum)
+function Module.RegisterHooks()
     local success1 = HookUtil.RegisterNative(
         "/Script/Engine.Character:Jump",
-        nil,  -- No PRE-HOOK
-        AutoJumpCrouch.OnJump,  -- POST-HOOK
+        nil,
+        Module.OnJump,
         Log
     )
 
-    -- Blueprint hooks (always POST)
     local success2 = HookUtil.Register({
         {
             path = "/Game/Blueprints/Characters/Abiotic_Character_ParentBP.Abiotic_Character_ParentBP_C:TryApplyFallDamage",
-            callback = AutoJumpCrouch.OnTryApplyFallDamage
+            callback = Module.OnTryApplyFallDamage
         },
     }, Log)
 
@@ -86,13 +109,12 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
-function AutoJumpCrouch.OnJump(character)
+function Module.OnJump(character)
     local player = GetLocalPlayer(character)
     if not player then return end
 
-    autoCrouched = false  -- Clear stale state from previous jump
+    autoCrouched = false
 
-    -- Spam prevention - check falling first (more common than swimming)
     local okFalling, isFalling = pcall(function()
         return player.CharacterMovement:IsValid() and player.CharacterMovement:IsFalling()
     end)
@@ -101,7 +123,6 @@ function AutoJumpCrouch.OnJump(character)
         return
     end
 
-    -- Swimming check (less common)
     local okSwimming, isSwimming = pcall(function()
         return player.CharacterMovement:IsValid() and player.CharacterMovement:IsSwimming()
     end)
@@ -110,14 +131,10 @@ function AutoJumpCrouch.OnJump(character)
         return
     end
 
-    -- For toggle-sprint users: stop sprinting so crouch works
     if Config.ClearSprintOnJump then
         local okSprinting, isSprinting = pcall(function() return player:IsSprinting() end)
         if okSprinting and isSprinting then
-            local okToggle, err = pcall(function() player:ToggleSprint() end)
-            if not okToggle then
-                Log.Debug("ToggleSprint() failed: %s", tostring(err))
-            end
+            pcall(function() player:ToggleSprint() end)
         end
     end
 
@@ -125,7 +142,6 @@ function AutoJumpCrouch.OnJump(character)
         ExecuteInGameThread(function()
             if not player:IsValid() then return end
 
-            -- Only crouch if still airborne (prevents ground crouch if landed before delay expired)
             local okFalling, isFalling = pcall(function()
                 return player.CharacterMovement and player.CharacterMovement:IsFalling()
             end)
@@ -134,7 +150,6 @@ function AutoJumpCrouch.OnJump(character)
                 return
             end
 
-            -- Check jump button hold state
             local okJumpHoldTime, jumpHoldTime = pcall(function() return player.JumpKeyHoldTime end)
             local isJumpHeld = okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0
 
@@ -161,11 +176,7 @@ function AutoJumpCrouch.OnJump(character)
     end)
 end
 
--- ============================================================
--- TryApplyFallDamage - Auto-uncrouch after landing (if we auto-crouched)
--- ============================================================
-
-function AutoJumpCrouch.OnTryApplyFallDamage(character)
+function Module.OnTryApplyFallDamage(character)
     local player = GetLocalPlayer(character)
     if not player then return end
 
@@ -183,13 +194,8 @@ function AutoJumpCrouch.OnTryApplyFallDamage(character)
         return
     end
 
-    -- Call UnCrouch even if not visibly crouched (clears queued crouch from sprinting)
-    local okUncrouch, err = pcall(function() player:UnCrouch(false) end)
-
-    if not okUncrouch then
-        Log.Debug("UnCrouch() failed: %s", tostring(err))
-    end
+    pcall(function() player:UnCrouch(false) end)
     autoCrouched = false
 end
 
-return AutoJumpCrouch
+return Module

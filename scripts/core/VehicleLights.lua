@@ -16,36 +16,46 @@ PERFORMANCE: Per-frame prompt hook with address caching
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local VehicleLights = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "VehicleLights",
+    configKey = "VehicleLights",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = true },
+    },
+
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
--- Vehicle types that support headlights (Sleigh excluded)
 local SUPPORTED_VEHICLES = {
     ["ABF_Vehicle_SUV_C"] = true,
     ["ABF_Vehicle_Forklift_C"] = true,
     ["ABF_Vehicle_SecurityCart_C"] = true,
 }
 
--- Cache for CanInteractWith_B (per-frame hook, only set once per vehicle)
-local CanInteractCache = {}  -- vehicleAddr -> true
-
--- Cache for SetIsReplicated (one-time setup per vehicle)
-local ReplicationEnabledCache = {}  -- vehicleAddr -> true
-
--- Per-frame cache for UpdateInteractionPrompts to avoid repeated vehicle type checks
+local CanInteractCache = {}
+local ReplicationEnabledCache = {}
 local PromptTextCache = { lastVehicleAddr = nil, isSupported = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
-
 local LightSwitchSound = nil
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function VehicleLights.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -53,50 +63,55 @@ function VehicleLights.Init(config, log)
     Log.Info("VehicleLights - %s", status)
 end
 
+function Module.Cleanup()
+    Log.Debug("Cleaning up VehicleLights state")
+    CanInteractCache = {}
+    ReplicationEnabledCache = {}
+    PromptTextCache.lastVehicleAddr = nil
+    PromptTextCache.isSupported = false
+    TextBlockCache.widgetAddr = nil
+    TextBlockCache.textBlock = nil
+    LightSwitchSound = nil
+end
+
 -- ============================================================
 -- HOOK REGISTRATION
 -- ============================================================
 
-function VehicleLights.RegisterInPlayHooks()
-    Log.Debug("RegisterInPlayHooks called")
+function Module.RegisterHooks()
+    Log.Debug("RegisterHooks called")
 
-    -- Hook CanInteractWith_B to enable tap F prompt
     local canInteractSuccess = HookUtil.Register(
         "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:CanInteractWith_B",
         function(vehicle, HitComponentParam, SuccessParam)
-            VehicleLights.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
+            Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
         end,
         Log
     )
 
-    -- Hook UpdateInteractionPrompts to customize F key prompt text
     local promptTextSuccess = HookUtil.Register(
         "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
         function(widget, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
                  ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
                  ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
-            VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
+            Module.OnUpdateInteractionPrompts(widget, HitActorParam)
         end,
         Log
     )
 
-    -- Hook tap F on vehicle (InteractWith_B)
     local interactSuccess = HookUtil.Register(
         "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:InteractWith_B",
         function(vehicle, InteractingCharacterParam, ComponentUsedParam)
-            VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
+            Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
         end,
         Log
     )
 
-    -- Pre-load light switch sound (must be on game thread)
     ExecuteInGameThread(function()
         local sound, wasFound, didLoad = LoadAsset("SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'")
         if wasFound and didLoad and sound and sound:IsValid() then
             LightSwitchSound = sound
             Log.Debug("Pre-loaded light switch sound")
-        else
-            Log.Debug("Failed to pre-load light switch sound (found=%s, loaded=%s)", tostring(wasFound), tostring(didLoad))
         end
     end)
 
@@ -107,14 +122,13 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
-function VehicleLights.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
+function Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
     local okClass, className = pcall(function()
         return vehicle:GetClass():GetFName():ToString()
     end)
 
     if not okClass or not SUPPORTED_VEHICLES[className] then return end
 
-    -- Cache check: only set once per vehicle (this fires every frame)
     local vehicleAddr = vehicle:GetAddress()
     if vehicleAddr and CanInteractCache[vehicleAddr] then
         pcall(function() SuccessParam:set(true) end)
@@ -129,11 +143,10 @@ function VehicleLights.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
 
     if okSet and vehicleAddr then
         CanInteractCache[vehicleAddr] = true
-        Log.Debug("OnCanInteractB: Successfully enabled tap F")
     end
 end
 
-function VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
+function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     local okHitActor, hitActor = pcall(function() return HitActorParam:get() end)
     if not okHitActor or not hitActor or not hitActor:IsValid() then
         PromptTextCache.lastVehicleAddr = nil
@@ -165,7 +178,6 @@ function VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
         PromptTextCache.isSupported = true
     end
 
-    -- Get/cache TextBlock widget
     local widgetAddr = widget:GetAddress()
     if not widgetAddr then return end
 
@@ -188,23 +200,17 @@ function VehicleLights.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    -- Game resets text to "package" every frame, so we must set it every frame
     pcall(function()
         textBlock:SetText(FText("toggle lights"))
     end)
 end
 
-function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
+function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
     local okClass, className = pcall(function()
         return vehicle:GetClass():GetFName():ToString()
     end)
 
-    if not okClass then
-        Log.Debug("OnVehicleInteractB: Failed to get vehicle class name")
-        return
-    end
-
-    if not SUPPORTED_VEHICLES[className] then
+    if not okClass or not SUPPORTED_VEHICLES[className] then
         return
     end
 
@@ -217,17 +223,13 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
         return
     end
 
-    -- Enable replication on first interaction (one-time setup per vehicle)
     local vehicleAddr = vehicle:GetAddress()
     if vehicleAddr and not ReplicationEnabledCache[vehicleAddr] then
         Log.Debug("OnVehicleInteractB: First interaction, enabling SpotLight replication")
 
-        -- Enable replication on SpotLight component
-        -- This causes visibility changes to replicate to clients
         pcall(function()
             headlights:SetIsReplicated(true)
         end)
-        Log.Debug("OnVehicleInteractB: Enabled replication on Headlights (SpotLight)")
 
         ReplicationEnabledCache[vehicleAddr] = true
     end
@@ -275,19 +277,4 @@ function VehicleLights.OnVehicleInteractB(vehicle, InteractingCharacterParam, Co
     end)
 end
 
--- ============================================================
--- CLEANUP
--- ============================================================
-
-function VehicleLights.Cleanup()
-    Log.Debug("Cleaning up VehicleLights state")
-    CanInteractCache = {}
-    ReplicationEnabledCache = {}
-    PromptTextCache.lastVehicleAddr = nil
-    PromptTextCache.isSupported = false
-    TextBlockCache.widgetAddr = nil
-    TextBlockCache.textBlock = nil
-    LightSwitchSound = nil
-end
-
-return VehicleLights
+return Module

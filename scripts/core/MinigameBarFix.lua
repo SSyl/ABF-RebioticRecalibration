@@ -15,27 +15,40 @@ PERFORMANCE: Tick hook with address-based guard, only modifies once per widget i
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local MinigameBarFix = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "MinigameBarFix",
+    configKey = "MinigameBarFix",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = true },
+    },
+
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
--- Track which widgets we've modified (by address)
 local modifiedWidgets = {}
-
--- Track widgets where we've verified scale persists (by address)
 local verifiedWidgets = {}
 
--- Scale values for success zones
 local LARGE_ZONE_SCALE = 1.14
 local SMALL_ZONE_SCALE = 1.25
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function MinigameBarFix.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -43,8 +56,7 @@ function MinigameBarFix.Init(config, log)
     Log.Info("MinigameBarFix - %s", status)
 end
 
-function MinigameBarFix.Cleanup()
-    -- Clear widget caches on map transition
+function Module.Cleanup()
     modifiedWidgets = {}
     verifiedWidgets = {}
 end
@@ -53,7 +65,7 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function MinigameBarFix.RegisterInPlayHooks()
+function Module.RegisterHooks()
     ExecuteInGameThread(function()
         local okLoadContinence = pcall(function()
             LoadAsset("/Game/Blueprints/Widgets/HUD/W_HUD_ContinenceMinigame.W_HUD_ContinenceMinigame_C")
@@ -62,7 +74,7 @@ function MinigameBarFix.RegisterInPlayHooks()
         if okLoadContinence then
             HookUtil.Register(
                 "/Game/Blueprints/Widgets/HUD/W_HUD_ContinenceMinigame.W_HUD_ContinenceMinigame_C:Tick",
-                MinigameBarFix.OnMinigameTick,
+                Module.OnMinigameTick,
                 Log
             )
         end
@@ -74,7 +86,7 @@ function MinigameBarFix.RegisterInPlayHooks()
         if okLoadWeightlifting then
             HookUtil.Register(
                 "/Game/Blueprints/Widgets/HUD/W_HUD_WeightliftingMinigame.W_HUD_WeightliftingMinigame_C:Tick",
-                MinigameBarFix.OnMinigameTick,
+                Module.OnMinigameTick,
                 Log
             )
         end
@@ -87,10 +99,7 @@ end
 -- HELPER FUNCTIONS
 -- ============================================================
 
--- Shared function to apply scale to minigame success zones
 local function ApplyMinigameScale(minigameWidget)
-    -- Navigate widget tree to access Image widgets individually
-    -- Direct property access (widget.Image_0) always resolves to widget.Image
     local widgetTree = minigameWidget.WidgetTree
     if not (widgetTree and widgetTree:IsValid()) then return false end
 
@@ -132,15 +141,12 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called on every Tick - applies scale on first Tick, then verifies persistence
-function MinigameBarFix.OnMinigameTick(minigameWidget)
+function Module.OnMinigameTick(minigameWidget)
     local addr = minigameWidget:GetAddress()
     if not addr then return end
 
-    -- Already verified this widget's scale persists, early out
     if verifiedWidgets[addr] then return end
 
-    -- First Tick: apply scale
     if not modifiedWidgets[addr] then
         modifiedWidgets[addr] = true
         Log.Debug("Minigame Tick - applying scale (first time)")
@@ -148,7 +154,6 @@ function MinigameBarFix.OnMinigameTick(minigameWidget)
         return
     end
 
-    -- Second+ Tick: check if scale persisted
     local widgetTree = minigameWidget.WidgetTree
     if not (widgetTree and widgetTree:IsValid()) then return end
 
@@ -161,7 +166,7 @@ function MinigameBarFix.OnMinigameTick(minigameWidget)
     local needsReapply = false
 
     slots:ForEach(function(index, slotElement)
-        if needsReapply then return end  -- Already detected reset, skip rest
+        if needsReapply then return end
 
         local slot = slotElement:get()
         if not slot:IsValid() then return end
@@ -188,10 +193,9 @@ function MinigameBarFix.OnMinigameTick(minigameWidget)
         Log.Warning("Minigame scale was reset by game, re-applying every Tick")
         ApplyMinigameScale(minigameWidget)
     else
-        -- Scale persisted! Mark as verified so we don't check again
         verifiedWidgets[addr] = true
         Log.Debug("Minigame scale persisted correctly, Tick check disabled for this widget")
     end
 end
 
-return MinigameBarFix
+return Module

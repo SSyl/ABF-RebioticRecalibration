@@ -9,15 +9,41 @@ from 512x512 to configurable resolution (default 1024, must be power of 2).
 
 HOOKS:
 - 3D_ItemDisplay_BP_C:Set3DPreviewMesh (brightness, fires on item change)
-- ApplyResolutionFix() called by main.lua (one-time at game start)
+- ApplyResolutionFix() called once at startup
 
 PERFORMANCE: Brightness hook fires on preview item change, resolution once at startup
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local CraftingPreviewFix = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "CraftingPreviewFix",
+    configKey = "CraftingMenu",
+    debugKey = "CraftingMenu",
+
+    schema = {
+        { path = "Brightness.Enabled", type = "boolean", default = true },
+        { path = "Brightness.LightIntensity", type = "number", default = 10.0, min = 0.1 },
+        { path = "Resolution.Enabled", type = "boolean", default = true },
+        { path = "Resolution.Resolution", type = "number", default = 1024, min = 1, max = 8192 },
+    },
+
+    -- Complex: Two independent features with separate enable conditions
+    -- main.lua will check isEnabled which returns true if either is enabled
+    hookPoint = "PostInit",
+
+    -- Enable if EITHER brightness or resolution is enabled
+    isEnabled = function(cfg) return cfg.Brightness.Enabled or cfg.Resolution.Enabled end,
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
@@ -43,10 +69,10 @@ local function RoundToPowerOfTwo(value)
 end
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function CraftingPreviewFix.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -59,24 +85,33 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function CraftingPreviewFix.RegisterInPlayHooks()
-    return HookUtil.Register(
-        "/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh",
-        CraftingPreviewFix.OnSet3DPreviewMesh,
-        Log
-    )
+function Module.RegisterHooks()
+    local success = true
+
+    -- Register brightness hook if enabled
+    if Config.Brightness.Enabled then
+        success = HookUtil.Register(
+            "/Game/Blueprints/Environment/Special/3D_ItemDisplay_BP.3D_ItemDisplay_BP_C:Set3DPreviewMesh",
+            Module.OnSet3DPreviewMesh,
+            Log
+        ) and success
+    end
+
+    -- Apply resolution fix once if enabled
+    if Config.Resolution.Enabled then
+        success = Module.ApplyResolutionFix() and success
+    end
+
+    return success
 end
 
 -- ============================================================
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called when crafting preview item changes
-function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
-    -- itemDisplay is already validated by HookUtil.Register
+function Module.OnSet3DPreviewMesh(itemDisplay)
     local lightIntensity = Config.Brightness.LightIntensity
 
-    -- Disable auto-exposure so light changes actually take effect
     local okCapture, sceneCapture = pcall(function()
         return itemDisplay.Item_RenderTarget
     end)
@@ -84,7 +119,7 @@ function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
     if okCapture and sceneCapture:IsValid() then
         pcall(function()
             sceneCapture.PostProcessSettings.bOverride_AutoExposureMethod = true
-            sceneCapture.PostProcessSettings.AutoExposureMethod = 2  -- AEM_Manual
+            sceneCapture.PostProcessSettings.AutoExposureMethod = 2
         end)
     end
 
@@ -98,16 +133,13 @@ function CraftingPreviewFix.OnSet3DPreviewMesh(itemDisplay)
         pointLight1:SetIntensity(lightIntensity)
     end
 
-    -- Back light uses half intensity for subtle rim lighting
     local okLight2, pointLight2 = pcall(function() return itemDisplay.PointLight2 end)
     if okLight2 and pointLight2:IsValid() then
         pointLight2:SetIntensity(lightIntensity / 2)
     end
 end
 
--- Called from RegisterInitGameStatePostHook in main.lua
--- Returns true on success, false on failure (allows retry)
-function CraftingPreviewFix.ApplyResolutionFix()
+function Module.ApplyResolutionFix()
     local configResolution = Config.Resolution.Resolution
     local targetResolution = RoundToPowerOfTwo(configResolution)
 
@@ -139,7 +171,7 @@ function CraftingPreviewFix.ApplyResolutionFix()
 
         if currentX == targetResolution and currentY == targetResolution then
             Log.Debug("Render target already at target resolution, skipping resize")
-            return true  -- Already correct = success
+            return true
         end
     end
 
@@ -156,4 +188,4 @@ function CraftingPreviewFix.ApplyResolutionFix()
     end
 end
 
-return CraftingPreviewFix
+return Module

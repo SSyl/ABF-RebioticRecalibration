@@ -15,9 +15,27 @@ PERFORMANCE: Fires on food placement/load, not per-frame
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local FoodFix = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "FoodFix",
+    configKey = "FoodDisplayFix",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = true },
+        { path = "FixExistingFoodOnLoad", type = "boolean", default = false },
+    },
+
+    hookPoint = "PreInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
@@ -49,10 +67,10 @@ local function ResetDeployedDurability(deployable)
 end
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function FoodFix.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -60,14 +78,10 @@ function FoodFix.Init(config, log)
     Log.Info("FoodFix - %s", status)
 end
 
--- ============================================================
--- HOOK REGISTRATION
--- ============================================================
-
-function FoodFix.RegisterPrePlayHooks()
+function Module.RegisterHooks()
     return HookUtil.RegisterABFDeployedReceiveBeginPlay(
-        "^Deployed_Food_",  -- Match any food deployable
-        FoodFix.OnBeginPlay,
+        "^Deployed_Food_",
+        Module.OnBeginPlay,
         Log
     )
 end
@@ -76,8 +90,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
--- Called when food deployable spawns (ReceiveBeginPlay hook)
-function FoodFix.OnBeginPlay(deployable)
+function Module.OnBeginPlay(deployable)
     local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
     Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
 
@@ -121,4 +134,4 @@ function FoodFix.OnBeginPlay(deployable)
     ResetDeployedDurability(deployable)
 end
 
-return FoodFix
+return Module

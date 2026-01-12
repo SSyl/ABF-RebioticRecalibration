@@ -13,40 +13,55 @@ PERFORMANCE: Fires on health changes. Pulse loop only runs when vignette visible
 
 local HookUtil = require("utils/HookUtil")
 local WidgetUtil = require("utils/WidgetUtil")
-local LowHealthVignette = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "LowHealthVignette",
+    configKey = "LowHealthVignette",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = true },
+        { path = "Threshold", type = "number", default = 0.25, min = 0.01, max = 1.1 },
+        { path = "Color", type = "color", default = { R = 128, G = 0, B = 0, A = 0.3 } },
+        { path = "PulseEnabled", type = "boolean", default = true },
+    },
+
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
--- Cached widget references (created lazily, cleared on Cleanup)
 local VignetteWidget = nil
 local VignetteTexture = nil
 
--- Visibility state tracking
 local IsVignetteVisible = false
-local LastBelowThreshold = nil  -- nil = unknown, true = below, false = above
+local LastBelowThreshold = nil
 
--- Pulse animation state
 local IsPulsing = false
 local PulseTime = 0
-local PULSE_SPEED = 2.0  -- Seconds per full heartbeat cycle
-local PULSE_MIN = 0.4    -- Multiplier for minimum alpha (base * 0.4)
-local PULSE_MAX = 1.0    -- Multiplier for maximum alpha (base * 1.0)
+local PULSE_SPEED = 2.0
+local PULSE_MIN = 0.4
+local PULSE_MAX = 1.0
 
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
 
 local function GetOrCreateVignetteWidget(hud)
-    -- Return cached widget if still valid
     if VignetteWidget and VignetteWidget:IsValid() then
         return VignetteWidget
     end
 
     Log.Debug("Creating vignette widget...")
 
-    -- Get EyeLid_Top (UImage) to use as template - UImage supports textures with alpha
     local okTemplate, templateImage = pcall(function()
         return hud.EyeLid_Top
     end)
@@ -54,9 +69,7 @@ local function GetOrCreateVignetteWidget(hud)
         Log.Debug("Failed to get EyeLid_Top template")
         return nil
     end
-    Log.Debug("Got EyeLid_Top template: %s", templateImage:GetFullName())
 
-    -- Get parent (PrimaryHUDCanvas)
     local okParent, parent = pcall(function()
         return templateImage:GetParent()
     end)
@@ -64,67 +77,49 @@ local function GetOrCreateVignetteWidget(hud)
         Log.Debug("Failed to get EyeLid_Top parent")
         return nil
     end
-    Log.Debug("Got parent: %s", parent:GetFullName())
 
-    -- Clone widget using WidgetUtil
     local newWidget, slot = WidgetUtil.CloneWidget(templateImage, parent, "LowHealthVignetteWidget")
     if not newWidget then
         Log.Debug("WidgetUtil.CloneWidget failed")
         return nil
     end
-    Log.Debug("Created vignette widget: %s", newWidget:GetFullName())
 
-    -- Configure slot for fullscreen
     if slot and slot:IsValid() then
         pcall(function()
-            -- Anchors: stretch to fill entire screen
             slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 1, Y = 1 } })
-            -- Offsets: large negative to push edges way off screen (makes center larger)
             slot:SetOffsets({ Left = -250, Top = -250, Right = -250, Bottom = -250 })
-            -- Alignment
             slot:SetAlignment({ X = 0, Y = 0 })
-            -- ZOrder: behind most elements
             slot:SetZOrder(-1)
         end)
-        Log.Debug("Configured slot: Anchors, Offsets, ZOrder")
     end
 
-    -- Reset RenderTransform (cloned from EyeLid_Top which has offset positioning)
     pcall(function()
         newWidget:SetRenderTranslation({ X = 0, Y = 0 })
     end)
-    Log.Debug("Reset render translation")
 
-    -- Load radial gradient texture for vignette effect
     if not VignetteTexture then
         local okTexture, texture = pcall(function()
             return StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
         end)
         if okTexture and texture and texture:IsValid() then
             VignetteTexture = texture
-            Log.Debug("Loaded vignette texture: T_Gradient_Radial")
         else
             Log.Debug("Failed to load T_Gradient_Radial texture")
             return nil
         end
     end
 
-    -- Apply texture to UImage
     pcall(function()
         newWidget:SetBrushFromTexture(VignetteTexture, false)
     end)
-    Log.Debug("Applied radial gradient texture to vignette")
 
-    -- Set color tint (UImage uses SetColorAndOpacity)
     local color = Config.Color
     pcall(function()
         newWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = color.A })
     end)
-    Log.Debug("Set vignette color: R=%.2f G=%.2f B=%.2f A=%.2f", color.R, color.G, color.B, color.A)
 
-    -- Start hidden
     pcall(function()
-        newWidget:SetVisibility(1) -- Collapsed
+        newWidget:SetVisibility(1)
     end)
 
     VignetteWidget = newWidget
@@ -142,21 +137,17 @@ local function StartPulseLoop()
     LoopAsync(33, function()
         if not IsPulsing then return true end
 
-        -- Check if widget was cleared during map transition
         if not VignetteWidget then
             IsPulsing = false
             return true
         end
 
-        -- Update time (33ms tick ≈ 30 FPS) - pure Lua math on async thread
         PulseTime = PulseTime + 0.033
 
-        -- Sine wave oscillation between PULSE_MIN and PULSE_MAX
         local cycle = (PulseTime / PULSE_SPEED) * math.pi * 2
-        local wave = (math.sin(cycle) + 1) / 2  -- 0 to 1
+        local wave = (math.sin(cycle) + 1) / 2
         local multiplier = PULSE_MIN + (PULSE_MAX - PULSE_MIN) * wave
 
-        -- Calculate pulsing alpha
         local baseAlpha = Config.Color.A
         local pulseAlpha = baseAlpha * multiplier
         local color = Config.Color
@@ -166,13 +157,11 @@ local function StartPulseLoop()
                 return
             end
 
-            -- IsValid() can lie during GC - pcall protects against access violations
             if not VignetteWidget:IsValid() then
                 IsPulsing = false
                 return
             end
 
-            -- SetColorAndOpacity can throw during map transition even if IsValid() passed
             local ok = pcall(function()
                 VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
             end)
@@ -182,7 +171,7 @@ local function StartPulseLoop()
             end
         end)
 
-        return false  -- Continue loop
+        return false
     end)
 end
 
@@ -190,12 +179,12 @@ local function ShowVignette(hud)
     if IsVignetteVisible then return end
 
     local widget = GetOrCreateVignetteWidget(hud)
-    if not widget then return end  -- Widget creation failed, will retry next frame
+    if not widget then return end
 
-    IsVignetteVisible = true  -- Only set after widget confirmed to exist
+    IsVignetteVisible = true
 
     pcall(function()
-        widget:SetVisibility(4) -- SelfHitTestInvisible
+        widget:SetVisibility(4)
     end)
 
     StartPulseLoop()
@@ -205,7 +194,6 @@ local function HideVignette()
     if not IsVignetteVisible then return end
     IsVignetteVisible = false
 
-    -- Stop pulse animation
     if IsPulsing then
         Log.Debug("Stopped pulse animation")
     end
@@ -213,16 +201,16 @@ local function HideVignette()
 
     if VignetteWidget and VignetteWidget:IsValid() then
         pcall(function()
-            VignetteWidget:SetVisibility(1) -- Collapsed
+            VignetteWidget:SetVisibility(1)
         end)
     end
 end
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function LowHealthVignette.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -230,33 +218,10 @@ function LowHealthVignette.Init(config, log)
     Log.Info("LowHealthVignette - %s", status)
 end
 
--- ============================================================
--- HOOK REGISTRATION
--- ============================================================
-
-function LowHealthVignette.RegisterInPlayHooks()
-    return HookUtil.Register(
-        "/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth",
-        LowHealthVignette.OnUpdateHealth,
-        Log
-    )
-end
-
--- ============================================================
--- LIFECYCLE
--- ============================================================
-
--- Called when returning to main menu to clean up cached widgets
-function LowHealthVignette.Cleanup()
+function Module.Cleanup()
     Log.Debug("Cleaning up vignette state")
 
-    -- Stop pulse animation
     IsPulsing = false
-
-    -- TODO: Verify in LiveView that widget is destroyed when parent HUD is destroyed
-    -- Currently we only clear references, assuming UE destroys children with parent.
-    -- If widgets accumulate across map transitions, add RemoveFromParent() here.
-
     VignetteWidget = nil
     VignetteTexture = nil
     IsVignetteVisible = false
@@ -265,10 +230,22 @@ function LowHealthVignette.Cleanup()
 end
 
 -- ============================================================
+-- HOOK REGISTRATION
+-- ============================================================
+
+function Module.RegisterHooks()
+    return HookUtil.Register(
+        "/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth",
+        Module.OnUpdateHealth,
+        Log
+    )
+end
+
+-- ============================================================
 -- HOOK CALLBACKS
 -- ============================================================
 
-function LowHealthVignette.OnUpdateHealth(hud)
+function Module.OnUpdateHealth(hud)
     local okHealth, healthPercent = pcall(function()
         return hud.LastHealthPercentage
     end)
@@ -278,7 +255,6 @@ function LowHealthVignette.OnUpdateHealth(hud)
         return
     end
 
-    -- Dead (hp <= 0) folds into belowThreshold = false, hiding vignette via state change
     local belowThreshold = healthPercent > 0 and healthPercent < Config.Threshold
     if belowThreshold ~= LastBelowThreshold then
         LastBelowThreshold = belowThreshold
@@ -290,4 +266,4 @@ function LowHealthVignette.OnUpdateHealth(hud)
     end
 end
 
-return LowHealthVignette
+return Module

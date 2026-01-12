@@ -11,20 +11,36 @@ PERFORMANCE: Fires on slot content changes with address caching
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local HideHotbarHotkeys = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    name = "HideHotbarHotkeys",
+    configKey = "HideHotbarHotkeys",
+
+    schema = {
+        { path = "Enabled", type = "boolean", default = false },
+    },
+
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
--- Cache hotbar slot addresses for O(1) lookup instead of string matching
 local slotAddressCache = {}
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function HideHotbarHotkeys.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -32,8 +48,7 @@ function HideHotbarHotkeys.Init(config, log)
     Log.Info("HideHotbarHotkeys - %s", status)
 end
 
-function HideHotbarHotkeys.Cleanup()
-    -- Clear address cache on map transition (slot addresses will be different)
+function Module.Cleanup()
     slotAddressCache = {}
 end
 
@@ -41,12 +56,10 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function HideHotbarHotkeys.RegisterInPlayHooks()
-    -- Hook UpdateSlot_UI on inventory slots - this updates whenever slot content changes
-    -- We filter to only hide hotbar slots (not all inventory slots in the game)
+function Module.RegisterHooks()
     return HookUtil.Register(
         "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
-        HideHotbarHotkeys.OnInventorySlotUpdate,
+        Module.OnInventorySlotUpdate,
         Log
     )
 end
@@ -55,7 +68,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
-function HideHotbarHotkeys.OnInventorySlotUpdate(slotWidget)
+function Module.OnInventorySlotUpdate(slotWidget)
     Log.DebugOnce("UpdateSlot_UI hook fired")
 
     if not slotWidget:IsValid() then return end
@@ -77,10 +90,7 @@ function HideHotbarHotkeys.OnInventorySlotUpdate(slotWidget)
     if okBox and numberBox and numberBox:IsValid() then
         local okVis, currentVis = pcall(function() return numberBox:GetVisibility() end)
         if okVis and currentVis ~= 1 then
-            local okHide, err = pcall(function() numberBox:SetVisibility(1) end)
-            if not okHide then
-                Log.Debug("Failed to hide HotkeyNumberBox: %s", tostring(err))
-            end
+            pcall(function() numberBox:SetVisibility(1) end)
         end
     end
 
@@ -88,12 +98,9 @@ function HideHotbarHotkeys.OnInventorySlotUpdate(slotWidget)
     if okText and numberText and numberText:IsValid() then
         local okVis, currentVis = pcall(function() return numberText:GetVisibility() end)
         if okVis and currentVis ~= 1 then
-            local okHide, err = pcall(function() numberText:SetVisibility(1) end)
-            if not okHide then
-                Log.Debug("Failed to hide HotkeyNumberText: %s", tostring(err))
-            end
+            pcall(function() numberText:SetVisibility(1) end)
         end
     end
 end
 
-return HideHotbarHotkeys
+return Module

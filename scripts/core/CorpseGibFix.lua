@@ -18,21 +18,41 @@ PERFORMANCE: Fires on corpse spawn, uses ExecuteWithDelay for restoration
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local CorpseGibFix = {}
 
--- Module state (set during Init)
+-- ============================================================
+-- MODULE METADATA
+-- ============================================================
+
+local Module = {
+    -- Identity
+    name = "CorpseGibFix",
+    configKey = "CorpseGibFix",
+
+    -- Config schema (paths relative to configKey)
+    schema = {
+        { path = "Enabled", type = "boolean", default = true },
+        { path = "Threshold", type = "number", default = 500 },
+    },
+
+    -- Hook point: "PreInit", "PostInit", or nil for no hooks
+    hookPoint = "PostInit",
+}
+
+-- ============================================================
+-- MODULE STATE
+-- ============================================================
+
 local Config = nil
 local Log = nil
 
 -- Cache original GibParticles/GibbedSound to restore after threshold
--- address -> { particles = ..., sound = ... }
 local CorpseGibAssets = {}
 
 -- ============================================================
--- CORE LOGIC
+-- LIFECYCLE FUNCTIONS
 -- ============================================================
 
-function CorpseGibFix.Init(config, log)
+function Module.Init(config, log)
     Config = config
     Log = log
 
@@ -40,37 +60,29 @@ function CorpseGibFix.Init(config, log)
     Log.Info("CorpseGibFix - %s (Threshold: %dms)", status, Config.Threshold)
 end
 
-function CorpseGibFix.Cleanup()
+function Module.Cleanup()
     CorpseGibAssets = {}
     Log.Debug("CorpseGibFix state cleaned up")
 end
 
--- ============================================================
--- HOOK REGISTRATION
--- ============================================================
-
-function CorpseGibFix.RegisterInPlayHooks()
+function Module.RegisterHooks()
     Log.Debug("Registering corpse hooks...")
 
     ExecuteInGameThread(function()
-        local okLoad = pcall(function()
+        pcall(function()
             LoadAsset("/Game/Blueprints/Environment/Special/CharacterCorpse_ParentBP")
         end)
 
-        if not okLoad then
-            Log.Debug("LoadAsset failed, attempting hooks anyway")
-        end
-
         local success = HookUtil.Register(
             "/Game/Blueprints/Environment/Special/CharacterCorpse_ParentBP.CharacterCorpse_ParentBP_C:ReceiveBeginPlay",
-            CorpseGibFix.OnReceiveBeginPlay,
+            Module.OnReceiveBeginPlay,
             Log
         )
 
         if success then
-            Log.Debug("All corpse hooks registered")
+            Log.Debug("Corpse hooks registered")
         else
-            Log.Warning("Some corpse hooks failed to register")
+            Log.Warning("Corpse hooks failed to register")
         end
     end)
 
@@ -81,7 +93,7 @@ end
 -- HOOK CALLBACKS
 -- ============================================================
 
-function CorpseGibFix.OnReceiveBeginPlay(corpse)
+function Module.OnReceiveBeginPlay(corpse)
     local okAddr, addr = pcall(function() return corpse:GetAddress() end)
     if not okAddr or not addr then return end
 
@@ -137,4 +149,4 @@ function CorpseGibFix.OnReceiveBeginPlay(corpse)
     end)
 end
 
-return CorpseGibFix
+return Module

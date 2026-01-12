@@ -5,11 +5,10 @@ print("=== [Rebiotic Fixer] MOD LOADING ===\n")
 Rebiotic Fixer - Main Entry Point
 ============================================================================
 
-This file orchestrates all Rebiotic Fixer features:
-1. Loads and validates configuration from ../config.lua
-2. Creates loggers for each feature module
-3. Initializes feature modules with their config + logger
-4. Registers hooks at appropriate lifecycle stages
+Module-driven architecture:
+1. Modules export metadata (name, schema, phase, lifecycle functions)
+2. main.lua auto-wires everything from a simple MODULES list
+3. Adding a new feature = create module file + add to MODULES list
 
 ]]
 
@@ -17,172 +16,132 @@ local LogUtil = require("utils/LogUtil")
 local ConfigUtil = require("utils/ConfigUtil")
 
 -- ============================================================
--- SCHEMA & CONFIG VALIDATION
+-- MODULE REGISTRY
 -- ============================================================
 
-local SCHEMA = {
-    -- MenuTweaks
-    { path = "MenuTweaks.SkipLANHostingDelay", type = "boolean", default = true },
-
-    -- FoodDisplayFix
-    { path = "FoodDisplayFix.Enabled", type = "boolean", default = true },
-    { path = "FoodDisplayFix.FixExistingFoodOnLoad", type = "boolean", default = false },
-
-    -- CraftingMenu.Brightness
-    { path = "CraftingMenu.Brightness.Enabled", type = "boolean", default = true },
-    { path = "CraftingMenu.Brightness.LightIntensity", type = "number", default = 10.0, min = 0.1 },
-
-    -- CraftingMenu.Resolution
-    { path = "CraftingMenu.Resolution.Enabled", type = "boolean", default = true },
-    { path = "CraftingMenu.Resolution.Resolution", type = "number", default = 1024, min = 1, max = 8192 },
-
-    -- DistributionPad.Indicator
-    { path = "DistributionPad.Indicator.Enabled", type = "boolean", default = true },
-    { path = "DistributionPad.Indicator.RefreshOnBuiltContainer", type = "boolean", default = true },
-    { path = "DistributionPad.Indicator.IconEnabled", type = "boolean", default = true },
-    { path = "DistributionPad.Indicator.Icon", type = "string", default = "hackingdevice" },
-    { path = "DistributionPad.Indicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
-    { path = "DistributionPad.Indicator.IconSize", type = "number", default = 24, min = 1 },
-    { path = "DistributionPad.Indicator.IconOffset.Horizontal", type = "number", default = 0 },
-    { path = "DistributionPad.Indicator.IconOffset.Vertical", type = "number", default = 0 },
-    { path = "DistributionPad.Indicator.TextEnabled", type = "boolean", default = false },
-    { path = "DistributionPad.Indicator.Text", type = "string", default = "[DistPad]" },
-
-    -- DistributionPad.Range
-    { path = "DistributionPad.Range.Enabled", type = "boolean", default = false },
-    { path = "DistributionPad.Range.Multiplier", type = "number", default = 1.5, min = 0.1, max = 10.0 },
-
-    -- LowHealthVignette
-    { path = "LowHealthVignette.Enabled", type = "boolean", default = true },
-    { path = "LowHealthVignette.Threshold", type = "number", default = 0.25, min = 0.01, max = 1.1 },
-    { path = "LowHealthVignette.Color", type = "color", default = { R = 128, G = 0, B = 0, A = 0.3 } },
-    { path = "LowHealthVignette.PulseEnabled", type = "boolean", default = true },
-
-    -- FlashlightFlicker
-    { path = "FlashlightFlicker.Enabled", type = "boolean", default = true },
-
-    -- AutoJumpCrouch
-    { path = "AutoJumpCrouch.Enabled", type = "boolean", default = false },
-    { path = "AutoJumpCrouch.Delay", type = "number", default = 150, min = 0, max = 1000 },
-    { path = "AutoJumpCrouch.ClearSprintOnJump", type = "boolean", default = true },
-    { path = "AutoJumpCrouch.RequireJumpHeld", type = "boolean", default = true },
-    { path = "AutoJumpCrouch.DisableAutoUncrouch", type = "boolean", default = false },
-
-    -- VehicleLights
-    { path = "VehicleLights.Enabled", type = "boolean", default = true },
-
-    -- HideHotbarHotkeys
-    { path = "HideHotbarHotkeys.Enabled", type = "boolean", default = false },
-
-    -- MinigameBarFix
-    { path = "MinigameBarFix.Enabled", type = "boolean", default = true },
-
-    -- CorpseGibFix
-    { path = "CorpseGibFix.Enabled", type = "boolean", default = true },
-    { path = "CorpseGibFix.Threshold", type = "number", default = 500 },
-
-    -- DebugFlags
-    { path = "DebugFlags.Misc", type = "boolean", default = false },
-    { path = "DebugFlags.MenuTweaks", type = "boolean", default = false },
-    { path = "DebugFlags.FoodDisplayFix", type = "boolean", default = false },
-    { path = "DebugFlags.CraftingMenu", type = "boolean", default = false },
-    { path = "DebugFlags.DistributionPad", type = "boolean", default = false },
-    { path = "DebugFlags.LowHealthVignette", type = "boolean", default = false },
-    { path = "DebugFlags.FlashlightFlicker", type = "boolean", default = false },
-    { path = "DebugFlags.AutoJumpCrouch", type = "boolean", default = false },
-    { path = "DebugFlags.VehicleLights", type = "boolean", default = false },
-    { path = "DebugFlags.HideHotbarHotkeys", type = "boolean", default = false },
-    { path = "DebugFlags.MinigameBarFix", type = "boolean", default = false },
-    { path = "DebugFlags.CorpseGibFix", type = "boolean", default = false },
+-- Add new modules here - that's it!
+local MODULE_PATHS = {
+    "core/MenuTweaks",
+    "core/FoodFix",
+    "core/CraftingPreviewFix",
+    "core/DistributionPadTweaks",
+    "core/LowHealthVignette",
+    "core/FlashlightFlicker",
+    "core/AutoJumpCrouch",
+    "core/VehicleLights",
+    "core/HideHotbarHotkeys",
+    "core/MinigameBarFix",
+    "core/CorpseGibFix",
 }
+
+-- ============================================================
+-- LOAD MODULES & BUILD SCHEMA
+-- ============================================================
+
+local Modules = {}
+local SCHEMA = {
+    -- General debug flag
+    { path = "DebugFlags.Misc", type = "boolean", default = false },
+}
+
+-- Load all modules and aggregate their schemas
+for _, path in ipairs(MODULE_PATHS) do
+    local ok, mod = pcall(require, path)
+    if ok and mod then
+        table.insert(Modules, mod)
+
+        -- Add module schema entries (prefixed with configKey)
+        if mod.schema then
+            for _, entry in ipairs(mod.schema) do
+                table.insert(SCHEMA, {
+                    path = mod.configKey .. "." .. entry.path,
+                    type = entry.type,
+                    default = entry.default,
+                    min = entry.min,
+                    max = entry.max,
+                })
+            end
+        end
+
+        -- Add debug flag for this module
+        local debugKey = mod.debugKey or mod.configKey
+        table.insert(SCHEMA, {
+            path = "DebugFlags." .. debugKey,
+            type = "boolean",
+            default = false,
+        })
+    else
+        print(string.format("[Rebiotic Fixer] ERROR: Failed to load module '%s': %s", path, tostring(mod)))
+    end
+end
+
+-- ============================================================
+-- CONFIG VALIDATION
+-- ============================================================
 
 local UserConfig = require("../config")
 local configLogger = LogUtil.CreateLogger("Rebiotic Fixer (Config)", false)
 local Config = ConfigUtil.ValidateFromSchema(UserConfig, SCHEMA, configLogger)
 
 -- Derived fields (computed from validated config)
-Config.DistributionPad.Indicator.TextPattern = Config.DistributionPad.Indicator.Text
-    :gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
+if Config.DistributionPad and Config.DistributionPad.Indicator then
+    Config.DistributionPad.Indicator.TextPattern = Config.DistributionPad.Indicator.Text
+        :gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
+end
 
 -- ============================================================
--- FEATURE MODULES & LOGGERS
+-- CREATE LOGGERS & INITIALIZE MODULES
 -- ============================================================
-
-local MenuTweaks = require("core/MenuTweaks")
-local FoodFix = require("core/FoodFix")
-local CraftingPreviewFix = require("core/CraftingPreviewFix")
-local DistPadTweaks = require("core/DistributionPadTweaks")
-local LowHealthVignette = require("core/LowHealthVignette")
-local FlashlightFlicker = require("core/FlashlightFlicker")
-local AutoJumpCrouch = require("core/AutoJumpCrouch")
-local VehicleLights = require("core/VehicleLights")
-local HideHotbarHotkeys = require("core/HideHotbarHotkeys")
-local MinigameBarFix = require("core/MinigameBarFix")
-local CorpseGibFix = require("core/CorpseGibFix")
 
 local Log = {
     General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
-    MenuTweaks = LogUtil.CreateLogger("Rebiotic Fixer|MenuTweaks", Config.DebugFlags.MenuTweaks),
-    FoodFix = LogUtil.CreateLogger("Rebiotic Fixer|FoodFix", Config.DebugFlags.FoodDisplayFix),
-    CraftingMenu = LogUtil.CreateLogger("Rebiotic Fixer|CraftingMenu", Config.DebugFlags.CraftingMenu),
-    DistPad = LogUtil.CreateLogger("Rebiotic Fixer|DistPad", Config.DebugFlags.DistributionPad),
-    LowHealthVignette = LogUtil.CreateLogger("Rebiotic Fixer|LowHealthVignette", Config.DebugFlags.LowHealthVignette),
-    FlashlightFlicker = LogUtil.CreateLogger("Rebiotic Fixer|FlashlightFlicker", Config.DebugFlags.FlashlightFlicker),
-    AutoJumpCrouch = LogUtil.CreateLogger("Rebiotic Fixer|AutoJumpCrouch", Config.DebugFlags.AutoJumpCrouch),
-    VehicleLights = LogUtil.CreateLogger("Rebiotic Fixer|VehicleLights", Config.DebugFlags.VehicleLights),
-    HideHotbarHotkeys = LogUtil.CreateLogger("Rebiotic Fixer|HideHotbarHotkeys", Config.DebugFlags.HideHotbarHotkeys),
-    MinigameBarFix = LogUtil.CreateLogger("Rebiotic Fixer|MinigameBarFix", Config.DebugFlags.MinigameBarFix),
-    CorpseGibFix = LogUtil.CreateLogger("Rebiotic Fixer|CorpseGibFix", Config.DebugFlags.CorpseGibFix),
 }
 
--- Initialize feature modules
-MenuTweaks.Init(Config.MenuTweaks, Log.MenuTweaks)
-FoodFix.Init(Config.FoodDisplayFix, Log.FoodFix)
-CraftingPreviewFix.Init(Config.CraftingMenu, Log.CraftingMenu)
-DistPadTweaks.Init(Config.DistributionPad, Log.DistPad)
-LowHealthVignette.Init(Config.LowHealthVignette, Log.LowHealthVignette)
-FlashlightFlicker.Init(Config.FlashlightFlicker, Log.FlashlightFlicker)
-AutoJumpCrouch.Init(Config.AutoJumpCrouch, Log.AutoJumpCrouch)
-VehicleLights.Init(Config.VehicleLights, Log.VehicleLights)
-HideHotbarHotkeys.Init(Config.HideHotbarHotkeys, Log.HideHotbarHotkeys)
-MinigameBarFix.Init(Config.MinigameBarFix, Log.MinigameBarFix)
-CorpseGibFix.Init(Config.CorpseGibFix, Log.CorpseGibFix)
+for _, mod in ipairs(Modules) do
+    local debugKey = mod.debugKey or mod.configKey
+    local debugEnabled = Config.DebugFlags[debugKey] or false
+
+    -- Create logger for this module
+    mod._log = LogUtil.CreateLogger("Rebiotic Fixer|" .. mod.name, debugEnabled)
+
+    -- Get module's config section
+    mod._config = Config[mod.configKey]
+
+    -- Initialize module
+    if mod.Init then
+        mod.Init(mod._config, mod._log)
+    end
+end
 
 -- ============================================================
--- MODULE STATE
+-- HOOK REGISTRATION STATE
 -- ============================================================
 
--- Hook/feature registration tracking
 local HookRegistered = {
-    GameState = false,              -- Abiotic_Survival_GameState_C:ReceiveBeginPlay
-    MenuTweaks = false,
-    FoodFix = false,
-    CraftingMenuBrightness = false,
-    CraftingMenuResolution = false,
-    LowHealthVignette = false,
-    DistPadTweaksPrePlay = false,
-    DistPadTweaks = false,
-    FlashlightFlicker = false,
-    AutoJumpCrouch = false,
-    VehicleLights = false,
-    HideHotbarHotkeys = false,
-    MinigameBarFix = false,
-    CorpseGibFix = false,
+    GameState = false,
 }
 
--- Lifecycle event tracking
+-- Initialize hook tracking for each module
+for _, mod in ipairs(Modules) do
+    if mod.hookPoint then
+        HookRegistered[mod.name] = false
+    end
+    -- Support modules with multiple hook points
+    if mod.preInit then
+        HookRegistered[mod.name .. "_PreInit"] = false
+    end
+    if mod.postInit then
+        HookRegistered[mod.name .. "_PostInit"] = false
+    end
+end
+
 local GameStateHookFired = false
 
 -- ============================================================
--- HOOK REGISTRATION FUNCTIONS
+-- HOOK REGISTRATION HELPERS
 -- ============================================================
 
---- Registers a run-once feature if enabled and not already registered
---- @param name string Feature name (must be pre-defined in HookRegistered)
---- @param enabled boolean Whether registration should attempt
---- @param fn function Function that performs registration, returns true on success
 local function TryRegister(name, enabled, fn)
-    -- Validate name exists in HookRegistered (catches typos)
     if HookRegistered[name] == nil then
         error(string.format("TryRegister: '%s' is not defined in HookRegistered table", name))
     end
@@ -196,6 +155,27 @@ local function TryRegister(name, enabled, fn)
     end
 end
 
+-- Check if module feature is enabled
+local function IsModuleEnabled(mod, hookPoint)
+    local cfg = mod._config
+    if not cfg then return false end
+
+    -- Check hookPoint-specific enable condition
+    if hookPoint == "PreInit" and mod.preInit and mod.preInit.isEnabled then
+        return mod.preInit.isEnabled(cfg)
+    elseif hookPoint == "PostInit" and mod.postInit and mod.postInit.isEnabled then
+        return mod.postInit.isEnabled(cfg)
+    end
+
+    -- Check module-level enable condition
+    if mod.isEnabled then
+        return mod.isEnabled(cfg)
+    end
+
+    -- Default: check cfg.Enabled
+    return cfg.Enabled == true
+end
+
 -- ============================================================
 -- LIFECYCLE HANDLERS
 -- ============================================================
@@ -205,20 +185,20 @@ local function OnGameState(world)
 
     if not world:IsValid() then return end
 
-    -- InPlay hooks - only register during active gameplay (with automatic retry on failure)
-    TryRegister("CraftingMenuBrightness", Config.CraftingMenu.Brightness.Enabled, CraftingPreviewFix.RegisterInPlayHooks)
-    TryRegister("CraftingMenuResolution", Config.CraftingMenu.Resolution.Enabled, CraftingPreviewFix.ApplyResolutionFix)
-    TryRegister("LowHealthVignette", Config.LowHealthVignette.Enabled, LowHealthVignette.RegisterInPlayHooks)
-    TryRegister("DistPadTweaks", Config.DistributionPad.Indicator.Enabled, DistPadTweaks.RegisterInPlayHooks)
-    TryRegister("FlashlightFlicker", Config.FlashlightFlicker.Enabled, FlashlightFlicker.RegisterInPlayHooks)
-    TryRegister("AutoJumpCrouch", Config.AutoJumpCrouch.Enabled, AutoJumpCrouch.RegisterInPlayHooks)
-    TryRegister("VehicleLights", Config.VehicleLights.Enabled, VehicleLights.RegisterInPlayHooks)
-    TryRegister("HideHotbarHotkeys", Config.HideHotbarHotkeys.Enabled, HideHotbarHotkeys.RegisterInPlayHooks)
-    TryRegister("MinigameBarFix", Config.MinigameBarFix.Enabled, MinigameBarFix.RegisterInPlayHooks)
-    TryRegister("CorpseGibFix", Config.CorpseGibFix.Enabled, CorpseGibFix.RegisterInPlayHooks)
+    -- Register PostInit hooks for all modules
+    for _, mod in ipairs(Modules) do
+        -- Simple hookPoint
+        if mod.hookPoint == "PostInit" and mod.RegisterHooks then
+            TryRegister(mod.name, IsModuleEnabled(mod, "PostInit"), mod.RegisterHooks)
+        end
+
+        -- Complex: separate postInit config
+        if mod.postInit and mod.RegisterPostInitHooks then
+            TryRegister(mod.name .. "_PostInit", IsModuleEnabled(mod, "PostInit"), mod.RegisterPostInitHooks)
+        end
+    end
 end
 
--- Hook callback for GameState:ReceiveBeginPlay
 local function OnGameStateHook(Context)
     Log.General.Debug("Abiotic_Survival_GameState:ReceiveBeginPlay fired")
 
@@ -233,45 +213,29 @@ end
 
 -- Register PRE-hook for cleanup BEFORE new map initializes
 RegisterInitGameStatePreHook(function(Context)
-    if Config.LowHealthVignette.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up vignette")
-        LowHealthVignette.Cleanup()
-    end
-    if Config.FlashlightFlicker.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up flashlight flicker state")
-        FlashlightFlicker.Cleanup()
-    end
-    if Config.DistributionPad.Indicator.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up DistPad cache and widgets")
-        DistPadTweaks.Cleanup()
-    end
-    if Config.AutoJumpCrouch.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up AutoJumpCrouch state")
-        AutoJumpCrouch.Cleanup()
-    end
-    if Config.VehicleLights.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up VehicleLights state")
-        VehicleLights.Cleanup()
-    end
-    if Config.HideHotbarHotkeys.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up HideHotbarHotkeys cache")
-        HideHotbarHotkeys.Cleanup()
-    end
-    if Config.MinigameBarFix.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up MinigameBarFix cache")
-        MinigameBarFix.Cleanup()
-    end
-    if Config.CorpseGibFix.Enabled then
-        Log.General.Debug("InitGameStatePRE: Cleaning up CorpseGibFix state")
-        CorpseGibFix.Cleanup()
+    for _, mod in ipairs(Modules) do
+        if mod.Cleanup then
+            -- Check if cleanup should run
+            local shouldCleanup = false
+            local cfg = mod._config
+
+            if mod.cleanup and mod.cleanup.isEnabled then
+                shouldCleanup = mod.cleanup.isEnabled(cfg)
+            elseif cfg and cfg.Enabled then
+                shouldCleanup = true
+            end
+
+            if shouldCleanup then
+                Log.General.Debug("InitGameStatePRE: Cleaning up %s", mod.name)
+                mod.Cleanup()
+            end
+        end
     end
 end)
 
 -- ============================================================
 -- GAMESTATE HOOK REGISTRATION VIA POLLING
 -- ============================================================
--- Blueprint may not be loaded at mod init.
--- Poll until GameState exists, then register hook + handle current map.
 
 local function PollForMissedHook(attempts)
     attempts = attempts or 0
@@ -291,7 +255,7 @@ local function PollForMissedHook(attempts)
             return
         end
 
-        -- Register hook once any GameState exists (even main menu)
+        -- Register hook once any GameState exists
         TryRegister("GameState", true, function()
             local ok = pcall(RegisterHook,
                 "/Game/Blueprints/Meta/Abiotic_Survival_GameState.Abiotic_Survival_GameState_C:ReceiveBeginPlay",
@@ -303,12 +267,18 @@ local function PollForMissedHook(attempts)
             return ok
         end)
 
-        -- PrePlay hooks - register early (before gameplay map loads)
-        TryRegister("MenuTweaks", Config.MenuTweaks.SkipLANHostingDelay, MenuTweaks.RegisterPrePlayHooks)
-        TryRegister("FoodFix", Config.FoodDisplayFix.Enabled, FoodFix.RegisterPrePlayHooks)
-        TryRegister("DistPadTweaksPrePlay",
-            Config.DistributionPad.Range.Enabled or Config.DistributionPad.Indicator.Enabled,
-            DistPadTweaks.RegisterPrePlayHooks)
+        -- PreInit hooks for all modules
+        for _, mod in ipairs(Modules) do
+            -- Simple hookPoint
+            if mod.hookPoint == "PreInit" and mod.RegisterHooks then
+                TryRegister(mod.name, IsModuleEnabled(mod, "PreInit"), mod.RegisterHooks)
+            end
+
+            -- Complex: separate preInit config
+            if mod.preInit and mod.RegisterPreInitHooks then
+                TryRegister(mod.name .. "_PreInit", IsModuleEnabled(mod, "PreInit"), mod.RegisterPreInitHooks)
+            end
+        end
 
         -- If already in gameplay map, handle current map manually
         local gameState = FindFirstOf("Abiotic_Survival_GameState_C")
@@ -324,4 +294,4 @@ end
 
 PollForMissedHook()
 
-Log.General.Info("Mod loaded")
+Log.General.Info("Mod loaded (%d modules)", #Modules)
