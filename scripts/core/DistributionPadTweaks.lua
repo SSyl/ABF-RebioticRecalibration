@@ -405,7 +405,6 @@ function DistributionPadTweaks.OnRepDistributionActive(pad)
 end
 
 -- Syncs a single pad's cache
--- TODO: Add HasAuthority check to skip UpdateCompatibleContainers on host (already called by native game)
 function DistributionPadTweaks.SyncPad(pad)
     if not pad:IsValid() then return end
     if isSyncingCache then return end
@@ -496,7 +495,7 @@ function DistributionPadTweaks.OnContainerConstructionComplete(deployable)
     -- Skip if IsCurrentlyLoadingFromSave (shouldn't happen, but let's verify)
     local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
     if okLoading and isLoading then
-        Log.Debug("Skipping container construction - IsCurrentlyLoadingFromSave == true")
+        Log.DebugOnce("Skipping container construction - IsCurrentlyLoadingFromSave is true")
         return
     end
 
