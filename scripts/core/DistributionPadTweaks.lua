@@ -72,10 +72,23 @@ local InteractionPromptCache = { lastActorAddr = nil, lastActorInRange = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
 local DistPadIconTexture = nil
 local DistPadIconWidget = nil
+local cachedContainerClass = nil
 
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
+
+local function IsContainerClass(deployable)
+    if not cachedContainerClass or not cachedContainerClass:IsValid() then
+        cachedContainerClass = StaticFindObject("/Game/Blueprints/DeployedObjects/Furniture/Deployed_Container_ParentBP.Deployed_Container_ParentBP_C")
+    end
+    if not cachedContainerClass or not cachedContainerClass:IsValid() then return false end
+
+    local ok, result = pcall(function()
+        return deployable:IsA(cachedContainerClass)
+    end)
+    return ok and result
+end
 
 local function IncrementInventoryRefCount(inventoryAddr)
     DistPadCache.inventories[inventoryAddr] = (DistPadCache.inventories[inventoryAddr] or 0) + 1
@@ -285,6 +298,7 @@ function Module.Cleanup()
     TextBlockCache.textBlock = nil
     DistPadIconTexture = nil
     DistPadIconWidget = nil
+    cachedContainerClass = nil
 end
 
 -- ============================================================
@@ -470,10 +484,7 @@ function Module.OnContainerConstructionComplete(deployable)
     local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)
     if not okActive or isActive then return end
 
-    local okIsContainer, isContainer = pcall(function()
-        return deployable:IsA("/Game/Blueprints/DeployedObjects/Furniture/Deployed_Container_ParentBP.Deployed_Container_ParentBP_C")
-    end)
-    if not okIsContainer or not isContainer then return end
+    if not IsContainerClass(deployable) then return end
 
     Log.Debug("OnContainerConstructionComplete: new container placed")
 

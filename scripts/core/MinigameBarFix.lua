@@ -40,6 +40,7 @@ local Log = nil
 
 local modifiedWidgets = {}
 local verifiedWidgets = {}
+local cachedImageClass = nil
 
 local LARGE_ZONE_SCALE = 1.14
 local SMALL_ZONE_SCALE = 1.25
@@ -59,6 +60,7 @@ end
 function Module.Cleanup()
     modifiedWidgets = {}
     verifiedWidgets = {}
+    cachedImageClass = nil
 end
 
 -- ============================================================
@@ -99,6 +101,18 @@ end
 -- HELPER FUNCTIONS
 -- ============================================================
 
+local function IsImageWidget(widget)
+    if not cachedImageClass or not cachedImageClass:IsValid() then
+        cachedImageClass = StaticFindObject("/Script/UMG.Image")
+    end
+    if not cachedImageClass or not cachedImageClass:IsValid() then return false end
+
+    local ok, result = pcall(function()
+        return widget:IsA(cachedImageClass)
+    end)
+    return ok and result
+end
+
 local function ApplyMinigameScale(minigameWidget)
     local widgetTree = minigameWidget.WidgetTree
     if not (widgetTree and widgetTree:IsValid()) then return false end
@@ -118,7 +132,7 @@ local function ApplyMinigameScale(minigameWidget)
         local content = slot.Content
         if not (content and content:IsValid()) then return end
 
-        if not content:IsA("/Script/UMG.Image") then return end
+        if not IsImageWidget(content) then return end
 
         local okSlotName, slotName = pcall(function() return slot:GetFName():ToString() end)
         if not okSlotName then return end
@@ -174,7 +188,7 @@ function Module.OnMinigameTick(minigameWidget)
         local content = slot.Content
         if not (content and content:IsValid()) then return end
 
-        if not content:IsA("/Script/UMG.Image") then return end
+        if not IsImageWidget(content) then return end
 
         local okSlotName, slotName = pcall(function() return slot:GetFName():ToString() end)
         if not okSlotName then return end
