@@ -145,7 +145,7 @@ return {
 
         -- Delay in milliseconds before crouching after jump starts
         -- Adjust if crouch feels too early or too late (0-1000ms)
-        Delay = 200, -- [default = 100]
+        Delay = 150, -- [default = 150]
 
         -- Stop sprinting when mid-jump
         -- Useful if you have toggle-sprint enabled (otherwise sprint+jump prevents crouch)
