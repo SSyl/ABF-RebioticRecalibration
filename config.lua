@@ -1,81 +1,8 @@
 return {
-    -- ============================================================
-    -- Menu Tweaks
-    -- Quality-of-life improvements to menus and popups
-    -- ============================================================
-    MenuTweaks = {
-        -- Skips the 3-second countdown on the popup when hosting a LAN server
-        SkipLANHostingDelay = false, -- [default = false]
-
-        -- Adds a custom button to the main menu that connects directly to a server
-        CustomServerButton = {
-            -- Enable/disable the custom server button
-            Enabled = false, -- [default = false]
-
-            -- Server IP address (no http:// or slashes)
-            -- Examples: "192.168.1.100", "myserver.example.com"
-            IP = "127.0.0.1", -- [default = "127.0.0.1"]
-
-            -- Server port (most servers use 7777)
-            Port = 7777, -- [default = 7777]
-
-            -- Server password (leave empty if no password required)
-            Password = "", -- [default = ""]
-
-            -- Button text shown in menu
-            ButtonText = "Custom Server Button", -- [default = "Custom Server Button"]
-
-            -- Icon name from /Game/Textures/GUI/Icons/
-            -- Examples: "icon_hackingdevice", "icon_keypad_white", "icon_suv_64"
-            -- Leave empty for no icon
-            Icon = "icon_hackingdevice", -- [default = "icon_hackingdevice"]
-
-            -- Button text/icon color (RGB 0-255)
-            TextColor = {
-                R = 42,
-                G = 255,
-                B = 45,
-            }, -- [default = { R = 42, G = 255, B = 45 }]
-        },
-    },
-
-    -- ============================================================
-    -- Food Display Fix
-    -- Fixes the visual bug where placed food shows damage cracks
-    -- when the food was partially decayed in your inventory.
-    -- ============================================================
-    FoodDisplayFix = {
-        -- If you're hosting: applies to all players in the lobby.
-        -- If you're a client: applies visually to yourself only.
-        Enabled = true, -- [default = true]
-
-        -- When enabled, retroactively fixes existing placed food when loading a save
-        -- If false, only newly placed food is fixed
-        FixExistingFoodOnLoad = true, -- [default = false]
-    },
-
-    -- ============================================================
-    -- Crafting Menu
-    -- Fixes for the 3D item preview in the crafting menu
-    -- ============================================================
-    CraftingMenu = {
-        Brightness = {
-            -- Fixes the dark 3D item preview in the crafting menu
-            Enabled = true, -- [default = true]
-
-            -- How bright the preview should be (vanilla = 4)
-            LightIntensity = 10.0, -- [default = 10]
-        },
-
-        Resolution = {
-            -- The vanilla preview is blurry because it renders at low resolution
-            Enabled = true, -- [default = true]
-
-            -- Vanilla is 512. Higher = sharper but may impact performance. 1024 shouldn't cause any performance issues on anything but the lowest-end systems.
-            -- Options: 512, 1024, 2048, 4096, or 8192
-            Resolution = 1024, -- [default = 1024]
-        },
-    },
+    -- ############################################################
+    -- GAMEPLAY QOL
+    -- Features that enhance or modify gameplay mechanics
+    -- ############################################################
 
     -- ============================================================
     -- Distribution Pad
@@ -133,27 +60,13 @@ return {
     },
 
     -- ============================================================
-    -- Low Health Vignette
-    -- Adds a red vignette overlay when health drops below a threshold
+    -- Vehicle Lights
+    -- Manual control for vehicle headlights via F key on driver seat
     -- ============================================================
-    LowHealthVignette = {
-        -- Enable/disable the low health vignette effect
+    VehicleLights = {
+        -- Allows you to toggle vehicle lights on/off using F key on driver's seat
+        -- Works on SUV, Forklift, and Security Cart
         Enabled = true, -- [default = true]
-
-        -- Health percentage threshold (0.0 - 1.0) to trigger vignette
-        -- 0.25 = vignette appears when health drops below 25%
-        Threshold = 0.25, -- [default = 0.25]
-
-        -- Vignette color (RGB 0-255, A 0.0-1.0)
-        Color = {
-            R = 128,
-            G = 0,
-            B = 0,
-            A = 0.3,
-        }, -- [default = { R = 128, G = 0, B = 0, A = 0.3 }]
-
-        -- Slow pulsing effect for the vignette
-        PulseEnabled = true, -- [default = true]
     },
 
     -- ============================================================
@@ -167,11 +80,23 @@ return {
     },
 
     -- ============================================================
+    -- Player Tracker
+    -- Highlights other players with a permanent outline
+    -- ============================================================
+    PlayerTracker = {
+        -- Shows a colored outline around other players in multiplayer
+        -- Disabled by default: some may consider this cheaty since there's a trinket for it
+        Enabled = false, -- [default = false]
+    },
+
+    -- ============================================================
     -- Auto Jump-Crouch
     -- Automatically crouches during jumps for extra height/distance
     -- ============================================================
     AutoJumpCrouch = {
         -- Automatically crouch mid-air during jumps for extra height
+        -- Disabled by default: accessibility feature for controller players or those
+        -- who have difficulty with the jump-crouch timing
         Enabled = false, -- [default = false]
 
         -- Delay in milliseconds before crouching after jump starts
@@ -192,55 +117,10 @@ return {
         DisableAutoUncrouch = false, -- [default = false]
     },
 
-    -- ============================================================
-    -- Vehicle Lights
-    -- Manual control for vehicle headlights via F key on driver seat
-    -- ============================================================
-    VehicleLights = {
-        -- Allows you to toggle vehicle lights on/off using F key on driver's seat
-        -- Works on SUV, Forklift, and Security Cart (Sleigh has no lights)
-        Enabled = true, -- [default = true]
-    },
-
-    -- ============================================================
-    -- Hide Hotbar Hotkeys
-    -- Removes the on-screen hotbar key hints (1,2,3,4,5,6,7,8,9,0)
-    -- ============================================================
-    HideHotbarHotkeys = {
-        -- Hide the numeric hotkey indicators on the hotbar
-        Enabled = false, -- [default = false]
-    },
-
-    -- ============================================================
-    -- Minigame Bar Fix
-    -- Fixes visual size of success zones to match actual hitbox
-    -- ============================================================
-    MinigameBarFix = {
-        -- Makes the success zones true-to-size in bathroom and weightlifting minigames
-        Enabled = true, -- [default = true]
-    },
-
-    -- ============================================================
-    -- Corpse Gib Fix
-    -- Prevents gibsplosion VFX/SFX when loading areas with previously-removed corpses
-    -- ============================================================
-    CorpseGibFix = {
-        Enabled = true, -- [default = true]
-
-        -- Time window (ms) to suppress gib VFX after corpse spawns.
-        -- Save-load gibs happen ~260-290ms after spawn.
-        -- Increase if clients with slow connections still see gibsplosions on area load.
-        Threshold = 500, -- [default = 500]
-    },
-
-    -- ============================================================
-    -- Player Tracker
-    -- Highlights other players with a permanent outline
-    -- ============================================================
-    PlayerTracker = {
-        -- Shows a colored outline around other players in multiplayer
-        Enabled = false, -- [default = false]
-    },
+    -- ############################################################
+    -- VISUAL TWEAKS
+    -- HUD enhancements and visual customization options
+    -- ############################################################
 
     -- ============================================================
     -- Ammo Counter
@@ -334,24 +214,163 @@ return {
     },
 
     -- ============================================================
-    -- Debug Flags
-    -- Enable debug logging to UE4SS.log (causes log spam, leave off)
+    -- Low Health Vignette
+    -- Adds a red vignette overlay when health drops below a threshold
     -- ============================================================
+    LowHealthVignette = {
+        -- Enable/disable the low health vignette effect
+        Enabled = true, -- [default = true]
+
+        -- Health percentage threshold (0.0 - 1.0) to trigger vignette
+        -- 0.25 = vignette appears when health drops below 25%
+        Threshold = 0.25, -- [default = 0.25]
+
+        -- Vignette color (RGB 0-255, A 0.0-1.0)
+        Color = {
+            R = 128,
+            G = 0,
+            B = 0,
+            A = 0.3,
+        }, -- [default = { R = 128, G = 0, B = 0, A = 0.3 }]
+
+        -- Slow pulsing effect for the vignette
+        PulseEnabled = true, -- [default = true]
+    },
+
+    -- ============================================================
+    -- Menu Tweaks
+    -- Quality-of-life improvements to menus and popups
+    -- ============================================================
+    MenuTweaks = {
+        -- Skips the 3-second countdown on the popup when hosting a LAN server
+        SkipLANHostingDelay = false, -- [default = false]
+
+        -- Adds a custom button to the main menu that connects directly to a server
+        CustomServerButton = {
+            -- Enable/disable the custom server button
+            Enabled = false, -- [default = false]
+
+            -- Server IP address (no http:// or slashes)
+            -- Examples: "192.168.1.100", "myserver.example.com"
+            IP = "127.0.0.1", -- [default = "127.0.0.1"]
+
+            -- Server port (most servers use 7777)
+            Port = 7777, -- [default = 7777]
+
+            -- Server password (leave empty if no password required)
+            Password = "", -- [default = ""]
+
+            -- Button text shown in menu
+            ButtonText = "Custom Server Button", -- [default = "Custom Server Button"]
+
+            -- Icon name from /Game/Textures/GUI/Icons/
+            -- Examples: "icon_hackingdevice", "icon_keypad_white", "icon_suv_64"
+            -- Leave empty for no icon
+            Icon = "icon_hackingdevice", -- [default = "icon_hackingdevice"]
+
+            -- Button text/icon color (RGB 0-255)
+            TextColor = {
+                R = 42,
+                G = 255,
+                B = 45,
+            }, -- [default = { R = 42, G = 255, B = 45 }]
+        },
+    },
+
+    -- ============================================================
+    -- Hide Hotbar Hotkeys
+    -- Removes the on-screen hotbar key hints (1,2,3,4,5,6,7,8,9,0)
+    -- ============================================================
+    HideHotbarHotkeys = {
+        -- Hide the numeric hotkey indicators on the hotbar
+        -- Disabled by default: some players rely on the visual key hints
+        Enabled = false, -- [default = false]
+    },
+
+    -- ############################################################
+    -- BUG FIXES
+    -- Fixes for visual bugs and game issues (set and forget)
+    -- ############################################################
+
+    -- ============================================================
+    -- Food Display Fix
+    -- Fixes the visual bug where placed food shows damage cracks
+    -- when the food was partially decayed in your inventory.
+    -- ============================================================
+    FoodDisplayFix = {
+        -- If you're hosting: applies to all players in the lobby.
+        -- If you're a client: applies visually to yourself only.
+        Enabled = true, -- [default = true]
+
+        -- When enabled, retroactively fixes existing placed food when loading a save
+        -- If false, only newly placed food is fixed
+        FixExistingFoodOnLoad = true, -- [default = false]
+    },
+
+    -- ============================================================
+    -- Crafting Menu Fixes
+    -- Fixes for the 3D item preview in the crafting menu
+    -- ============================================================
+    CraftingMenu = {
+        Brightness = {
+            -- Fixes the dark 3D item preview in the crafting menu
+            Enabled = true, -- [default = true]
+
+            -- How bright the preview should be (vanilla = 4)
+            LightIntensity = 10.0, -- [default = 10]
+        },
+
+        Resolution = {
+            -- The vanilla preview is blurry because it renders at low resolution
+            Enabled = true, -- [default = true]
+
+            -- Vanilla is 512. Higher = sharper but may impact performance. 1024 shouldn't cause any performance issues on anything but the lowest-end systems.
+            -- Options: 512, 1024, 2048, 4096, or 8192
+            Resolution = 1024, -- [default = 1024]
+        },
+    },
+
+    -- ============================================================
+    -- Minigame Bar Fix
+    -- Fixes visual size of success zones to match actual hitbox
+    -- ============================================================
+    MinigameBarFix = {
+        -- Makes the success zones true-to-size in bathroom and weightlifting minigames
+        Enabled = true, -- [default = true]
+    },
+
+    -- ============================================================
+    -- Corpse Gib Fix
+    -- Prevents gibsplosion VFX/SFX when loading areas with previously-removed corpses
+    -- ============================================================
+    CorpseGibFix = {
+        Enabled = true, -- [default = true]
+
+        -- Time window (ms) to suppress gib VFX after corpse spawns.
+        -- Save-load gibs happen ~260-290ms after spawn.
+        -- Increase if clients with slow connections still see gibsplosions on area load.
+        Threshold = 500, -- [default = 500]
+    },
+
+    -- ############################################################
+    -- DEBUG FLAGS
+    -- Enable debug logging to UE4SS.log (causes log spam, leave off)
+    -- ############################################################
     DebugFlags = {
         Misc = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
-        MenuTweaks = false,
-        FoodDisplayFix = false,
-        CraftingMenu = false,
         DistributionPad = false,
-        LowHealthVignette = false,
-        FlashlightFlicker = false,
-        AutoJumpCrouch = false,
         VehicleLights = false,
-        HideHotbarHotkeys = false,
-        MinigameBarFix = false,
-        CorpseGibFix = false,
+        FlashlightFlicker = false,
         PlayerTracker = false,
+        AutoJumpCrouch = false,
         AmmoCounter = false,
         TeleporterTags = false,
+        LowHealthVignette = false,
+        MenuTweaks = false,
+        HideHotbarHotkeys = false,
+        FoodDisplayFix = false,
+        CraftingMenu = false,
+        MinigameBarFix = false,
+        CorpseGibFix = false,
     },
 }
