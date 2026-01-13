@@ -16,6 +16,7 @@ PERFORMANCE: Per-frame prompt hook with address caching
 ]]
 
 local HookUtil = require("utils/HookUtil")
+local UEHelpers = require("UEHelpers")
 
 -- ============================================================
 -- MODULE METADATA
@@ -50,6 +51,7 @@ local ReplicationEnabledCache = {}
 local PromptTextCache = { lastVehicleAddr = nil, isSupported = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
 local LightSwitchSound = nil
+local GameplayStaticsCache = nil
 
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
@@ -72,6 +74,7 @@ function Module.Cleanup()
     TextBlockCache.widgetAddr = nil
     TextBlockCache.textBlock = nil
     LightSwitchSound = nil
+    GameplayStaticsCache = nil
 end
 
 -- ============================================================
@@ -254,22 +257,43 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
         return
     end
 
-    Log.Debug("Vehicle lights: %s", newState and "ON" or "OFF")
+    Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 
     if LightSwitchSound and LightSwitchSound:IsValid() then
-        local UEHelpers = require("UEHelpers")
-
-        local playerController = UEHelpers.GetPlayerController()
-        if not playerController:IsValid() then return end
-
         local okLoc, location = pcall(function() return vehicle:K2_GetActorLocation() end)
         if not okLoc or not location then
+            Log.Debug("Failed to get vehicle location")
             return
         end
 
-        pcall(function()
-            playerController:ClientPlaySoundAtLocation(LightSwitchSound, location, 1.0, 1.0)
+        if not GameplayStaticsCache or not GameplayStaticsCache:IsValid() then
+            GameplayStaticsCache = UEHelpers.GetGameplayStatics()
+        end
+        if not GameplayStaticsCache or not GameplayStaticsCache:IsValid() then
+            Log.Debug("GameplayStatics not valid")
+            return
+        end
+
+        local okSound, errSound = pcall(function()
+            GameplayStaticsCache:PlaySoundAtLocation(
+                vehicle,           -- WorldContextObject
+                LightSwitchSound,  -- Sound
+                location,          -- Location
+                {},                -- Rotation (default)
+                1.0,               -- VolumeMultiplier
+                1.0,               -- PitchMultiplier
+                0.0,               -- StartTime
+                nil,               -- AttenuationSettings
+                nil,               -- ConcurrencySettings
+                nil,               -- OwningActor
+                nil                -- InitialParams
+            )
         end)
+        if not okSound then
+            Log.Debug("PlaySoundAtLocation failed: %s", tostring(errSound))
+        end
+    else
+        Log.Debug("LightSwitchSound not valid")
     end
 end
 
