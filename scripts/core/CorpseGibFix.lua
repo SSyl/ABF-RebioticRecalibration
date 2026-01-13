@@ -31,7 +31,7 @@ local Module = {
     -- Config schema (paths relative to configKey)
     schema = {
         { path = "Enabled", type = "boolean", default = true },
-        { path = "Threshold", type = "number", default = 500 },
+        { path = "Threshold", type = "number", default = 1000 },
     },
 
     -- Hook point: "PreInit", "PostInit", or nil for no hooks

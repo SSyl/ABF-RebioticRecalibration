@@ -347,9 +347,8 @@ return {
         Enabled = true, -- [default = true]
 
         -- Time window (ms) to suppress gib VFX after corpse spawns.
-        -- Save-load gibs happen ~260-290ms after spawn.
-        -- Increase if clients with slow connections still see gibsplosions on area load.
-        Threshold = 500, -- [default = 500]
+        -- Increase if you still see gibsplosions on area load.
+        Threshold = 1000, -- [default = 1000]
     },
 
     -- ############################################################
