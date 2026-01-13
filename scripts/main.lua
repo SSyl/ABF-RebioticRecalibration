@@ -33,6 +33,7 @@ local MODULE_PATHS = {
     "core/MinigameBarFix",
     "core/CorpseGibFix",
     "core/PlayerTracker",
+    "core/AmmoCounter",
 }
 
 -- ============================================================

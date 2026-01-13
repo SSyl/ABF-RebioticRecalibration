@@ -243,6 +243,53 @@ return {
     },
 
     -- ============================================================
+    -- Ammo Counter
+    -- Enhanced ammo display with color coding and inventory count
+    -- ============================================================
+    AmmoCounter = {
+        -- Enable/disable the enhanced ammo counter
+        Enabled = true, -- [default = true]
+
+        -- Loaded ammo warning threshold (percentage of max capacity)
+        -- When current ammo drops to or below this %, it turns yellow
+        -- 0.5 = 50% of max capacity
+        LoadedAmmoWarning = 0.5, -- [default = 0.5]
+
+        -- Inventory ammo warning threshold (spare ammo count)
+        -- 0 = Adaptive mode: uses weapon's max capacity as threshold
+        --     (e.g., 10 rounds for 9mm Pistol, 1 arrow for Crossbow)
+        -- Or set a specific number for all weapons:
+        --     20 = Yellow when 20 or fewer rounds remain
+        InventoryAmmoWarning = 0, -- [default = 0 (adaptive)]
+
+        -- Display mode for ammo counter
+        -- false = "Loaded | Inventory" (replaces max capacity display)
+        -- true  = "Loaded | MaxCap | Inventory" (shows all three)
+        ShowMaxCapacity = false, -- [default = false]
+
+        -- Color when ammo is at good levels (RGB 0-255)
+        AmmoGood = {
+            R = 114,
+            G = 242,
+            B = 255,
+        }, -- [default = { R = 114, G = 242, B = 255 } (cyan)]
+
+        -- Color when ammo is low (RGB 0-255)
+        AmmoLow = {
+            R = 255,
+            G = 200,
+            B = 32,
+        }, -- [default = { R = 255, G = 200, B = 32 } (yellow)]
+
+        -- Color when you have no ammo (RGB 0-255)
+        NoAmmo = {
+            R = 249,
+            G = 41,
+            B = 41,
+        }, -- [default = { R = 249, G = 41, B = 41 } (red)]
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -260,5 +307,6 @@ return {
         MinigameBarFix = false,
         CorpseGibFix = false,
         PlayerTracker = false,
+        AmmoCounter = false,
     },
 }
