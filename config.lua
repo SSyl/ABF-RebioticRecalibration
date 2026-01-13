@@ -1,11 +1,42 @@
 return {
     -- ============================================================
     -- Menu Tweaks
-    -- Small quality-of-life improvements to menus and popups
+    -- Quality-of-life improvements to menus and popups
     -- ============================================================
     MenuTweaks = {
-        -- Skips the 3-second countdown when hosting a LAN server
-        SkipLANHostingDelay = true, -- [default = true]
+        -- Skips the 3-second countdown on the popup when hosting a LAN server
+        SkipLANHostingDelay = false, -- [default = false]
+
+        -- Adds a custom button to the main menu that connects directly to a server
+        CustomServerButton = {
+            -- Enable/disable the custom server button
+            Enabled = false, -- [default = false]
+
+            -- Server IP address (no http:// or slashes)
+            -- Examples: "192.168.1.100", "myserver.example.com"
+            IP = "127.0.0.1", -- [default = "127.0.0.1"]
+
+            -- Server port (most servers use 7777)
+            Port = 7777, -- [default = 7777]
+
+            -- Server password (leave empty if no password required)
+            Password = "", -- [default = ""]
+
+            -- Button text shown in menu
+            ButtonText = "Custom Server Button", -- [default = "Custom Server Button"]
+
+            -- Icon name from /Game/Textures/GUI/Icons/
+            -- Examples: "icon_hackingdevice", "icon_keypad_white", "icon_suv_64"
+            -- Leave empty for no icon
+            Icon = "icon_hackingdevice", -- [default = "icon_hackingdevice"]
+
+            -- Button text/icon color (RGB 0-255)
+            TextColor = {
+                R = 42,
+                G = 255,
+                B = 45,
+            }, -- [default = { R = 42, G = 255, B = 45 }]
+        },
     },
 
     -- ============================================================
@@ -191,14 +222,14 @@ return {
 
     -- ============================================================
     -- Corpse Gib Fix
-    -- Prevents gibsplosion effect when loading areas with previously-removed corpses
+    -- Prevents gibsplosion VFX/SFX when loading areas with previously-removed corpses
     -- ============================================================
     CorpseGibFix = {
         Enabled = true, -- [default = true]
 
         -- Time window (ms) to suppress gib VFX after corpse spawns.
-        -- Save-load gibs happen ~260-290ms after spawn. Increase if clients with
-        -- slow connections still see gibsplosions on area load.
+        -- Save-load gibs happen ~260-290ms after spawn.
+        -- Increase if clients with slow connections still see gibsplosions on area load.
         Threshold = 500, -- [default = 500]
     },
 
