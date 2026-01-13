@@ -12,9 +12,18 @@ API:
 - ValidateNumber(value, default, min, max, logFunc, fieldName) -> number
 - ValidateString(value, default, maxLength, trim, logFunc, fieldName) -> string
 - ValidateColor(value, default, logFunc, fieldName) -> {R, G, B, A} (normalized 0-1)
+- ValidateTextColor(value, default, logFunc, fieldName) -> SlateColor format for text widgets
 ]]
 
 local ConfigUtil = {}
+
+-- ============================================================
+-- HELPERS
+-- ============================================================
+
+local function round3(x)
+    return math.floor(x * 1000 + 0.5) / 1000
+end
 
 -- ============================================================
 -- GENERIC VALIDATORS
@@ -111,10 +120,19 @@ function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
     end
 
     return {
-        R = source.R / 255,
-        G = source.G / 255,
-        B = source.B / 255,
-        A = alpha
+        R = round3(source.R / 255),
+        G = round3(source.G / 255),
+        B = round3(source.B / 255),
+        A = round3(alpha)
+    }
+end
+
+-- Validates color and returns SlateColor format for text widgets (UTextBlock)
+function ConfigUtil.ValidateTextColor(value, default, logFunc, fieldName)
+    local normalized = ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
+    return {
+        SpecifiedColor = normalized,
+        ColorUseRule = "UseColor_Specified",
     }
 end
 
@@ -169,6 +187,8 @@ function ConfigUtil.ValidateFromSchema(userConfig, schema, logFunc)
             validated = ConfigUtil.ValidateString(value, default, entry.maxLength, entry.trim, logFunc, path)
         elseif entryType == "color" then
             validated = ConfigUtil.ValidateColor(value, default, logFunc, path)
+        elseif entryType == "textcolor" then
+            validated = ConfigUtil.ValidateTextColor(value, default, logFunc, path)
         else
             validated = value or default
         end

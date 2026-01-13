@@ -290,6 +290,50 @@ return {
     },
 
     -- ============================================================
+    -- Teleporter Tags
+    -- Visual identification for Personal Teleporters synced to teleport benches
+    -- ============================================================
+    TeleporterTags = {
+        -- Enable/disable teleporter tags
+        Enabled = true, -- [default = true]
+
+        Text = {
+            -- Shows abbreviated bench name on the teleporter icon
+            Enabled = true, -- [default = true]
+
+            -- Text scale (0.1-2.0, smaller = more text fits)
+            -- 0.5 = ~8-12 chars, 0.8 = ~6-8 chars, 1.0 = ~4-6 chars
+            Scale = 0.8, -- [default = 0.8]
+
+            -- Text position: "TOP", "CENTER", or "BOTTOM"
+            Position = "TOP", -- [default = "TOP"]
+
+            -- How to shorten bench names:
+            --   "Simple" - Remove spaces ("Office Sector" -> "OfficeSector")
+            --   "FirstLetter" - First letter of each word ("Office Sector" -> "OS")
+            --   "FirstTwo" - First 2 letters of each word ("Office Sector" -> "OfSe")
+            --   "FirstThree" - First 3 letters of each word ("Office Sector" -> "OffSec")
+            --   "FirstWord" - First word only ("Office Sector" -> "Office")
+            --   "VowelRemoval" - Remove non-leading vowels ("Office Sector" -> "OffcSctr")
+            AbbreviationMode = "Simple", -- [default = "Simple"]
+
+            -- Text color (RGB 0-255)
+            -- Default is game's orange: { R = 255, G = 186, B = 40 }
+            Color = {
+                R = 255,
+                G = 186,
+                B = 40,
+            }, -- [default = { R = 255, G = 186, B = 40 }]
+        },
+
+        IconColor = {
+            -- Tints teleporter icon with a unique color based on bench name
+            -- Each destination gets a consistent, automatically-generated color
+            Enabled = false, -- [default = false]
+        },
+    },
+
+    -- ============================================================
     -- Debug Flags
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ============================================================
@@ -308,5 +352,6 @@ return {
         CorpseGibFix = false,
         PlayerTracker = false,
         AmmoCounter = false,
+        TeleporterTags = false,
     },
 }

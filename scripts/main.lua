@@ -34,6 +34,7 @@ local MODULE_PATHS = {
     "core/CorpseGibFix",
     "core/PlayerTracker",
     "core/AmmoCounter",
+    "core/TeleporterTags",
 }
 
 -- ============================================================

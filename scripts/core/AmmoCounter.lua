@@ -35,9 +35,9 @@ local Module = {
         { path = "LoadedAmmoWarning", type = "number", default = 0.5, min = 0, max = 1 },
         { path = "InventoryAmmoWarning", type = "number", default = 0, min = 0 },  -- 0 = adaptive
         { path = "ShowMaxCapacity", type = "boolean", default = false },
-        { path = "AmmoGood", type = "color", default = { R = 114, G = 242, B = 255 } },
-        { path = "AmmoLow", type = "color", default = { R = 255, G = 200, B = 32 } },
-        { path = "NoAmmo", type = "color", default = { R = 249, G = 41, B = 41 } },
+        { path = "AmmoGood", type = "textcolor", default = { R = 114, G = 242, B = 255 } },
+        { path = "AmmoLow", type = "textcolor", default = { R = 255, G = 200, B = 32 } },
+        { path = "NoAmmo", type = "textcolor", default = { R = 249, G = 41, B = 41 } },
     },
 
     hookPoint = "PostInit",
@@ -186,16 +186,13 @@ local function GetInventoryAmmoColor(inventoryAmmo, maxCapacity)
     end
 end
 
-local function SetWidgetColor(widget, color)
-    if not widget:IsValid() or not color then
+local function SetWidgetColor(widget, slateColor)
+    if not widget:IsValid() or not slateColor then
         return false
     end
 
     local ok = pcall(function()
-        widget:SetColorAndOpacity({
-            SpecifiedColor = color,
-            ColorUseRule = "UseColor_Specified"
-        })
+        widget:SetColorAndOpacity(slateColor)
     end)
 
     return ok
