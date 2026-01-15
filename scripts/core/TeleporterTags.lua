@@ -42,13 +42,17 @@ local Module = {
 local Config = nil
 local Log = nil
 
--- Cache to track teleporter bench names per slot
--- Key: slot address, Value: bench name string (or false for unsynced teleporter)
+-- Cache to track teleporter data per slot
+-- Key: slot address, Value: { benchName = string/false }
 local slotCache = {}
 
 -- Cache for abbreviated results (memoization to avoid recalculating same bench names)
 -- Key: "benchName|mode|scale", Value: abbreviated and truncated string
 local abbreviationCache = {}
+
+-- Cache for computed colors (memoization to avoid rehashing same bench names)
+-- Key: bench name, Value: color table { R, G, B, A }
+local colorCache = {}
 
 -- Derived config values (computed once in Init)
 local TextSettings = nil
@@ -121,6 +125,11 @@ local function StringToColor(text)
         return nil
     end
 
+    -- Check cache first
+    if colorCache[text] then
+        return colorCache[text]
+    end
+
     local hash = 5381
     for i = 1, #text do
         hash = ((hash << 5) + hash) + string.byte(text, i)
@@ -132,7 +141,9 @@ local function StringToColor(text)
 
     local r, g, b = HSLtoRGB(hue, saturation, lightness)
 
-    return { R = r, G = g, B = b, A = 1.0 }
+    local color = { R = r, G = g, B = b, A = 1.0 }
+    colorCache[text] = color
+    return color
 end
 
 -- ============================================================
@@ -223,29 +234,24 @@ end
 local function GetTeleporterBenchName(slot)
     if not slot:IsValid() then return nil end
 
-    local okItem, itemInSlot = pcall(function()
-        return slot.ItemInSlot
-    end)
-    if not okItem or not itemInSlot:IsValid() then return nil end
+    local itemInSlot = slot.ItemInSlot
+    if not itemInSlot:IsValid() then return nil end
 
+    -- Check if item is a personal teleporter
     local okRowName, rowName = pcall(function()
         return itemInSlot.ItemDataTable_18_BF1052F141F66A976F4844AB2B13062B.RowName:ToString()
     end)
     if not okRowName or rowName ~= "personalteleporter" then return nil end
 
-    local okPlayerString, playerString = pcall(function()
-        return itemInSlot.ChangeableData_12_2B90E1F74F648135579D39A49F5A2313.PlayerMadeString_42_CC0B72B24DBEAB2CC04454AAFFD4BBE9
+    -- Get bench name from PlayerMadeString (format: "<GUID>,<BenchName>")
+    local ok, playerStringLua = pcall(function()
+        local fstring = itemInSlot.ChangeableData_12_2B90E1F74F648135579D39A49F5A2313.PlayerMadeString_42_CC0B72B24DBEAB2CC04454AAFFD4BBE9
+        if fstring:type() ~= "FString" then return nil end
+        return fstring:ToString()
     end)
-    if not okPlayerString or playerString:type() ~= "FString" then return false end
+    if not ok or not playerStringLua or playerStringLua == "" then return false end
 
-    local okToString, playerStringLua = pcall(function()
-        return playerString:ToString()
-    end)
-    if not okToString or not playerStringLua or playerStringLua == "" then return false end
-
-    -- Extract bench name from format: "<GUID>,<BenchName>"
-    local benchName = playerStringLua:match(",(.+)$")
-    return benchName or false
+    return playerStringLua:match(",(.+)$") or false
 end
 
 -- ============================================================
@@ -314,24 +320,14 @@ local function ApplyColorOverlay(slot, benchName)
     if not ok or not iconWidget:IsValid() then return end
 
     local color = StringToColor(benchName)
-    if color then
-        local colorOk = pcall(function()
-            iconWidget:SetColorAndOpacity(color)
-        end)
+    if not color then return end
 
-        if colorOk then
-            Log.Debug("Applied color to '%s'", benchName)
-        else
-            Log.Debug("Failed to apply color to '%s'", benchName)
-        end
-    end
+    iconWidget:SetColorAndOpacity(color)
 end
 
-local function ApplyTextOverlay(slot, benchName)
+local function ApplyTextOverlay(slot, benchName, isFirstSetup)
     if not slot:IsValid() then return end
     if not Config.Text.Enabled then return end
-
-    local abbrevName = AbbreviateName(benchName)
 
     local ok, stackText = pcall(function()
         return slot.StackText
@@ -339,33 +335,27 @@ local function ApplyTextOverlay(slot, benchName)
 
     if not ok or not stackText:IsValid() then return end
 
-    -- Check if text widget needs setup (Justification = 1/Center means already configured)
-    local okJust, justification = pcall(function()
-        return stackText.Justification
-    end)
+    -- Visibility always needs reapplying (game resets it)
+    stackText:SetVisibility(4)
 
-    local needsSetup = not okJust or justification ~= 1
-
-    pcall(function()
+    -- Text content and setup only on first setup (content doesn't change for same teleporter)
+    if isFirstSetup then
+        local abbrevName = AbbreviateName(benchName)
         stackText:SetText(FText(abbrevName))
-        stackText:SetVisibility(4)
+        stackText:SetJustification(1)
+        stackText:SetRenderTransform({
+            Translation = { X = -3.0, Y = TextSettings.yPosition },
+            Scale = { X = TextSettings.scale, Y = TextSettings.scale },
+            Shear = { X = 0.0, Y = 0.0 },
+            Angle = 0.0
+        })
 
-        if needsSetup then
-            stackText:SetJustification(1)
-            stackText:SetRenderTransform({
-                Translation = { X = -3.0, Y = TextSettings.yPosition },
-                Scale = { X = TextSettings.scale, Y = TextSettings.scale },
-                Shear = { X = 0.0, Y = 0.0 },
-                Angle = 0.0
-            })
-
-            if UseCustomTextColor then
-                stackText:SetColorAndOpacity(Config.Text.Color)
-            end
-
-            Log.Debug("Configured text overlay for: %s", abbrevName)
+        if UseCustomTextColor then
+            stackText:SetColorAndOpacity(Config.Text.Color)
         end
-    end)
+
+        Log.Debug("Configured text overlay for: %s", abbrevName)
+    end
 end
 
 -- ============================================================
@@ -390,6 +380,7 @@ end
 function Module.GameplayCleanup()
     slotCache = {}
     abbreviationCache = {}
+    colorCache = {}
     Log.Debug("TeleporterTags caches cleared")
 end
 
@@ -413,54 +404,36 @@ end
 function Module.OnSlotUpdate(slot)
     if not slot:IsValid() then return end
 
-    local okAddr, slotAddr = pcall(function()
-        return slot:GetAddress()
-    end)
-    if not okAddr or not slotAddr then return end
+    local slotAddr = slot:GetAddress()
+    if not slotAddr then return end
 
-    local cachedBenchName = slotCache[slotAddr]
-
-    -- Fast path: slot is cached
-    if cachedBenchName ~= nil then
-        local benchName = GetTeleporterBenchName(slot)
-
-        if benchName == cachedBenchName then
-            -- Same teleporter, reapply overlays (game can reset visibility)
-            if benchName then
-                ApplyColorOverlay(slot, benchName)
-                ApplyTextOverlay(slot, benchName)
-            end
-            return
-        elseif not benchName and cachedBenchName then
-            -- Was a teleporter, now empty or different item
-            ResetSlotToDefaults(slot)
-            slotCache[slotAddr] = nil
-            return
-        end
-    end
-
-    -- Slow path: first time seeing this slot or item changed
-
-    local okClass, className = pcall(function()
-        return slot:GetClass():GetFName():ToString()
-    end)
-    if not okClass or className ~= "W_InventoryItemSlot_C" then return end
-
+    local cached = slotCache[slotAddr]
     local benchName = GetTeleporterBenchName(slot)
 
-    -- Cache result (benchName or false for unsynced teleporter, nil already early-exited)
-    slotCache[slotAddr] = benchName or false
-
-    if benchName then
-        Log.Debug("OnSlotUpdate: New teleporter in slot - %s", benchName)
+    -- Same teleporter as cached: just reapply overlays (game resets color/visibility)
+    if cached and benchName and cached.benchName == benchName then
+        Log.Debug("Reapplying overlays for: %s", benchName)
+        ApplyColorOverlay(slot, benchName)
+        ApplyTextOverlay(slot, benchName, false)
+        return
     end
+
+    -- Item changed from teleporter to something else: reset slot
+    if cached and cached.benchName and not benchName then
+        Log.Debug("Teleporter removed from slot, resetting (was: %s)", cached.benchName)
+        ResetSlotToDefaults(slot)
+    end
+
+    -- Update cache
+    slotCache[slotAddr] = { benchName = benchName or false }
 
     if not benchName then return end
 
-    -- Full setup for synced teleporter
+    -- First time seeing this teleporter in this slot: full setup
+    Log.Debug("New teleporter in slot: %s", benchName)
     FixItemTooltipData(slot)
     ApplyColorOverlay(slot, benchName)
-    ApplyTextOverlay(slot, benchName)
+    ApplyTextOverlay(slot, benchName, true)
 end
 
 return Module
