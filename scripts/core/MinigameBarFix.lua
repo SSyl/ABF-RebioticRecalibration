@@ -40,7 +40,7 @@ local Log = nil
 
 local modifiedWidgets = {}
 local verifiedWidgets = {}
-local cachedImageClass = nil
+local cachedImageClass = CreateInvalidObject()
 
 local LARGE_ZONE_SCALE = 1.14
 local SMALL_ZONE_SCALE = 1.25
@@ -60,7 +60,7 @@ end
 function Module.GameplayCleanup()
     modifiedWidgets = {}
     verifiedWidgets = {}
-    cachedImageClass = nil
+    cachedImageClass = CreateInvalidObject()
 end
 
 -- ============================================================
@@ -102,15 +102,12 @@ end
 -- ============================================================
 
 local function IsImageWidget(widget)
-    if not cachedImageClass or not cachedImageClass:IsValid() then
+    if not cachedImageClass:IsValid() then
         cachedImageClass = StaticFindObject("/Script/UMG.Image")
     end
-    if not cachedImageClass or not cachedImageClass:IsValid() then return false end
+    if not cachedImageClass:IsValid() then return false end
 
-    local ok, result = pcall(function()
-        return widget:IsA(cachedImageClass)
-    end)
-    return ok and result
+    return widget:IsA(cachedImageClass)
 end
 
 local function ApplyMinigameScale(minigameWidget)
@@ -134,8 +131,7 @@ local function ApplyMinigameScale(minigameWidget)
 
         if not IsImageWidget(content) then return end
 
-        local okSlotName, slotName = pcall(function() return slot:GetFName():ToString() end)
-        if not okSlotName then return end
+        local slotName = slot:GetFName():ToString()
 
         if slotName == "CanvasPanelSlot_9" then
             content:SetRenderTransformPivot({X = 0.0, Y = 0.5})
@@ -190,14 +186,13 @@ function Module.OnMinigameTick(minigameWidget)
 
         if not IsImageWidget(content) then return end
 
-        local okSlotName, slotName = pcall(function() return slot:GetFName():ToString() end)
-        if not okSlotName then return end
+        local slotName = slot:GetFName():ToString()
 
         if slotName == "CanvasPanelSlot_9" or slotName == "CanvasPanelSlot_10" then
             local expectedScale = slotName == "CanvasPanelSlot_9" and LARGE_ZONE_SCALE or SMALL_ZONE_SCALE
-            local okScale, currentScale = pcall(function() return content.RenderTransform.Scale.X end)
+            local currentScale = content.RenderTransform.Scale.X
 
-            if not okScale or math.abs(currentScale - expectedScale) > 0.01 then
+            if math.abs(currentScale - expectedScale) > 0.01 then
                 needsReapply = true
             end
         end

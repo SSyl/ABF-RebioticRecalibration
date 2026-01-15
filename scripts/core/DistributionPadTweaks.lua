@@ -94,11 +94,10 @@ end
 local function SyncCacheFromPad(pad)
     if not pad:IsValid() then return end
 
-    local okUpdate = pcall(function() pad:UpdateCompatibleContainers() end)
-    if not okUpdate then return end
+    pad:UpdateCompatibleContainers()
 
-    local okPadAddr, padAddr = pcall(function() return pad:GetAddress() end)
-    if not okPadAddr or not padAddr then return end
+    local padAddr = pad:GetAddress()
+    if not padAddr then return end
 
     local padData = TrackedPads[padAddr]
     local oldInventories = (padData and padData.inventories) or {}
@@ -110,17 +109,17 @@ local function SyncCacheFromPad(pad)
 
     local newInventories = {}
     local seenNew = {}
-    local okRead, inventoryArray = pcall(function() return pad.AdditionalInventories end)
+    local inventoryArray = pad.AdditionalInventories
 
-    if okRead and inventoryArray then
+    if inventoryArray then
         local arraySize = #inventoryArray
         Log.Debug("SyncCacheFromPad: pad has %d inventories", arraySize)
 
         for i = 1, arraySize do
             local inv = inventoryArray[i]
             if inv and inv:IsValid() then
-                local okAddr, addr = pcall(function() return inv:GetAddress() end)
-                if okAddr and addr and not seenNew[addr] then
+                local addr = inv:GetAddress()
+                if addr and not seenNew[addr] then
                     seenNew[addr] = true
                     newInventories[#newInventories + 1] = addr
                     if oldSet[addr] then
@@ -137,11 +136,11 @@ local function SyncCacheFromPad(pad)
         DecrementInventoryRefCount(addr)
     end
 
-    local okPos, position = pcall(function() return pad:K2_GetActorLocation() end)
+    local position = pad:K2_GetActorLocation()
 
     TrackedPads[padAddr] = {
         pad = pad,
-        position = okPos and position or nil,
+        position = position,
         inventories = newInventories
     }
 end
@@ -149,8 +148,8 @@ end
 local function PurgePadFromCache(pad)
     if not pad:IsValid() then return end
 
-    local okAddr, padAddr = pcall(function() return pad:GetAddress() end)
-    if not okAddr or not padAddr then return end
+    local padAddr = pad:GetAddress()
+    if not padAddr then return end
 
     local padData = TrackedPads[padAddr]
     if not padData then return end
@@ -225,12 +224,12 @@ end
 local function AppendDistPadText(widget)
     if not Config.Indicator.TextEnabled or Config.Indicator.Text == "" then return end
 
-    local okAddr, widgetAddr = pcall(function() return widget:GetAddress() end)
-    if not okAddr or not widgetAddr then return end
+    local widgetAddr = widget:GetAddress()
+    if not widgetAddr then return end
 
     if widgetAddr ~= TextBlockCache.widgetAddr then
-        local ok, tb = pcall(function() return widget.InteractionObjectName end)
-        if ok and tb:IsValid() then
+        local tb = widget.InteractionObjectName
+        if tb:IsValid() then
             TextBlockCache.widgetAddr = widgetAddr
             TextBlockCache.textBlock = tb
         else
@@ -247,13 +246,11 @@ local function AppendDistPadText(widget)
         return
     end
 
-    local okGet, currentText = pcall(function() return textBlock:GetText():ToString() end)
-    if not okGet or not currentText then return end
+    local currentText = textBlock:GetText():ToString()
+    if not currentText then return end
     if currentText:match(Config.Indicator.TextPattern) then return end
 
-    pcall(function()
-        textBlock:SetText(FText(currentText .. " " .. Config.Indicator.Text))
-    end)
+    textBlock:SetText(FText(currentText .. " " .. Config.Indicator.Text))
 end
 
 -- ============================================================
@@ -354,16 +351,15 @@ end
 function Module.OnDistPadBeginPlay(pad)
     if not pad:IsValid() or not Config.Range.Enabled then return end
 
-    local okSphere, sphere = pcall(function() return pad.ContainerOverlapSphere end)
-    if okSphere and sphere:IsValid() then
+    local sphere = pad.ContainerOverlapSphere
+    if sphere:IsValid() then
         local newRadius = 1000 * Config.Range.Multiplier
-        pcall(function() sphere:SetSphereRadius(newRadius, true) end)
+        sphere:SetSphereRadius(newRadius, true)
     end
 end
 
 function Module.OnPadBeginPlay(pad)
-    local okLoading, isLoading = pcall(function() return pad.IsCurrentlyLoadingFromSave end)
-    isLoading = okLoading and isLoading or false
+    local isLoading = pad.IsCurrentlyLoadingFromSave or false
     -- Late-bind OnRep_DistributionActive hook (Blueprint now guaranteed to be loaded)
     if Config.Indicator.Enabled and not onRepHookRegistered then
         onRepHookRegistered = true
@@ -386,9 +382,7 @@ function Module.OnPadBeginPlay(pad)
 end
 
 function Module.OnRepDistributionActive(pad)
-    local okActive, isActive = pcall(function() return pad.DistributionActive end)
-
-    if okActive and isActive then
+    if pad.DistributionActive then
         Log.Debug("OnRep_DistributionActive: syncing pad")
         Module.SyncPad(pad)
     end
@@ -399,17 +393,13 @@ function Module.SyncPad(pad)
     if isSyncingCache then return end
 
     isSyncingCache = true
-
-    pcall(function()
-        SyncCacheFromPad(pad)
-    end)
-
+    SyncCacheFromPad(pad)
     isSyncingCache = false
 end
 
 function Module.OnReceiveEndPlay(actor)
-    local okAddr, addr = pcall(function() return actor:GetAddress() end)
-    if okAddr and addr and TrackedPads[addr] then
+    local addr = actor:GetAddress()
+    if addr and TrackedPads[addr] then
         PurgePadFromCache(actor)
     end
 end
@@ -423,8 +413,8 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    local okActorAddr, actorAddr = pcall(function() return hitActor:GetAddress() end)
-    if not okActorAddr or not actorAddr then
+    local actorAddr = hitActor:GetAddress()
+    if not actorAddr then
         InteractionPromptCache.lastActorAddr = nil
         InteractionPromptCache.lastActorInRange = false
         HideDistPadIcon()
@@ -444,14 +434,14 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     InteractionPromptCache.lastActorAddr = actorAddr
     InteractionPromptCache.lastActorInRange = false
 
-    local okInv, containerInv = pcall(function() return hitActor.ContainerInventory end)
-    if not okInv or not containerInv:IsValid() then
+    local containerInv = hitActor.ContainerInventory
+    if not containerInv:IsValid() then
         HideDistPadIcon()
         return
     end
 
-    local okInvAddr, invAddr = pcall(function() return containerInv:GetAddress() end)
-    if not okInvAddr or not invAddr or not DistPadCache.inventories[invAddr] then
+    local invAddr = containerInv:GetAddress()
+    if not invAddr or not DistPadCache.inventories[invAddr] then
         HideDistPadIcon()
         return
     end
@@ -462,19 +452,15 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
 end
 
 function Module.OnContainerConstructionComplete(deployable)
-    local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
-    if okLoading and isLoading then return end
-
-    local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)
-    if not okActive or isActive then return end
+    if deployable.IsCurrentlyLoadingFromSave then return end
+    if deployable.ConstructionModeActive then return end
 
     local containerClass = GetContainerClass()
     if not deployable:IsA(containerClass) then return end
 
     Log.Debug("OnContainerConstructionComplete: new container placed")
 
-    local okContainerPos, containerPos = pcall(function() return deployable:K2_GetActorLocation() end)
-    if not okContainerPos then return end
+    local containerPos = deployable:K2_GetActorLocation()
 
     local multiplier = Config.Range.Enabled and Config.Range.Multiplier or 1.0
     local rangeSquared = (1000 * multiplier * 1.10) ^ 2

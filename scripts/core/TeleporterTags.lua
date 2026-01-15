@@ -261,23 +261,18 @@ end
 local function ResetSlotToDefaults(slot)
     if not slot:IsValid() then return end
 
-    local ok, stackText = pcall(function()
-        return slot.StackText
-    end)
+    local stackText = slot.StackText
+    if stackText:IsValid() then
+        stackText:SetJustification(2)
+        stackText:SetRenderTranslation({ X = 0.0, Y = 0.0 })
+        stackText:SetRenderScale({ X = 1.0, Y = 1.0 })
 
-    if ok and stackText:IsValid() then
-        pcall(function()
-            stackText:SetJustification(2)
-            stackText:SetRenderTranslation({ X = 0.0, Y = 0.0 })
-            stackText:SetRenderScale({ X = 1.0, Y = 1.0 })
-
-            if UseCustomTextColor then
-                stackText:SetColorAndOpacity({
-                    SpecifiedColor = { R = 1.0, G = 0.730461, B = 0.155926, A = 1.0 },
-                    ColorUseRule = "UseColor_Specified"
-                })
-            end
-        end)
+        if UseCustomTextColor then
+            stackText:SetColorAndOpacity({
+                SpecifiedColor = { R = 1.0, G = 0.730461, B = 0.155926, A = 1.0 },
+                ColorUseRule = "UseColor_Specified"
+            })
+        end
     end
 end
 
@@ -285,27 +280,18 @@ end
 local function FixItemTooltipData(slot)
     if not slot:IsValid() then return end
 
-    local ok, hoverTooltip = pcall(function()
-        return slot.HoverTooltip
-    end)
+    local hoverTooltip = slot.HoverTooltip
 
     -- Create tooltip if it doesn't exist yet
-    if not ok or not hoverTooltip:IsValid() then
-        pcall(function()
-            slot:ToggleItemTooltip(true)
-            slot:ToggleItemTooltip(false)
-        end)
-
-        ok, hoverTooltip = pcall(function()
-            return slot.HoverTooltip
-        end)
+    if not hoverTooltip:IsValid() then
+        slot:ToggleItemTooltip(true)
+        slot:ToggleItemTooltip(false)
+        hoverTooltip = slot.HoverTooltip
     end
 
     -- Refresh tooltip to pick up PlayerMadeString
-    if ok and hoverTooltip:IsValid() then
-        pcall(function()
-            hoverTooltip:RefreshTooltipInformation()
-        end)
+    if hoverTooltip:IsValid() then
+        hoverTooltip:RefreshTooltipInformation()
     end
 end
 
@@ -313,11 +299,8 @@ local function ApplyColorOverlay(slot, benchName)
     if not slot:IsValid() then return end
     if not Config.IconColor.Enabled then return end
 
-    local ok, iconWidget = pcall(function()
-        return slot.Icon
-    end)
-
-    if not ok or not iconWidget:IsValid() then return end
+    local iconWidget = slot.Icon
+    if not iconWidget:IsValid() then return end
 
     local color = StringToColor(benchName)
     if not color then return end
@@ -329,11 +312,8 @@ local function ApplyTextOverlay(slot, benchName, isFirstSetup)
     if not slot:IsValid() then return end
     if not Config.Text.Enabled then return end
 
-    local ok, stackText = pcall(function()
-        return slot.StackText
-    end)
-
-    if not ok or not stackText:IsValid() then return end
+    local stackText = slot.StackText
+    if not stackText:IsValid() then return end
 
     -- Visibility always needs reapplying (game resets it)
     stackText:SetVisibility(4)

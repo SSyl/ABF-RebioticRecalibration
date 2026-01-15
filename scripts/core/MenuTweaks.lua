@@ -67,31 +67,21 @@ local ButtonIconTexture = nil
 -- ============================================================
 
 local function EnablePopupButtons(popup)
-    local okYes, yesButton = pcall(function()
-        return popup.Button_Yes
-    end)
-    if okYes and yesButton:IsValid() then
-        pcall(function()
-            yesButton:SetIsEnabled(true)
-        end)
+    local yesButton = popup.Button_Yes
+    if yesButton:IsValid() then
+        yesButton:SetIsEnabled(true)
     end
 
-    local okNo, noButton = pcall(function()
-        return popup.Button_No
-    end)
-    if okNo and noButton:IsValid() then
-        pcall(function()
-            noButton:SetIsEnabled(true)
-        end)
+    local noButton = popup.Button_No
+    if noButton:IsValid() then
+        noButton:SetIsEnabled(true)
     end
 end
 
 local function ShouldSkipDelay(popup)
-    local ok, title = pcall(function()
-        return popup.Text_Title:ToString()
-    end)
-
-    return ok and title == "Hosting a LAN Server"
+    local title = popup.Text_Title
+    if not title then return false end
+    return title:ToString() == "Hosting a LAN Server"
 end
 
 -- CustomServerButton helpers
@@ -123,34 +113,28 @@ local function CreateServerButton()
 
     if cfg.Icon and cfg.Icon ~= "" then
         if not ButtonIconTexture then
-            local okTexture, texture = pcall(function()
-                return StaticFindObject("/Game/Textures/GUI/Icons/" .. cfg.Icon .. "." .. cfg.Icon)
-            end)
-            if okTexture and texture and texture:IsValid() then
+            local texture = StaticFindObject("/Game/Textures/GUI/Icons/" .. cfg.Icon .. "." .. cfg.Icon)
+            if texture:IsValid() then
                 ButtonIconTexture = texture
             end
         end
         if ButtonIconTexture then
-            pcall(function() btn.Icon = ButtonIconTexture end)
+            btn.Icon = ButtonIconTexture
         end
     end
 
-    pcall(function()
-        btn.RenderTransform.Scale = { X = 0.8, Y = 0.8 }
-        btn.DefaultTextColor = cfg.TextColor
-    end)
+    btn.RenderTransform.Scale = { X = 0.8, Y = 0.8 }
+    btn.DefaultTextColor = cfg.TextColor
 
     local slot = canvas:AddChildToCanvas(btn)
     if slot and slot:IsValid() then
-        pcall(function()
-            slot:SetPosition({ X = 155, Y = 680.0 })
-            slot:SetAnchors({ Min = { X = 0.0, Y = 1.0 }, Max = { X = 0.0, Y = 1.0 } })
-        end)
+        slot:SetPosition({ X = 155, Y = 680.0 })
+        slot:SetAnchors({ Min = { X = 0.0, Y = 1.0 }, Max = { X = 0.0, Y = 1.0 } })
     end
 
-    local okLabel, labelText = pcall(function() return btn.ButtonLabelText end)
-    if okLabel and labelText and labelText:IsValid() then
-        pcall(function() labelText:SetText(FText(cfg.ButtonText)) end)
+    local labelText = btn.ButtonLabelText
+    if labelText and labelText:IsValid() then
+        labelText:SetText(FText(cfg.ButtonText))
     end
 
     CustomServerBtn = btn
@@ -167,8 +151,8 @@ local function ConnectToServer()
         return
     end
 
-    local okBrowser, serverBrowser = pcall(function() return master.W_ServerBrowser end)
-    if not okBrowser or not serverBrowser:IsValid() then
+    local serverBrowser = master.W_ServerBrowser
+    if not serverBrowser:IsValid() then
         Log.Warning("ServerBrowser not found")
         return
     end
@@ -247,11 +231,9 @@ end
 function Module.OnConstruct(popup)
     if not ShouldSkipDelay(popup) then return end
 
-    pcall(function()
-        popup.DelayBeforeAllowingInput = 0
-        popup.CloseBlockedByDelay = false
-        popup.DelayTimeLeft = 0
-    end)
+    popup.DelayBeforeAllowingInput = 0
+    popup.CloseBlockedByDelay = false
+    popup.DelayTimeLeft = 0
 
     EnablePopupButtons(popup)
 end
@@ -259,10 +241,8 @@ end
 function Module.OnCountdownInputDelay(popup)
     if not ShouldSkipDelay(popup) then return end
 
-    pcall(function()
-        popup.DelayTimeLeft = 0
-        popup.CloseBlockedByDelay = false
-    end)
+    popup.DelayTimeLeft = 0
+    popup.CloseBlockedByDelay = false
 
     EnablePopupButtons(popup)
 end
@@ -270,20 +250,16 @@ end
 function Module.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
     if not ShouldSkipDelay(popup) then return end
 
-    local okText, textWidget = pcall(function()
-        return TextParam:get()
-    end)
+    local okText, textWidget = pcall(function() return TextParam:get() end)
     if not okText or not textWidget:IsValid() then return end
 
-    local okName, widgetName = pcall(function() return textWidget:GetFName():ToString() end)
-    if not okName then return end
+    local widgetName = textWidget:GetFName():ToString()
 
     local okOriginal, originalText = pcall(function() return OriginalTextParam:get() end)
 
     local originalStr = ""
     if okOriginal and originalText then
-        local okStr, str = pcall(function() return originalText:ToString() end)
-        if okStr then originalStr = str end
+        originalStr = originalText:ToString()
     end
 
     if originalStr ~= "" and not OriginalButtonText[widgetName] then
@@ -293,7 +269,7 @@ function Module.OnUpdateButtonWithDelayTime(popup, TextParam, OriginalTextParam)
 
     local cachedStr = OriginalButtonText[widgetName]
     if cachedStr then
-        pcall(function() textWidget:SetText(FText(cachedStr)) end)
+        textWidget:SetText(FText(cachedStr))
     end
 end
 
@@ -307,8 +283,8 @@ function Module.OnMenuButtonClicked(btn)
         CreateServerButton()
     end
 
-    local okName, fullName = pcall(function() return btn:GetFullName() end)
-    if okName and fullName and fullName:find("Button_CustomServer") then
+    local fullName = btn:GetFullName()
+    if fullName and fullName:find("Button_CustomServer") then
         ConnectToServer()
     end
 end

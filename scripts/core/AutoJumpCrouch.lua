@@ -113,43 +113,35 @@ function Module.OnJump(character)
 
     autoCrouched = false
 
-    local okFalling, isFalling = pcall(function()
-        return player.CharacterMovement:IsValid() and player.CharacterMovement:IsFalling()
-    end)
-    if okFalling and isFalling then
-        Log.Debug("Already mid-air, skipping auto-crouch (spam prevention)")
-        return
-    end
-
-    local okSwimming, isSwimming = pcall(function()
-        return player.CharacterMovement:IsValid() and player.CharacterMovement:IsSwimming()
-    end)
-    if okSwimming and isSwimming then
-        Log.Debug("Swimming, skipping auto-crouch")
-        return
-    end
-
-    if Config.ClearSprintOnJump then
-        local okSprinting, isSprinting = pcall(function() return player:IsSprinting() end)
-        if okSprinting and isSprinting then
-            player:ToggleSprint()
+    local movement = player.CharacterMovement
+    if movement and movement:IsValid() then
+        if movement:IsFalling() then
+            Log.Debug("Already mid-air, skipping auto-crouch (spam prevention)")
+            return
         end
+
+        if movement:IsSwimming() then
+            Log.Debug("Swimming, skipping auto-crouch")
+            return
+        end
+    end
+
+    if Config.ClearSprintOnJump and player:IsSprinting() then
+        player:ToggleSprint()
     end
 
     ExecuteWithDelay(Config.Delay, function()
         ExecuteInGameThread(function()
             if not player:IsValid() then return end
 
-            local okFalling, isFalling = pcall(function()
-                return player.CharacterMovement and player.CharacterMovement:IsFalling()
-            end)
-            if not (okFalling and isFalling) then
+            local movement = player.CharacterMovement
+            if not movement or not movement:IsValid() or not movement:IsFalling() then
                 Log.Debug("Landed before crouch delay expired, skipping")
                 return
             end
 
-            local okJumpHoldTime, jumpHoldTime = pcall(function() return player.JumpKeyHoldTime end)
-            local isJumpHeld = okJumpHoldTime and jumpHoldTime and jumpHoldTime > 0
+            local jumpHoldTime = player.JumpKeyHoldTime
+            local isJumpHeld = jumpHoldTime and jumpHoldTime > 0
 
             if Config.RequireJumpHeld then
                 if not isJumpHeld then
@@ -185,8 +177,7 @@ function Module.OnTryApplyFallDamage(character)
 
     if not autoCrouched then return end
 
-    local okKeyHeld, isKeyHeld = pcall(function() return player.Local_KeyHeld_Crouch end)
-    if okKeyHeld and isKeyHeld then
+    if player.Local_KeyHeld_Crouch then
         Log.Debug("Crouch button held, staying crouched")
         autoCrouched = false
         return

@@ -59,10 +59,7 @@ local function IsLocalPlayer(player)
         return false
     end
 
-    local okPlayerAddr, playerAddr = pcall(function() return player:GetAddress() end)
-    local okLocalAddr, localAddr = pcall(function() return localPlayer:GetAddress() end)
-
-    return okPlayerAddr and okLocalAddr and playerAddr == localAddr
+    return player:GetAddress() == localPlayer:GetAddress()
 end
 
 local function GetGameStateClass()
@@ -73,20 +70,13 @@ local function GetGameStateClass()
 end
 
 local function IsInGameplay(player)
-    local okWorld, world = pcall(function() return player:GetWorld() end)
-    if not okWorld or not world:IsValid() then return false end
+    local world = player:GetWorld()
+    if not world:IsValid() then return false end
 
-    local okGameState, gameState = pcall(function() return world.GameState end)
-    if not okGameState or not gameState:IsValid() then return false end
+    local gameState = world.GameState
+    if not gameState:IsValid() then return false end
 
-    local gameStateClass = GetGameStateClass()
-    if not gameStateClass or not gameStateClass:IsValid() then return false end
-
-    local okIsGameplay, isGameplay = pcall(function()
-        return gameState:IsA(gameStateClass)
-    end)
-
-    return okIsGameplay and isGameplay
+    return gameState:IsA(GetGameStateClass())
 end
 
 local function ApplyOutline(player)
@@ -96,24 +86,17 @@ local function ApplyOutline(player)
 
     if IsLocalPlayer(player) then return false end
 
-    local okOutline, outline = pcall(function() return player.OutlineComponent end)
-    if not okOutline or not outline or not outline:IsValid() then
+    local outline = player.OutlineComponent
+    if not outline or not outline:IsValid() then
         Log.Debug("Failed to get OutlineComponent")
         return false
     end
 
-    local ok = pcall(function()
-        outline:ToggleOutlineOverlay(
-            OUTLINE_MODE_FRIEND_FINDER,
-            0,
-            true
-        )
-    end)
-
-    if not ok then
-        Log.Debug("Failed to apply outline")
-        return false
-    end
+    outline:ToggleOutlineOverlay(
+        OUTLINE_MODE_FRIEND_FINDER,
+        0,
+        true
+    )
 
     return true
 end

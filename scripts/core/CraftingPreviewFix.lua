@@ -112,29 +112,24 @@ end
 function Module.OnSet3DPreviewMesh(itemDisplay)
     local lightIntensity = Config.Brightness.LightIntensity
 
-    local okCapture, sceneCapture = pcall(function()
-        return itemDisplay.Item_RenderTarget
-    end)
-
-    if okCapture and sceneCapture:IsValid() then
-        pcall(function()
-            sceneCapture.PostProcessSettings.bOverride_AutoExposureMethod = true
-            sceneCapture.PostProcessSettings.AutoExposureMethod = 2
-        end)
+    local sceneCapture = itemDisplay.Item_RenderTarget
+    if sceneCapture:IsValid() then
+        sceneCapture.PostProcessSettings.bOverride_AutoExposureMethod = true
+        sceneCapture.PostProcessSettings.AutoExposureMethod = 2
     end
 
-    local okLight, pointLight = pcall(function() return itemDisplay.PointLight end)
-    if okLight and pointLight:IsValid() then
+    local pointLight = itemDisplay.PointLight
+    if pointLight:IsValid() then
         pointLight:SetIntensity(lightIntensity)
     end
 
-    local okLight1, pointLight1 = pcall(function() return itemDisplay.PointLight1 end)
-    if okLight1 and pointLight1:IsValid() then
+    local pointLight1 = itemDisplay.PointLight1
+    if pointLight1:IsValid() then
         pointLight1:SetIntensity(lightIntensity)
     end
 
-    local okLight2, pointLight2 = pcall(function() return itemDisplay.PointLight2 end)
-    if okLight2 and pointLight2:IsValid() then
+    local pointLight2 = itemDisplay.PointLight2
+    if pointLight2:IsValid() then
         pointLight2:SetIntensity(lightIntensity / 2)
     end
 end
@@ -162,17 +157,12 @@ function Module.ApplyResolutionFix()
         return false
     end
 
-    local okSize, currentX, currentY = pcall(function()
-        return renderTarget.SizeX, renderTarget.SizeY
-    end)
+    local currentX, currentY = renderTarget.SizeX, renderTarget.SizeY
+    Log.Debug("Current render target size: %dx%d", currentX or 0, currentY or 0)
 
-    if okSize then
-        Log.Debug("Current render target size: %dx%d", currentX, currentY)
-
-        if currentX == targetResolution and currentY == targetResolution then
-            Log.Debug("Render target already at target resolution, skipping resize")
-            return true
-        end
+    if currentX == targetResolution and currentY == targetResolution then
+        Log.Debug("Render target already at target resolution, skipping resize")
+        return true
     end
 
     local okResize, errResize = pcall(function()

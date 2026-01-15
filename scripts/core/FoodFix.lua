@@ -46,8 +46,8 @@ local Log = nil
 local function ResetDeployedDurability(deployable)
     if not deployable:IsValid() then return false end
 
-    local okMax, maxDur = pcall(function() return deployable.MaxDurability end)
-    if not okMax or maxDur == nil then
+    local maxDur = deployable.MaxDurability
+    if maxDur == nil then
         Log.Debug("Failed to get MaxDurability")
         return false
     end
@@ -95,32 +95,26 @@ function Module.OnBeginPlay(deployable)
     local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
     Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
 
-    local okAuth, hasAuthority = pcall(function() return deployable:HasAuthority() end)
-    if not okAuth then
-        Log.Debug("Failed to check authority, skipping fix")
-        return
-    end
-
+    local hasAuthority = deployable:HasAuthority()
     if not hasAuthority then
         Log.Debug("Client: applying visual-only fix locally")
         deployable.CurrentDurability = deployable.MaxDurability
         return
     end
 
-    local okLoading, isLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
-    if okLoading and isLoading and not Config.FixExistingFoodOnLoad then
+    local isLoading = deployable.IsCurrentlyLoadingFromSave
+    if isLoading and not Config.FixExistingFoodOnLoad then
         Log.Debug("Skipping - IsCurrentlyLoadingFromSave=true and FixExistingFoodOnLoad disabled")
         return
     end
 
-    if okLoading and isLoading then
+    if isLoading then
         local function WaitForLoad(attempts)
             if attempts > 20 then return end
             ExecuteWithDelay(100, function()
                 ExecuteInGameThread(function()
                     if not deployable:IsValid() then return end
-                    local _, stillLoading = pcall(function() return deployable.IsCurrentlyLoadingFromSave end)
-                    if stillLoading then
+                    if deployable.IsCurrentlyLoadingFromSave then
                         WaitForLoad(attempts + 1)
                     else
                         ResetDeployedDurability(deployable)

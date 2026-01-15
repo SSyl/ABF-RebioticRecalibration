@@ -127,25 +127,19 @@ end
 -- ============================================================
 
 function Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
-    local okClass, className = pcall(function()
-        return vehicle:GetClass():GetFName():ToString()
-    end)
-
-    if not okClass or not SUPPORTED_VEHICLES[className] then return end
+    local className = vehicle:GetClass():GetFName():ToString()
+    if not SUPPORTED_VEHICLES[className] then return end
 
     local vehicleAddr = vehicle:GetAddress()
     if vehicleAddr and CanInteractCache[vehicleAddr] then
-        pcall(function() SuccessParam:set(true) end)
+        SuccessParam:set(true)
         return
     end
 
     Log.Debug("OnCanInteractB: Supported vehicle, enabling tap F prompt for first time")
 
-    local okSet = pcall(function()
-        SuccessParam:set(true)
-    end)
-
-    if okSet and vehicleAddr then
+    SuccessParam:set(true)
+    if vehicleAddr then
         CanInteractCache[vehicleAddr] = true
     end
 end
@@ -171,11 +165,8 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
         PromptTextCache.lastVehicleAddr = actorAddr
         PromptTextCache.isSupported = false
 
-        local okClass, className = pcall(function()
-            return hitActor:GetClass():GetFName():ToString()
-        end)
-
-        if not okClass or not SUPPORTED_VEHICLES[className] then
+        local className = hitActor:GetClass():GetFName():ToString()
+        if not SUPPORTED_VEHICLES[className] then
             return
         end
 
@@ -186,8 +177,8 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
     if not widgetAddr then return end
 
     if widgetAddr ~= TextBlockCache.widgetAddr then
-        local ok, tb = pcall(function() return widget.PressPackageSuffix end)
-        if ok and tb:IsValid() then
+        local tb = widget.PressPackageSuffix
+        if tb:IsValid() then
             TextBlockCache.widgetAddr = widgetAddr
             TextBlockCache.textBlock = tb
         else
@@ -204,25 +195,17 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
         return
     end
 
-    pcall(function()
-        textBlock:SetText(FText("toggle lights"))
-    end)
+    textBlock:SetText(FText("toggle lights"))
 end
 
 function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
-    local okClass, className = pcall(function()
-        return vehicle:GetClass():GetFName():ToString()
-    end)
-
-    if not okClass or not SUPPORTED_VEHICLES[className] then
+    local className = vehicle:GetClass():GetFName():ToString()
+    if not SUPPORTED_VEHICLES[className] then
         return
     end
 
-    local okHeadlights, headlights = pcall(function()
-        return vehicle.Headlights
-    end)
-
-    if not okHeadlights or not headlights:IsValid() then
+    local headlights = vehicle.Headlights
+    if not headlights:IsValid() then
         Log.Debug("OnVehicleInteractB: Failed to get Headlights component")
         return
     end
@@ -230,39 +213,19 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
     local vehicleAddr = vehicle:GetAddress()
     if vehicleAddr and not ReplicationEnabledCache[vehicleAddr] then
         Log.Debug("OnVehicleInteractB: First interaction, enabling SpotLight replication")
-
-        pcall(function()
-            headlights:SetIsReplicated(true)
-        end)
-
+        headlights:SetIsReplicated(true)
         ReplicationEnabledCache[vehicleAddr] = true
     end
 
-    local okVisible, isVisible = pcall(function()
-        return headlights:IsVisible()
-    end)
-
-    if not okVisible then
-        Log.Debug("OnVehicleInteractB: Failed to get Headlights visibility")
-        return
-    end
-
+    local isVisible = headlights:IsVisible()
     local newState = not isVisible
 
-    local okSetVis = pcall(function()
-        headlights:SetVisibility(newState, false)
-    end)
-
-    if not okSetVis then
-        Log.Debug("OnVehicleInteractB: Failed to set Headlights visibility")
-        return
-    end
-
+    headlights:SetVisibility(newState, false)
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 
     if LightSwitchSound and LightSwitchSound:IsValid() then
-        local okLoc, location = pcall(function() return vehicle:K2_GetActorLocation() end)
-        if not okLoc or not location then
+        local location = vehicle:K2_GetActorLocation()
+        if not location then
             Log.Debug("Failed to get vehicle location")
             return
         end
