@@ -22,11 +22,12 @@ local WidgetUtil = {}
 --- @param templateWidget UObject Widget to clone
 --- @param parent UObject Parent widget to add to
 --- @param widgetName string Name for the new widget
---- @return UObject|nil newWidget The cloned widget (or nil on failure)
---- @return UObject|nil slot The slot object for positioning (or nil on failure)
+--- @return UObject newWidget The cloned widget (invalid on failure)
+--- @return UObject slot The slot object for positioning (invalid on failure)
 function WidgetUtil.CloneWidget(templateWidget, parent, widgetName)
-    if not templateWidget:IsValid() then return nil, nil end
-    if not parent:IsValid() then return nil, nil end
+    local invalid = CreateInvalidObject()
+    if not templateWidget:IsValid() then return invalid, invalid end
+    if not parent:IsValid() then return invalid, invalid end
 
     -- Clone widget using template parameter (copies all properties)
     local newWidget = StaticConstructObject(
@@ -37,34 +38,25 @@ function WidgetUtil.CloneWidget(templateWidget, parent, widgetName)
         templateWidget  -- Template - auto-copies font, colors, shadows, all styling
     )
 
-    if not newWidget:IsValid() then return nil, nil end
+    if not newWidget:IsValid() then return invalid, invalid end
 
     -- Add to parent based on parent's class type
-    local okClass, parentClassName = pcall(function()
-        return parent:GetClass():GetFName():ToString()
-    end)
+    local parentClassName = parent:GetClass():GetFName():ToString()
 
-    if not okClass then
-        return nil, nil
-    end
-
-    local ok, slot
+    local slot
     if parentClassName == "Overlay" then
-        ok, slot = pcall(function() return parent:AddChildToOverlay(newWidget) end)
+        slot = parent:AddChildToOverlay(newWidget)
     elseif parentClassName == "HorizontalBox" then
-        ok, slot = pcall(function() return parent:AddChildToHorizontalBox(newWidget) end)
+        slot = parent:AddChildToHorizontalBox(newWidget)
     elseif parentClassName == "VerticalBox" then
-        ok, slot = pcall(function() return parent:AddChildToVerticalBox(newWidget) end)
+        slot = parent:AddChildToVerticalBox(newWidget)
     elseif parentClassName == "CanvasPanel" then
-        ok, slot = pcall(function() return parent:AddChildToCanvas(newWidget) end)
+        slot = parent:AddChildToCanvas(newWidget)
     else
-        -- Generic AddChild fallback
-        ok, slot = pcall(function() return parent:AddChild(newWidget) end)
+        slot = parent:AddChild(newWidget)
     end
 
-    if not ok or not slot then
-        return nil, nil
-    end
+    if not slot:IsValid() then return invalid, invalid end
 
     return newWidget, slot
 end

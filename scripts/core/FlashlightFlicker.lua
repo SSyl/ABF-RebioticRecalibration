@@ -28,7 +28,7 @@ local Module = {
         { path = "Enabled", type = "boolean", default = true },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -54,7 +54,7 @@ function Module.Init(config, log)
     Log.Info("FlashlightFlicker - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     hasAmbientDebuff = false
     hasReaperDebuff = false
     cachedPlayerPawn = nil

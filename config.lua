@@ -101,7 +101,7 @@ return {
 
         -- Delay in milliseconds before crouching after jump starts
         -- Adjust if crouch feels too early or too late (0-1000ms)
-        Delay = 150, -- [default = 150]
+        Delay = 250, -- [default = 250]
 
         -- Stop sprinting when mid-jump
         -- Useful if you have toggle-sprint enabled (otherwise sprint+jump prevents crouch)
@@ -348,7 +348,7 @@ return {
 
         -- Time window (ms) to suppress gib VFX after corpse spawns.
         -- Increase if you still see gibsplosions on area load.
-        Threshold = 1000, -- [default = 1000]
+        Threshold = 2000, -- [default = 2000]
     },
 
     -- ############################################################

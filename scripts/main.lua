@@ -6,14 +6,24 @@ Rebiotic Fixer - Main Entry Point
 ============================================================================
 
 Module-driven architecture:
-1. Modules export metadata (name, schema, phase, lifecycle functions)
-2. main.lua auto-wires everything from a simple MODULES list
+1. Modules export metadata (name, schema, hookPoint, lifecycle functions)
+2. main.lua orchestrates lifecycle detection and module registration
 3. Adding a new feature = create module file + add to MODULES list
 
+Hook Points:
+- "MainMenu": Registers when main menu detected
+- "Gameplay": Registers when gameplay map loaded (once per map)
+
+Lifecycle:
+- Main menu detection via poll (UE4SS late on game start) + InitGameStatePost (returning from gameplay)
+- Gameplay detection via Abiotic_Survival_GameState_C:ReceiveBeginPlay (500ms delayed registration)
+- All cleanup via InitGameStatePre (fires before any new GameState initializes)
 ]]
 
 local LogUtil = require("utils/LogUtil")
 local ConfigUtil = require("utils/ConfigUtil")
+local HookUtil = require("utils/HookUtil")
+local UEHelpers = require("UEHelpers")
 
 -- ============================================================
 -- MODULE REGISTRY
@@ -117,184 +127,169 @@ for _, mod in ipairs(Modules) do
 end
 
 -- ============================================================
--- HOOK REGISTRATION STATE
+-- HELPERS
 -- ============================================================
 
-local HookRegistered = {
-    GameState = false,
-}
-
--- Initialize hook tracking for each module
-for _, mod in ipairs(Modules) do
-    if mod.hookPoint then
-        HookRegistered[mod.name] = false
-    end
-    -- Support modules with multiple hook points
-    if mod.preInit then
-        HookRegistered[mod.name .. "_PreInit"] = false
-    end
-    if mod.postInit then
-        HookRegistered[mod.name .. "_PostInit"] = false
-    end
-end
-
-local GameStateHookFired = false
-
--- ============================================================
--- HOOK REGISTRATION HELPERS
--- ============================================================
-
-local function TryRegister(name, enabled, fn)
-    if HookRegistered[name] == nil then
-        error(string.format("TryRegister: '%s' is not defined in HookRegistered table", name))
-    end
-
-    if not enabled or HookRegistered[name] then return end
-
-    if fn() then
-        HookRegistered[name] = true
-    else
-        Log.General.Debug("%s registration failed (Blueprint not loaded yet). Will retry on next map load.", name)
-    end
-end
-
--- Check if module feature is enabled
-local function IsModuleEnabled(mod, hookPoint)
+local function IsModuleEnabled(mod)
     local cfg = mod._config
     if not cfg then return false end
 
-    -- Check hookPoint-specific enable condition
-    if hookPoint == "PreInit" and mod.preInit and mod.preInit.isEnabled then
-        return mod.preInit.isEnabled(cfg)
-    elseif hookPoint == "PostInit" and mod.postInit and mod.postInit.isEnabled then
-        return mod.postInit.isEnabled(cfg)
-    end
-
-    -- Check module-level enable condition
     if mod.isEnabled then
         return mod.isEnabled(cfg)
     end
 
-    -- Default: check cfg.Enabled
     return cfg.Enabled == true
 end
 
--- ============================================================
--- LIFECYCLE HANDLERS
--- ============================================================
-
-local function OnGameState(world)
-    GameStateHookFired = true
-
-    if not world:IsValid() then return end
-
-    -- Register PostInit hooks for all modules
+local function RegisterModuleHooks(hookPoint)
     for _, mod in ipairs(Modules) do
-        -- Simple hookPoint
-        if mod.hookPoint == "PostInit" and mod.RegisterHooks then
-            TryRegister(mod.name, IsModuleEnabled(mod, "PostInit"), mod.RegisterHooks)
-        end
-
-        -- Complex: separate postInit config
-        if mod.postInit and mod.RegisterPostInitHooks then
-            TryRegister(mod.name .. "_PostInit", IsModuleEnabled(mod, "PostInit"), mod.RegisterPostInitHooks)
+        if mod.hookPoint == hookPoint and mod.RegisterHooks then
+            if IsModuleEnabled(mod) then
+                local ok = mod.RegisterHooks()
+                if ok then
+                    Log.General.Debug("Registered %s hooks for %s", hookPoint, mod.name)
+                else
+                    Log.General.Warning("Failed to register %s hooks for %s", hookPoint, mod.name)
+                end
+            end
         end
     end
 end
 
-local function OnGameStateHook(Context)
-    Log.General.Debug("Abiotic_Survival_GameState:ReceiveBeginPlay fired")
+local function RunModuleCleanup(cleanupType)
+    local methodName = cleanupType .. "Cleanup"
+    local cleanupKey = cleanupType:lower()
 
-    local gameState = Context:get()
-    if not gameState:IsValid() then return end
-
-    local okWorld, world = pcall(function() return gameState:GetWorld() end)
-    if okWorld and world:IsValid() then
-        OnGameState(world)
-    end
-end
-
--- Register PRE-hook for cleanup BEFORE new map initializes
-RegisterInitGameStatePreHook(function(Context)
     for _, mod in ipairs(Modules) do
-        if mod.Cleanup then
-            -- Check if cleanup should run
+        local cleanupFn = mod[methodName]
+        if cleanupFn then
             local shouldCleanup = false
             local cfg = mod._config
 
-            if mod.cleanup and mod.cleanup.isEnabled then
-                shouldCleanup = mod.cleanup.isEnabled(cfg)
+            if mod.cleanup and mod.cleanup[cleanupKey] then
+                shouldCleanup = mod.cleanup[cleanupKey](cfg)
+            elseif mod.isEnabled then
+                shouldCleanup = mod.isEnabled(cfg)
             elseif cfg and cfg.Enabled then
                 shouldCleanup = true
             end
 
             if shouldCleanup then
-                Log.General.Debug("InitGameStatePRE: Cleaning up %s", mod.name)
-                mod.Cleanup()
+                Log.General.Debug("%s cleanup: %s", cleanupType, mod.name)
+                cleanupFn()
             end
         end
+    end
+end
+
+-- ============================================================
+-- LIFECYCLE STATE
+-- ============================================================
+
+local mainMenuFired = false
+local gameplayFired = false
+local gameplayHookRegistered = false
+
+-- ============================================================
+-- LIFECYCLE: MAIN MENU
+-- ============================================================
+
+local function OnMainMenuDetected(gameState)
+    if mainMenuFired then return end
+    mainMenuFired = true
+
+    Log.General.Debug("Main menu detected: %s", gameState:GetFullName())
+    RegisterModuleHooks("MainMenu")
+end
+
+-- All cleanup: fires before any new GameState initializes
+RegisterInitGameStatePreHook(function(Context)
+    HookUtil.ResetWarmup()
+    RunModuleCleanup("Gameplay")
+    RunModuleCleanup("MainMenu")
+end)
+
+-- Menu detection: works when returning from gameplay (UE4SS not late then)
+RegisterInitGameStatePostHook(function(Context)
+    local base = UEHelpers.GetGameStateBase()
+    if not base:IsValid() then return end
+
+    local fullName = base:GetFullName()
+    if fullName:find("GameState /Game/Maps/MainMenu.MainMenu:PersistentLevel.GameState", 1, true) then
+        OnMainMenuDetected(base)
     end
 end)
 
 -- ============================================================
--- GAMESTATE HOOK REGISTRATION VIA POLLING
+-- LIFECYCLE: GAMEPLAY
 -- ============================================================
 
-local function PollForMissedHook(attempts)
-    attempts = attempts or 0
+local function OnGameplayDetected(gameState)
+    if gameplayFired then return end
+    gameplayFired = true
 
-    if GameStateHookFired then return end
+    Log.General.Debug("Gameplay detected: %s", gameState:GetFullName())
+    RegisterModuleHooks("Gameplay")
+end
+
+-- Delayed registration of gameplay hook (Blueprint not loaded on mod init)
+local function RegisterGameplayHook(attempts)
+    attempts = attempts or 0
+    if gameplayHookRegistered or attempts > 20 then return end
+
+    local ok, err = pcall(function()
+        RegisterHook(
+            "/Game/Blueprints/Meta/Abiotic_Survival_GameState.Abiotic_Survival_GameState_C:ReceiveBeginPlay",
+            function(Context)
+                local gameState = Context:get()
+                if not gameState:IsValid() then return end
+                OnGameplayDetected(gameState)
+            end
+        )
+    end)
+
+    if ok then
+        gameplayHookRegistered = true
+        Log.General.Debug("Registered Abiotic_Survival_GameState_C:ReceiveBeginPlay hook")
+    else
+        ExecuteWithDelay(250, function()
+            RegisterGameplayHook(attempts + 1)
+        end)
+    end
+end
+
+ExecuteWithDelay(250, function() RegisterGameplayHook() end)
+
+-- ============================================================
+-- LIFECYCLE: POLL FOR MISSED STATE (late init / hot-reload)
+-- ============================================================
+
+local function PollForMissedState(attempts)
+    attempts = attempts or 0
+    if attempts > 10 then return end
+    if mainMenuFired or gameplayFired then return end
 
     ExecuteInGameThread(function()
-        local base = FindFirstOf("GameStateBase")
+        local base = UEHelpers.GetGameStateBase()
         if not base:IsValid() then
-            if attempts < 100 then
-                ExecuteWithDelay(100, function()
-                    PollForMissedHook(attempts + 1)
-                end)
-            else
-                Log.General.Error("GameStateBase never found after %d attempts", attempts + 1)
-            end
+            ExecuteWithDelay(500, function()
+                PollForMissedState(attempts + 1)
+            end)
             return
         end
 
-        -- Register hook once any GameState exists
-        TryRegister("GameState", true, function()
-            local ok = pcall(RegisterHook,
-                "/Game/Blueprints/Meta/Abiotic_Survival_GameState.Abiotic_Survival_GameState_C:ReceiveBeginPlay",
-                OnGameStateHook
-            )
-            if ok then
-                Log.General.Debug("GameState hook registered")
-            end
-            return ok
-        end)
+        local fullName = base:GetFullName()
 
-        -- PreInit hooks for all modules
-        for _, mod in ipairs(Modules) do
-            -- Simple hookPoint
-            if mod.hookPoint == "PreInit" and mod.RegisterHooks then
-                TryRegister(mod.name, IsModuleEnabled(mod, "PreInit"), mod.RegisterHooks)
-            end
-
-            -- Complex: separate preInit config
-            if mod.preInit and mod.RegisterPreInitHooks then
-                TryRegister(mod.name .. "_PreInit", IsModuleEnabled(mod, "PreInit"), mod.RegisterPreInitHooks)
-            end
+        if not mainMenuFired and fullName:find("MainMenu", 1, true) then
+            OnMainMenuDetected(base)
         end
 
-        -- If already in gameplay map, handle current map manually
-        local gameState = FindFirstOf("Abiotic_Survival_GameState_C")
-        if gameState:IsValid() then
-            Log.General.Debug("Gameplay GameState found, invoking OnGameState")
-            local okWorld, world = pcall(function() return gameState:GetWorld() end)
-            if okWorld and world:IsValid() then
-                OnGameState(world)
-            end
+        if not gameplayFired and fullName:find("Abiotic_Survival_GameState_C", 1, true) then
+            OnGameplayDetected(base)
         end
     end)
 end
 
-PollForMissedHook()
+PollForMissedState()
 
 Log.General.Info("Mod loaded (%d modules)", #Modules)

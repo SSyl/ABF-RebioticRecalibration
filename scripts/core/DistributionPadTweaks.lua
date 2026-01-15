@@ -8,9 +8,9 @@ containers in range. Uses O(1) cache with ref-counting for overlapping coverage
 and delta-based sync to minimize updates. Per-frame cache prevents repeated lookups.
 
 HOOKS:
-- AbioticDeployed_ParentBP_C:ReceiveBeginPlay (Deployed_DistributionPad_C)
+- AbioticDeployed_ParentBP_C:ReceiveBeginPlay (Deployed_DistributionPad_C filter)
 - AbioticDeployed_ParentBP_C:ReceiveEndPlay (cleanup)
-- Deployed_DistributionPad_C:OnRep_DistributionActive (late-binding)
+- Deployed_DistributionPad_C:OnRep_DistributionActive (sync on activation)
 - W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts (per-frame indicator)
 - AbioticDeployed_ParentBP_C:OnRep_ConstructionModeActive (optional refresh)
 
@@ -44,15 +44,12 @@ local Module = {
         { path = "Range.Multiplier", type = "number", default = 1.5, min = 0.1, max = 10.0 },
     },
 
-    -- Complex: Has both PreInit and PostInit hooks with different enable conditions
-    preInit = {
-        isEnabled = function(cfg) return cfg.Range.Enabled or cfg.Indicator.Enabled end,
-    },
-    postInit = {
-        isEnabled = function(cfg) return cfg.Indicator.Enabled end,
-    },
+    hookPoint = "MainMenu",
+
+    isEnabled = function(cfg) return cfg.Range.Enabled or cfg.Indicator.Enabled end,
+
     cleanup = {
-        isEnabled = function(cfg) return cfg.Indicator.Enabled end,
+        gameplay = function(cfg) return cfg.Indicator.Enabled end,
     },
 }
 
@@ -63,31 +60,25 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local onRepHookRegistered = false
-
 local DistPadCache = { inventories = {} }
 local TrackedPads = {}
 local isSyncingCache = false
 local InteractionPromptCache = { lastActorAddr = nil, lastActorInRange = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
 local DistPadIconTexture = nil
-local DistPadIconWidget = nil
-local cachedContainerClass = nil
+local DistPadIconWidget = CreateInvalidObject()
+local cachedContainerClass = CreateInvalidObject()
+local onRepHookRegistered = false
 
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
 
-local function IsContainerClass(deployable)
-    if not cachedContainerClass or not cachedContainerClass:IsValid() then
+local function GetContainerClass()
+    if not cachedContainerClass:IsValid() then
         cachedContainerClass = StaticFindObject("/Game/Blueprints/DeployedObjects/Furniture/Deployed_Container_ParentBP.Deployed_Container_ParentBP_C")
     end
-    if not cachedContainerClass or not cachedContainerClass:IsValid() then return false end
-
-    local ok, result = pcall(function()
-        return deployable:IsA(cachedContainerClass)
-    end)
-    return ok and result
+    return cachedContainerClass
 end
 
 local function IncrementInventoryRefCount(inventoryAddr)
@@ -172,34 +163,28 @@ local function PurgePadFromCache(pad)
 end
 
 local function GetOrCreateDistPadIcon(widget)
-    if not Config.Indicator.IconEnabled then return nil end
-    if DistPadIconWidget and DistPadIconWidget:IsValid() then return DistPadIconWidget end
+    if not Config.Indicator.IconEnabled then return DistPadIconWidget end
+    if DistPadIconWidget:IsValid() then return DistPadIconWidget end
 
-    local okRadio, radioactiveIcon = pcall(function() return widget.RadioactiveIcon end)
-    if not okRadio or not radioactiveIcon:IsValid() then
-        return nil
-    end
+    local radioactiveIcon = widget.RadioactiveIcon
+    if not radioactiveIcon:IsValid() then return DistPadIconWidget end
 
-    local okParent, parent = pcall(function() return radioactiveIcon:GetParent() end)
-    if not okParent or not parent:IsValid() then
-        return nil
-    end
+    local parent = radioactiveIcon:GetParent()
+    if not parent:IsValid() then return DistPadIconWidget end
 
     local newIcon, slot = WidgetUtil.CloneWidget(radioactiveIcon, parent, "DistPadIcon")
-    if not newIcon then return nil end
+    if not newIcon:IsValid() then return DistPadIconWidget end
 
-    if slot and slot:IsValid() then
+    if slot:IsValid() then
         local offsetH = Config.Indicator.IconOffset.Horizontal
         local offsetV = Config.Indicator.IconOffset.Vertical
-        pcall(function()
-            slot:SetHorizontalAlignment(1)
-            slot:SetVerticalAlignment(2)
-            slot:SetPadding({ Left = -40 + offsetH, Top = -225 - offsetV, Right = 0, Bottom = 0 })
-        end)
+        slot:SetHorizontalAlignment(1)
+        slot:SetVerticalAlignment(2)
+        slot:SetPadding({ Left = -40 + offsetH, Top = -225 - offsetV, Right = 0, Bottom = 0 })
     end
 
     local iconName = Config.Indicator.Icon
-    if iconName == "" then return nil end
+    if iconName == "" then return DistPadIconWidget end
 
     if not DistPadIconTexture then
         local searchPaths = {
@@ -207,8 +192,8 @@ local function GetOrCreateDistPadIcon(widget)
             "/Game/Textures/GUI/icon_" .. iconName .. ".icon_" .. iconName,
         }
         for _, iconPath in ipairs(searchPaths) do
-            local okLoad, texture = pcall(function() return StaticFindObject(iconPath) end)
-            if okLoad and texture:IsValid() then
+            local texture = StaticFindObject(iconPath)
+            if texture:IsValid() then
                 DistPadIconTexture = texture
                 break
             end
@@ -217,11 +202,9 @@ local function GetOrCreateDistPadIcon(widget)
 
     if DistPadIconTexture then
         local size = Config.Indicator.IconSize
-        pcall(function()
-            newIcon:SetBrushFromTexture(DistPadIconTexture, false)
-            newIcon:SetDesiredSizeOverride({ X = size, Y = size })
-            newIcon:SetColorAndOpacity(Config.Indicator.IconColor)
-        end)
+        newIcon:SetBrushFromTexture(DistPadIconTexture, false)
+        newIcon:SetDesiredSizeOverride({ X = size, Y = size })
+        newIcon:SetColorAndOpacity(Config.Indicator.IconColor)
     end
 
     DistPadIconWidget = newIcon
@@ -229,14 +212,14 @@ local function GetOrCreateDistPadIcon(widget)
 end
 
 local function HideDistPadIcon()
-    if DistPadIconWidget and DistPadIconWidget:IsValid() then
-        pcall(function() DistPadIconWidget:SetVisibility(1) end)
+    if DistPadIconWidget:IsValid() then
+        DistPadIconWidget:SetVisibility(1)
     end
 end
 
 local function ShowDistPadIcon(widget)
     local icon = GetOrCreateDistPadIcon(widget)
-    if icon then pcall(function() icon:SetVisibility(4) end) end
+    if icon:IsValid() then icon:SetVisibility(4) end
 end
 
 local function AppendDistPadText(widget)
@@ -289,7 +272,7 @@ function Module.Init(config, log)
     Log.Info("DistPadTweaks - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     DistPadCache.inventories = {}
     TrackedPads = {}
     InteractionPromptCache.lastActorAddr = nil
@@ -297,47 +280,48 @@ function Module.Cleanup()
     TextBlockCache.widgetAddr = nil
     TextBlockCache.textBlock = nil
     DistPadIconTexture = nil
-    DistPadIconWidget = nil
-    cachedContainerClass = nil
+    DistPadIconWidget = CreateInvalidObject()
+    cachedContainerClass = CreateInvalidObject()
 end
 
 -- ============================================================
 -- HOOK REGISTRATION
 -- ============================================================
 
-function Module.RegisterPreInitHooks()
-    Log.Debug("RegisterPreInitHooks called")
+function Module.RegisterHooks()
+    Log.Debug("RegisterHooks called")
+    local success = true
 
+    -- Pad spawn hook (for Range and/or Indicator)
     if Config.Range.Enabled or Config.Indicator.Enabled then
-        return HookUtil.RegisterABFDeployedReceiveBeginPlay(
+        success = HookUtil.RegisterABFDeployedReceiveBeginPlay(
             "Deployed_DistributionPad_C",
             Module.OnPadReceiveBeginPlay,
             Log
-        )
+        ) and success
     end
 
-    return true
-end
-
-function Module.RegisterPostInitHooks()
-    Log.Debug("RegisterPostInitHooks called")
-    local success = true
-
+    -- Indicator-specific hooks
     if Config.Indicator.Enabled then
-        success = HookUtil.Register({
-            {
-                path = "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
-                callback = Module.OnReceiveEndPlay
-            },
-            {
-                path = "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
-                callback = function(widget, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
-                                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
-                                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
-                    Module.OnUpdateInteractionPrompts(widget, HitActorParam)
-                end
-            },
-        }, Log) and success
+        success = HookUtil.Register(
+            "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
+            Module.OnReceiveEndPlay,
+            Log
+        ) and success
+
+        success = HookUtil.Register(
+            "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
+            function(widget, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
+                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
+                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+                Module.OnUpdateInteractionPrompts(widget, HitActorParam)
+            end,
+            Log,
+            { warmup = true }
+        ) and success
+
+        -- OnRep_DistributionActive is late-bound in OnPadReceiveBeginPlay
+        -- (Blueprint not loaded until a pad spawns)
 
         if Config.Indicator.RefreshOnBuiltContainer then
             success = HookUtil.Register(
@@ -380,16 +364,16 @@ end
 function Module.OnPadBeginPlay(pad)
     local okLoading, isLoading = pcall(function() return pad.IsCurrentlyLoadingFromSave end)
     isLoading = okLoading and isLoading or false
-
-    if not onRepHookRegistered then
+    -- Late-bind OnRep_DistributionActive hook (Blueprint now guaranteed to be loaded)
+    if Config.Indicator.Enabled and not onRepHookRegistered then
         onRepHookRegistered = true
-        ExecuteWithDelay(250, function()
-            HookUtil.Register(
-                "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:OnRep_DistributionActive",
-                Module.OnRepDistributionActive,
-                Log
-            )
-        end)
+        local asset, wasFound, wasLoaded = LoadAsset("/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C")
+        Log.Debug("LoadAsset Results: Found=%s, Loaded=%s", tostring(wasFound), tostring(wasLoaded))
+
+        HookUtil.Register(
+            "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C:OnRep_DistributionActive",
+            Module.OnRepDistributionActive,
+            Log)
     end
 
     ExecuteWithDelay(isLoading and 1000 or 500, function()
@@ -484,7 +468,8 @@ function Module.OnContainerConstructionComplete(deployable)
     local okActive, isActive = pcall(function() return deployable.ConstructionModeActive end)
     if not okActive or isActive then return end
 
-    if not IsContainerClass(deployable) then return end
+    local containerClass = GetContainerClass()
+    if not deployable:IsA(containerClass) then return end
 
     Log.Debug("OnContainerConstructionComplete: new container placed")
 

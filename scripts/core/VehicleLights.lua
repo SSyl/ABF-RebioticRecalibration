@@ -30,7 +30,7 @@ local Module = {
         { path = "Enabled", type = "boolean", default = true },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -65,7 +65,7 @@ function Module.Init(config, log)
     Log.Info("VehicleLights - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     Log.Debug("Cleaning up VehicleLights state")
     CanInteractCache = {}
     ReplicationEnabledCache = {}
@@ -99,7 +99,8 @@ function Module.RegisterHooks()
                  ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
             Module.OnUpdateInteractionPrompts(widget, HitActorParam)
         end,
-        Log
+        Log,
+        { warmup = true }
     )
 
     local interactSuccess = HookUtil.Register(

@@ -7,13 +7,37 @@ Wrappers around UE4SS RegisterHook that handle Context:get() extraction,
 IsValid() validation, pcall wrapping, and error logging.
 
 API:
-- Register(path, callback, log) - Single Blueprint/native hook
+- Register(path, callback, log, options) - Single Blueprint/native hook
 - Register({hooks}, log) - Multiple hooks
 - RegisterNative(path, preCallback, postCallback, log) - Native C++ (typically /Script/Engine) with PRE/POST timing
 - RegisterABFDeployedReceiveBeginPlay(pattern, callback, log) - Consolidated ReceiveBeginPlay
+- ResetWarmup() - Reset warmup state (call on gameplay end)
+
+Options for Register():
+- warmup: boolean - If true, delays callback execution for 2s after first fire
+                    (prevents crashes from accessing partially-initialized widgets on load)
+- runPostWarmup: boolean - If true (requires warmup=true), caches calls during warmup
+                           and fires them once warmup completes
 ]]
 
 local HookUtil = {}
+
+-- ============================================================
+-- WARMUP STATE (crash prevention for per-frame hooks)
+-- ============================================================
+
+local WARMUP_DELAY_MS = 2000
+
+local warmupStarted = false
+local warmupComplete = false
+local warmupCallCache = {}  -- Cached calls for runPostWarmup hooks
+
+--- Resets warmup state - call from main.lua PreInit hook
+function HookUtil.ResetWarmup()
+    warmupStarted = false
+    warmupComplete = false
+    warmupCallCache = {}
+end
 
 -- ============================================================
 -- POLYMORPHIC HOOK REGISTRATION
@@ -23,13 +47,49 @@ local HookUtil = {}
 --- @param blueprintPath string Full UFunction path
 --- @param callback function Handler that receives validated UObject and any additional params
 --- @param log table Logger instance (must have Error method)
+--- @param options table|nil Optional settings: { warmup = bool, runPostWarmup = bool }
 --- @return boolean True if registration succeeded
-local function RegisterSingle(blueprintPath, callback, log)
+local function RegisterSingle(blueprintPath, callback, log, options)
+    local needsWarmup = options and options.warmup
+    local runPostWarmup = options and options.runPostWarmup
+
     local ok, err = pcall(function()
         RegisterHook(blueprintPath, function(Context, ...)
+            -- Warmup gate FIRST - bail out before touching Context to avoid memory access violations
+            if needsWarmup and not warmupComplete then
+                -- First call starts warmup timer
+                if not warmupStarted then
+                    warmupStarted = true
+                    ExecuteWithDelay(WARMUP_DELAY_MS, function()
+                        warmupComplete = true
+                        -- Fire cached calls after warmup
+                        for _, cached in ipairs(warmupCallCache) do
+                            ExecuteInGameThread(function()
+                                if cached.obj:IsValid() then
+                                    cached.callback(cached.obj, table.unpack(cached.args))
+                                end
+                            end)
+                        end
+                        warmupCallCache = {}
+                    end)
+                end
+
+                -- Cache call if runPostWarmup is enabled
+                if runPostWarmup then
+                    local obj = Context:get()
+                    if obj:IsValid() then
+                        table.insert(warmupCallCache, {
+                            callback = callback,
+                            obj = obj,
+                            args = {...}
+                        })
+                    end
+                end
+                return
+            end
+
             local obj = Context:get()
             if not obj:IsValid() then return end
-            -- Pass validated object and any additional hook parameters
             callback(obj, ...)
         end)
     end)
@@ -63,12 +123,13 @@ end
 --- @param pathOrTable string|table Either a Blueprint path (single) or array of {path, callback} (multiple)
 --- @param callbackOrLog function|table Either callback (single) or logger (multiple)
 --- @param log table|nil Logger (single) or nil (multiple - log is 2nd param)
+--- @param options table|nil Options for single hook: { warmupMs = number }
 --- @return boolean True if registration succeeded
-function HookUtil.Register(pathOrTable, callbackOrLog, log)
+function HookUtil.Register(pathOrTable, callbackOrLog, log, options)
     -- Detect single vs multiple based on first parameter type
     if type(pathOrTable) == "string" then
-        -- Single hook: Register(path, callback, log)
-        return RegisterSingle(pathOrTable, callbackOrLog, log)
+        -- Single hook: Register(path, callback, log, options)
+        return RegisterSingle(pathOrTable, callbackOrLog, log, options)
     elseif type(pathOrTable) == "table" then
         -- Multiple hooks: Register({...}, log)
         return RegisterMultiple(pathOrTable, callbackOrLog)

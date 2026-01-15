@@ -34,7 +34,7 @@ local Module = {
 
     -- Complex: Two independent features with separate enable conditions
     -- main.lua will check isEnabled which returns true if either is enabled
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 
     -- Enable if EITHER brightness or resolution is enabled
     isEnabled = function(cfg) return cfg.Brightness.Enabled or cfg.Resolution.Enabled end,

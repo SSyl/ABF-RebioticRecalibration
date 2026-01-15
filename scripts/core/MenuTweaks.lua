@@ -41,7 +41,7 @@ local Module = {
         { path = "CustomServerButton.TextColor", type = "color", default = { R = 42, G = 255, B = 45 } },
     },
 
-    hookPoint = "PreInit",
+    hookPoint = "MainMenu",
 
     isEnabled = function(cfg)
         return cfg.SkipLANHostingDelay or cfg.CustomServerButton.Enabled
@@ -203,7 +203,7 @@ function Module.Init(config, log)
     Log.Info("MenuTweaks - SkipLANHostingDelay: %s, CustomServerButton: %s", lanStatus, btnStatus)
 end
 
-function Module.Cleanup()
+function Module.MainMenuCleanup()
     OriginalButtonText = {}
     CustomServerBtn = nil
     ButtonIconTexture = nil

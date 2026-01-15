@@ -26,7 +26,7 @@ local Module = {
         { path = "Enabled", type = "boolean", default = false },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -146,7 +146,7 @@ function Module.Init(config, log)
     Log.Info("PlayerTracker - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     cachedLocalPlayer = nil
     cachedGameStateClass = nil
     Log.Debug("PlayerTracker state cleaned up")

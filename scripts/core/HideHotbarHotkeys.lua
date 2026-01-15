@@ -24,7 +24,7 @@ local Module = {
         { path = "Enabled", type = "boolean", default = false },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -48,7 +48,7 @@ function Module.Init(config, log)
     Log.Info("HideHotbarHotkeys - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     slotAddressCache = {}
 end
 
@@ -60,7 +60,8 @@ function Module.RegisterHooks()
     return HookUtil.Register(
         "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
         Module.OnInventorySlotUpdate,
-        Log
+        Log,
+        { warmup = true, runPostWarmup = true }
     )
 end
 

@@ -28,7 +28,7 @@ local Module = {
         { path = "Enabled", type = "boolean", default = true },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -57,7 +57,7 @@ function Module.Init(config, log)
     Log.Info("MinigameBarFix - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     modifiedWidgets = {}
     verifiedWidgets = {}
     cachedImageClass = nil

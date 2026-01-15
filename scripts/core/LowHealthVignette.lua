@@ -29,7 +29,7 @@ local Module = {
         { path = "PulseEnabled", type = "boolean", default = true },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -39,8 +39,8 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local VignetteWidget = nil
-local VignetteTexture = nil
+local VignetteWidget = CreateInvalidObject()
+local VignetteTexture = CreateInvalidObject()
 
 local IsVignetteVisible = false
 local LastBelowThreshold = nil
@@ -56,71 +56,52 @@ local PULSE_MAX = 1.0
 -- ============================================================
 
 local function GetOrCreateVignetteWidget(hud)
-    if VignetteWidget and VignetteWidget:IsValid() then
-        return VignetteWidget
-    end
+    if VignetteWidget:IsValid() then return VignetteWidget end
 
     Log.Debug("Creating vignette widget...")
 
-    local okTemplate, templateImage = pcall(function()
-        return hud.EyeLid_Top
-    end)
-    if not okTemplate or not templateImage:IsValid() then
+    local templateImage = hud.EyeLid_Top
+    if not templateImage:IsValid() then
         Log.Debug("Failed to get EyeLid_Top template")
-        return nil
+        return VignetteWidget
     end
 
-    local okParent, parent = pcall(function()
-        return templateImage:GetParent()
-    end)
-    if not okParent or not parent:IsValid() then
+    local parent = templateImage:GetParent()
+    if not parent:IsValid() then
         Log.Debug("Failed to get EyeLid_Top parent")
-        return nil
+        return VignetteWidget
     end
 
     local newWidget, slot = WidgetUtil.CloneWidget(templateImage, parent, "LowHealthVignetteWidget")
-    if not newWidget then
+    if not newWidget:IsValid() then
         Log.Debug("WidgetUtil.CloneWidget failed")
-        return nil
+        return VignetteWidget
     end
 
-    if slot and slot:IsValid() then
-        pcall(function()
-            slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 1, Y = 1 } })
-            slot:SetOffsets({ Left = -250, Top = -250, Right = -250, Bottom = -250 })
-            slot:SetAlignment({ X = 0, Y = 0 })
-            slot:SetZOrder(-1)
-        end)
+    if slot:IsValid() then
+        slot:SetAnchors({ Minimum = { X = 0, Y = 0 }, Maximum = { X = 1, Y = 1 } })
+        slot:SetOffsets({ Left = -250, Top = -250, Right = -250, Bottom = -250 })
+        slot:SetAlignment({ X = 0, Y = 0 })
+        slot:SetZOrder(-1)
     end
 
-    pcall(function()
-        newWidget:SetRenderTranslation({ X = 0, Y = 0 })
-    end)
+    newWidget:SetRenderTranslation({ X = 0, Y = 0 })
 
-    if not VignetteTexture then
-        local okTexture, texture = pcall(function()
-            return StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
-        end)
-        if okTexture and texture:IsValid() then
+    if not VignetteTexture:IsValid() then
+        local texture = StaticFindObject("/Game/Particles/T_Gradient_Radial.T_Gradient_Radial")
+        if texture:IsValid() then
             VignetteTexture = texture
         else
             Log.Debug("Failed to load T_Gradient_Radial texture")
-            return nil
+            return VignetteWidget
         end
     end
 
-    pcall(function()
-        newWidget:SetBrushFromTexture(VignetteTexture, false)
-    end)
+    newWidget:SetBrushFromTexture(VignetteTexture, false)
 
     local color = Config.Color
-    pcall(function()
-        newWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = color.A })
-    end)
-
-    pcall(function()
-        newWidget:SetVisibility(1)
-    end)
+    newWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = color.A })
+    newWidget:SetVisibility(1)
 
     VignetteWidget = newWidget
     return newWidget
@@ -153,22 +134,12 @@ local function StartPulseLoop()
         local color = Config.Color
 
         ExecuteInGameThread(function()
-            if not IsPulsing or not VignetteWidget then
-                return
-            end
-
-            if not VignetteWidget:IsValid() then
+            if not IsPulsing or not VignetteWidget:IsValid() then
                 IsPulsing = false
                 return
             end
 
-            local ok = pcall(function()
-                VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
-            end)
-
-            if not ok then
-                IsPulsing = false
-            end
+            VignetteWidget:SetColorAndOpacity({ R = color.R, G = color.G, B = color.B, A = pulseAlpha })
         end)
 
         return false
@@ -179,14 +150,10 @@ local function ShowVignette(hud)
     if IsVignetteVisible then return end
 
     local widget = GetOrCreateVignetteWidget(hud)
-    if not widget then return end
+    if not widget:IsValid() then return end
 
     IsVignetteVisible = true
-
-    pcall(function()
-        widget:SetVisibility(4)
-    end)
-
+    widget:SetVisibility(4)
     StartPulseLoop()
 end
 
@@ -199,10 +166,8 @@ local function HideVignette()
     end
     IsPulsing = false
 
-    if VignetteWidget and VignetteWidget:IsValid() then
-        pcall(function()
-            VignetteWidget:SetVisibility(1)
-        end)
+    if VignetteWidget:IsValid() then
+        VignetteWidget:SetVisibility(1)
     end
 end
 
@@ -218,12 +183,12 @@ function Module.Init(config, log)
     Log.Info("LowHealthVignette - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     Log.Debug("Cleaning up vignette state")
 
     IsPulsing = false
-    VignetteWidget = nil
-    VignetteTexture = nil
+    VignetteWidget = CreateInvalidObject()
+    VignetteTexture = CreateInvalidObject()
     IsVignetteVisible = false
     LastBelowThreshold = nil
     PulseTime = 0
@@ -237,7 +202,8 @@ function Module.RegisterHooks()
     return HookUtil.Register(
         "/Game/Blueprints/Widgets/W_PlayerHUD_Main.W_PlayerHUD_Main_C:UpdateHealth",
         Module.OnUpdateHealth,
-        Log
+        Log,
+        { warmup = true }
     )
 end
 
@@ -246,15 +212,7 @@ end
 -- ============================================================
 
 function Module.OnUpdateHealth(hud)
-    local okHealth, healthPercent = pcall(function()
-        return hud.LastHealthPercentage
-    end)
-
-    if not okHealth then
-        Log.Debug("Failed to get LastHealthPercentage")
-        return
-    end
-
+    local healthPercent = hud.LastHealthPercentage
     local belowThreshold = healthPercent > 0 and healthPercent < Config.Threshold
     if belowThreshold ~= LastBelowThreshold then
         LastBelowThreshold = belowThreshold

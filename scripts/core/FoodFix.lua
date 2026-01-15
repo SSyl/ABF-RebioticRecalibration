@@ -29,7 +29,7 @@ local Module = {
         { path = "FixExistingFoodOnLoad", type = "boolean", default = false },
     },
 
-    hookPoint = "PreInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================

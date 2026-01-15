@@ -32,7 +32,7 @@ local Module = {
         { path = "Text.Color", type = "textcolor", default = { R = 255, G = 186, B = 40 } },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -387,7 +387,7 @@ function Module.Init(config, log)
     Log.Info("TeleporterTags - %s", status)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     slotCache = {}
     abbreviationCache = {}
     Log.Debug("TeleporterTags caches cleared")
@@ -401,7 +401,8 @@ function Module.RegisterHooks()
     return HookUtil.Register(
         "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
         Module.OnSlotUpdate,
-        Log
+        Log,
+        { warmup = true, runPostWarmup = true }
     )
 end
 

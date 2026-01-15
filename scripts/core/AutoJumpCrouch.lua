@@ -27,13 +27,13 @@ local Module = {
 
     schema = {
         { path = "Enabled", type = "boolean", default = false },
-        { path = "Delay", type = "number", default = 150, min = 0, max = 1000 },
+        { path = "Delay", type = "number", default = 250, min = 0, max = 1000 },
         { path = "ClearSprintOnJump", type = "boolean", default = true },
         { path = "RequireJumpHeld", type = "boolean", default = true },
         { path = "DisableAutoUncrouch", type = "boolean", default = false },
     },
 
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -78,7 +78,7 @@ function Module.Init(config, log)
     Log.Info("AutoJumpCrouch - %s (Delay: %dms, Mode: %s)", status, Config.Delay, mode)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     autoCrouched = false
     cachedPlayerPawn = nil
 end

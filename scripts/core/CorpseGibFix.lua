@@ -31,11 +31,11 @@ local Module = {
     -- Config schema (paths relative to configKey)
     schema = {
         { path = "Enabled", type = "boolean", default = true },
-        { path = "Threshold", type = "number", default = 1000 },
+        { path = "Threshold", type = "number", default = 2000 },
     },
 
     -- Hook point: "PreInit", "PostInit", or nil for no hooks
-    hookPoint = "PostInit",
+    hookPoint = "Gameplay",
 }
 
 -- ============================================================
@@ -60,7 +60,7 @@ function Module.Init(config, log)
     Log.Info("CorpseGibFix - %s (Threshold: %dms)", status, Config.Threshold)
 end
 
-function Module.Cleanup()
+function Module.GameplayCleanup()
     CorpseGibAssets = {}
     Log.Debug("CorpseGibFix state cleaned up")
 end
