@@ -58,9 +58,7 @@ local function GetLocalPlayer(character)
     if not character:IsValid() then return nil end
     if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then return nil end
 
-    local characterAddr = character:GetAddress()
-    local playerAddr = cachedPlayerPawn:GetAddress()
-    if characterAddr ~= playerAddr then return nil end
+    if character:GetAddress() ~= cachedPlayerPawn:GetAddress() then return nil end
 
     return cachedPlayerPawn
 end
@@ -134,7 +132,7 @@ function Module.OnJump(character)
     if Config.ClearSprintOnJump then
         local okSprinting, isSprinting = pcall(function() return player:IsSprinting() end)
         if okSprinting and isSprinting then
-            pcall(function() player:ToggleSprint() end)
+            player:ToggleSprint()
         end
     end
 
@@ -194,7 +192,7 @@ function Module.OnTryApplyFallDamage(character)
         return
     end
 
-    pcall(function() player:UnCrouch(false) end)
+    player:UnCrouch(false)
     autoCrouched = false
 end
 

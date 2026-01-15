@@ -53,8 +53,7 @@ local MODULE_PATHS = {
 
 local Modules = {}
 local SCHEMA = {
-    -- General debug flag
-    { path = "DebugFlags.Misc", type = "boolean", default = false },
+    { path = "DebugFlags.Main", type = "boolean", default = false },
 }
 
 -- Load all modules and aggregate their schemas
@@ -63,7 +62,7 @@ for _, path in ipairs(MODULE_PATHS) do
     if ok and mod then
         table.insert(Modules, mod)
 
-        -- Add module schema entries (prefixed with configKey)
+        -- module schema entries are prefixed with configKey
         if mod.schema then
             for _, entry in ipairs(mod.schema) do
                 table.insert(SCHEMA, {
@@ -76,7 +75,6 @@ for _, path in ipairs(MODULE_PATHS) do
             end
         end
 
-        -- Add debug flag for this module
         local debugKey = mod.debugKey or mod.configKey
         table.insert(SCHEMA, {
             path = "DebugFlags." .. debugKey,
@@ -114,13 +112,10 @@ for _, mod in ipairs(Modules) do
     local debugKey = mod.debugKey or mod.configKey
     local debugEnabled = Config.DebugFlags[debugKey] or false
 
-    -- Create logger for this module
     mod._log = LogUtil.CreateLogger("Rebiotic Fixer|" .. mod.name, debugEnabled)
 
-    -- Get module's config section
     mod._config = Config[mod.configKey]
 
-    -- Initialize module
     if mod.Init then
         mod.Init(mod._config, mod._log)
     end

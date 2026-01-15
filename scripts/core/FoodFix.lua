@@ -54,15 +54,16 @@ local function ResetDeployedDurability(deployable)
 
     Log.Debug("Resetting durability to %s", tostring(maxDur))
 
-    pcall(function()
-        local changeableData = deployable.ChangeableData
-        if not changeableData then return end
+    -- Reset ChangeableData durability (nested struct, could be nil)
+    local changeableData = deployable.ChangeableData
+    if changeableData then
         local maxItemDur = changeableData.MaxItemDurability_6_F5D5F0D64D4D6050CCCDE4869785012B
-        if not maxItemDur then return end
-        changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
-    end)
+        if maxItemDur then
+            changeableData.CurrentItemDurability_4_24B4D0E64E496B43FB8D3CA2B9D161C8 = maxItemDur
+        end
+    end
 
-    pcall(function() deployable.CurrentDurability = maxDur end)
+    deployable.CurrentDurability = maxDur
     return true
 end
 
@@ -102,7 +103,7 @@ function Module.OnBeginPlay(deployable)
 
     if not hasAuthority then
         Log.Debug("Client: applying visual-only fix locally")
-        pcall(function() deployable.CurrentDurability = deployable.MaxDurability end)
+        deployable.CurrentDurability = deployable.MaxDurability
         return
     end
 

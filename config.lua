@@ -356,7 +356,7 @@ return {
     -- Enable debug logging to UE4SS.log (causes log spam, leave off)
     -- ############################################################
     DebugFlags = {
-        Misc = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
+        Main = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
         DistributionPad = false,
         VehicleLights = false,
         FlashlightFlicker = false,

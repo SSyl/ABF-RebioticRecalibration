@@ -57,7 +57,7 @@ end
 function Module.GameplayCleanup()
     hasAmbientDebuff = false
     hasReaperDebuff = false
-    cachedPlayerPawn = nil
+    cachedPlayerPawn = CreateInvalidObject()
     Log.Debug("FlashlightFlicker state cleaned up")
 end
 
@@ -66,7 +66,7 @@ end
 -- ============================================================
 
 local function GetLocalPlayer(actor)
-    if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then
+    if not cachedPlayerPawn:IsValid() then
         cachedPlayerPawn = UEHelpers.GetPlayer()
     end
 
@@ -113,34 +113,28 @@ function Module.OnBuffReceived(buffComponent, BuffRowHandleParam)
     if not okRowName then return end
 
     if rowName == "Debuff_Disruption" then
-        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
-        if not okOwner then return end
-
-        local player = GetLocalPlayer(owner)
-        if not player then return end
+        local owner = buffComponent:GetOwner()
+        local cachedPlayer = GetLocalPlayer(owner)
+        if not cachedPlayer then return end
 
         hasReaperDebuff = true
         Log.Debug("Reaper disruption detected - allowing flicker")
     end
 
     if rowName == "Debuff_QuakeDisruption" then
-        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
-        if not okOwner then return end
-
-        local player = GetLocalPlayer(owner)
-        if not player then return end
+        local owner = buffComponent:GetOwner()
+        local cachedPlayer = GetLocalPlayer(owner)
+        if not cachedPlayer then return end
 
         hasAmbientDebuff = true
 
         if not hasReaperDebuff then
             Log.Debug("Ambient earthquake - stopping timeline")
-            pcall(function()
-                local timeline = player.FlashlightFlickerTimeline
-                if timeline and timeline:IsValid() then
-                    timeline:Stop()
-                end
-                player.Light_FlickerAlpha = 1.0
-            end)
+            local timeline = cachedPlayer.FlashlightFlickerTimeline
+            if timeline and timeline:IsValid() then
+                timeline:Stop()
+            end
+            cachedPlayer.Light_FlickerAlpha = 1.0
         else
             Log.Debug("Reaper active - not stopping timeline")
         end
@@ -155,22 +149,18 @@ function Module.OnBuffRemoved(buffComponent, BuffRowHandleParam)
     if not okRowName then return end
 
     if rowName == "Debuff_Disruption" then
-        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
-        if not okOwner then return end
-
-        local player = GetLocalPlayer(owner)
-        if not player then return end
+        local owner = buffComponent:GetOwner()
+        local cachedPlayer = GetLocalPlayer(owner)
+        if not cachedPlayer then return end
 
         hasReaperDebuff = false
         Log.Debug("Reaper disruption removed")
     end
 
     if rowName == "Debuff_QuakeDisruption" then
-        local okOwner, owner = pcall(function() return buffComponent:GetOwner() end)
-        if not okOwner then return end
-
-        local player = GetLocalPlayer(owner)
-        if not player then return end
+        local owner = buffComponent:GetOwner()
+        local cachedPlayer = GetLocalPlayer(owner)
+        if not cachedPlayer then return end
 
         hasAmbientDebuff = false
         Log.Debug("Ambient earthquake debuff removed")
@@ -193,14 +183,11 @@ function Module.OnToggleFlickering(player, StartParam)
 
     if hasAmbientDebuff then
         Log.Debug("Blocked ambient earthquake flicker - stopping timeline")
-
-        pcall(function()
-            local timeline = cachedPlayer.FlashlightFlickerTimeline
-            if timeline and timeline:IsValid() then
-                timeline:Stop()
-            end
-            cachedPlayer.Light_FlickerAlpha = 1.0
-        end)
+        local timeline = cachedPlayer.FlashlightFlickerTimeline
+        if timeline and timeline:IsValid() then
+            timeline:Stop()
+        end
+        cachedPlayer.Light_FlickerAlpha = 1.0
         return
     end
 

@@ -74,14 +74,14 @@ function Module.OnInventorySlotUpdate(slotWidget)
 
     if not slotWidget:IsValid() then return end
 
-    local okAddr, addr = pcall(function() return slotWidget:GetAddress() end)
-    if not okAddr or not addr then return end
+    local addr = slotWidget:GetAddress()
+    if not addr then return end
 
     local isHotbarSlot = slotAddressCache[addr]
 
     if isHotbarSlot == nil then
-        local okName, fullName = pcall(function() return slotWidget:GetFullName() end)
-        isHotbarSlot = okName and fullName and fullName:match("HotbarSlot") ~= nil
+        local fullName = slotWidget:GetFullName()
+        isHotbarSlot = fullName and fullName:match("HotbarSlot") ~= nil
         slotAddressCache[addr] = isHotbarSlot
     end
 
@@ -89,17 +89,15 @@ function Module.OnInventorySlotUpdate(slotWidget)
 
     local okBox, numberBox = pcall(function() return slotWidget.HotkeyNumberBox end)
     if okBox and numberBox:IsValid() then
-        local okVis, currentVis = pcall(function() return numberBox:GetVisibility() end)
-        if okVis and currentVis ~= 1 then
-            pcall(function() numberBox:SetVisibility(1) end)
+        if numberBox:GetVisibility() ~= 1 then
+            numberBox:SetVisibility(1)
         end
     end
 
     local okText, numberText = pcall(function() return slotWidget.HotkeyNumberText end)
     if okText and numberText:IsValid() then
-        local okVis, currentVis = pcall(function() return numberText:GetVisibility() end)
-        if okVis and currentVis ~= 1 then
-            pcall(function() numberText:SetVisibility(1) end)
+        if numberText:GetVisibility() ~= 1 then
+            numberText:SetVisibility(1)
         end
     end
 end

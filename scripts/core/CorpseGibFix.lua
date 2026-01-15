@@ -94,8 +94,8 @@ end
 -- ============================================================
 
 function Module.OnReceiveBeginPlay(corpse)
-    local okAddr, addr = pcall(function() return corpse:GetAddress() end)
-    if not okAddr or not addr then return end
+    local addr = corpse:GetAddress()
+    if not addr then return end
 
     -- Pre-emptive fix: Cache and clear gib assets to prevent save-load gibsplosion
     local okParticles, particles = pcall(function() return corpse.GibParticles end)
@@ -114,10 +114,10 @@ function Module.OnReceiveBeginPlay(corpse)
     }
 
     if hasParticles then
-        pcall(function() corpse.GibParticles = nil end)
+        corpse.GibParticles = nil
     end
     if hasSound then
-        pcall(function() corpse.GibbedSound = nil end)
+        corpse.GibbedSound = nil
     end
 
     Log.Debug("Cleared gib assets for corpse 0x%X", addr)
@@ -136,11 +136,11 @@ function Module.OnReceiveBeginPlay(corpse)
             end
 
             if cached.particles then
-                pcall(function() corpse.GibParticles = cached.particles end)
+                corpse.GibParticles = cached.particles
                 cached.particles = nil
             end
             if cached.sound then
-                pcall(function() corpse.GibbedSound = cached.sound end)
+                corpse.GibbedSound = cached.sound
                 cached.sound = nil
             end
 
