@@ -38,7 +38,7 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local cachedPlayerPawn = nil
+local cachedPlayerPawn = CreateInvalidObject()
 local hasAmbientDebuff = false
 local hasReaperDebuff = false
 
