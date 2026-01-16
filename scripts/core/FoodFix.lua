@@ -81,6 +81,7 @@ end
 
 function Module.RegisterHooks()
     return HookUtil.RegisterABFDeployedBeginPlay(
+        "/Game/Blueprints/DeployedObjects/Furniture/Deployed_Food_Pie_ParentBP.Deployed_Food_Pie_ParentBP_C",
         "^Deployed_Food_",
         Module.OnBeginPlay,
         Log

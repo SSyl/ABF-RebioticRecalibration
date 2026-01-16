@@ -292,6 +292,7 @@ function Module.RegisterHooks()
     -- Pad spawn hook (for Range and/or Indicator)
     if Config.Range.Enabled or Config.Indicator.Enabled then
         success = HookUtil.RegisterABFDeployedBeginPlay(
+            "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C",
             "Deployed_DistributionPad_C",
             Module.OnPadReceiveBeginPlay,
             Log

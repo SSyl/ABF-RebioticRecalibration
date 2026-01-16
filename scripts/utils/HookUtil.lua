@@ -13,7 +13,7 @@ API:
 - ResetWarmup() - Reset warmup state (call on gameplay end)
 
 Consolidated Hooks (share single UE4SS hook across multiple modules):
-- RegisterABFDeployedBeginPlay(pattern, callback, log) - AbioticDeployed_ParentBP:ReceiveBeginPlay
+- RegisterABFDeployedBeginPlay(classPath, fallbackClassPattern, callback, log) - AbioticDeployed_ParentBP:ReceiveBeginPlay (IsA filter with pattern fallback)
 - RegisterABFPlayerCharacterBeginPlay(callback, log) - Abiotic_PlayerCharacter_C:ReceiveBeginPlay
 - RegisterABFInventorySlotUpdateUI(callback, log) - W_InventoryItemSlot_C:UpdateSlot_UI (warmup+cache)
 - RegisterABFInteractionPromptUpdate(callback, log) - W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts (warmup)
@@ -25,7 +25,10 @@ Options for Register():
                            and fires them once warmup completes
 ]]
 
+local LogUtil = require("utils/LogUtil")
+
 local HookUtil = {}
+local Log = LogUtil.CreateLogger("HookUtil", true)  -- TODO: wire up to config debug flag
 
 -- ============================================================
 -- WARMUP STATE (crash prevention for per-frame hooks)
@@ -37,11 +40,17 @@ local warmupStarted = false
 local warmupComplete = false
 local warmupCallCache = {}  -- Cached calls for runPostWarmup hooks
 
---- Resets warmup state - call from main.lua PreInit hook
+-- Deployed BeginPlay class cache (declared here so ResetWarmup can access)
+local deployedClassCache = {}  -- classPath -> UClass
+local deployedAllClassesCached = false  -- true when all registered classes are cached
+
+--- Resets warmup and class cache state - call from main.lua on main menu return
 function HookUtil.ResetWarmup()
     warmupStarted = false
     warmupComplete = false
     warmupCallCache = {}
+    deployedClassCache = {}
+    deployedAllClassesCached = false
 end
 
 -- ============================================================
@@ -221,17 +230,20 @@ local inventorySlotUpdateUIRegistered = false
 local interactionPromptUpdateRegistry = {}
 local interactionPromptUpdateRegistered = false
 
---- Registers a handler for AbioticDeployed_ParentBP:ReceiveBeginPlay with className filtering
+--- Registers a handler for AbioticDeployed_ParentBP:ReceiveBeginPlay with IsA() class filtering
 --- Multiple modules can register to the same hook - internally consolidates to single UE4SS hook
---- @param classMatchPattern string Pattern to match against className (e.g., "^Deployed_Food_" or "Deployed_DistributionPad_C")
+--- Uses fallback pattern matching until class is resolved via StaticFindObject, then fast-paths to IsA()
+--- @param classPath string Full Blueprint class path for IsA() check (e.g., "/Game/Blueprints/DeployedObjects/Furniture/Deployed_Food_Pie_ParentBP.Deployed_Food_Pie_ParentBP_C")
+--- @param fallbackClassPattern string Pattern for string matching before class resolves (e.g., "^Deployed_Food_" or "Deployed_DistributionPad_C")
 --- @param callback function Handler that receives validated UObject
 --- @param log table Logger instance
 --- @return boolean True if registration succeeded
-function HookUtil.RegisterABFDeployedBeginPlay(classMatchPattern, callback, log)
-    -- Add pattern+callback to registry (all modules append here)
+function HookUtil.RegisterABFDeployedBeginPlay(classPath, fallbackClassPattern, callback, log)
     table.insert(deployedReceiveBeginPlayRegistry, {
-        pattern = classMatchPattern,
-        callback = callback
+        classPath = classPath,
+        fallbackClassPattern = fallbackClassPattern,
+        callback = callback,
+        log = log
     })
 
     -- Register actual hook only once (first call registers, subsequent calls just append to registry)
@@ -243,19 +255,75 @@ function HookUtil.RegisterABFDeployedBeginPlay(classMatchPattern, callback, log)
                     local obj = Context:get()
                     if not obj:IsValid() then return end
 
-                    local okClass, className = pcall(function()
-                        return obj:GetClass():GetFName():ToString()
-                    end)
-                    if not okClass or not className then return end
+                    -- Fast path: all classes cached, just do IsA checks
+                    if deployedAllClassesCached then
+                        for _, entry in ipairs(deployedReceiveBeginPlayRegistry) do
+                            local cachedClass = deployedClassCache[entry.classPath]
 
-                    -- Check all registered patterns
-                    for _, entry in ipairs(deployedReceiveBeginPlayRegistry) do
-                        -- Support both pattern matching and exact string match
-                        local matches = className:match(entry.pattern) or className == entry.pattern
-
-                        if matches then
-                            entry.callback(obj)
+                            if cachedClass:IsValid() then
+                                if obj:IsA(cachedClass) then
+                                    entry.callback(obj)
+                                end
+                            else
+                                -- Cached class became invalid, try to re-resolve
+                                local newClass = StaticFindObject(entry.classPath)
+                                if newClass:IsValid() then
+                                    deployedClassCache[entry.classPath] = newClass
+                                    if obj:IsA(newClass) then
+                                        entry.callback(obj)
+                                    end
+                                else
+                                    -- Failed to re-resolve, fall back to slow path
+                                    Log.Debug("[DeployedBeginPlay] Cached class invalid, re-resolve failed, reverting to slow path: %s", entry.classPath)
+                                    deployedClassCache[entry.classPath] = nil
+                                    deployedAllClassesCached = false
+                                end
+                            end
                         end
+                        return -- Exit callback after fast path
+                    end
+
+                    -- Slow path: pattern match first, only StaticFindObject when we see a matching object
+                    local className = obj:GetClass():GetFName():ToString()
+                    local allCached = true
+
+                    for _, entry in ipairs(deployedReceiveBeginPlayRegistry) do
+                        local cachedClass = deployedClassCache[entry.classPath]
+
+                        if cachedClass then
+                            -- Already cached, use IsA
+                            if cachedClass:IsValid() then
+                                if obj:IsA(cachedClass) then
+                                    entry.callback(obj)
+                                end
+                            else
+                                -- Cached class became invalid, clear it
+                                deployedClassCache[entry.classPath] = nil
+                                allCached = false
+                            end
+                        else
+                            -- Not cached yet, use pattern matching
+                            allCached = false
+                            local patternMatches = className:match(entry.fallbackClassPattern)
+                            if patternMatches then
+                                -- Pattern matched - class must be loaded, cache it now
+                                local foundClass = StaticFindObject(entry.classPath)
+                                if foundClass:IsValid() then
+                                    deployedClassCache[entry.classPath] = foundClass
+                                    if obj:IsA(foundClass) then
+                                        entry.callback(obj)
+                                    end
+                                else
+                                    -- Pattern matched but StaticFindObject failed - classPath might be wrong
+                                    Log.Error("[DeployedBeginPlay] Pattern matched but StaticFindObject failed: %s (pattern: %s)", entry.classPath, entry.fallbackClassPattern)
+                                    entry.callback(obj)
+                                end
+                            end
+                        end
+                    end
+
+                    if allCached then
+                        deployedAllClassesCached = true
                     end
                 end
             )
