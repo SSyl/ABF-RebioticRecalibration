@@ -57,12 +57,7 @@ end
 -- ============================================================
 
 function Module.RegisterHooks()
-    return HookUtil.Register(
-        "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
-        Module.OnInventorySlotUpdate,
-        Log,
-        { warmup = true, runPostWarmup = true }
-    )
+    return HookUtil.RegisterABFInventorySlotUpdateUI(Module.OnInventorySlotUpdate, Log)
 end
 
 -- ============================================================
@@ -87,15 +82,15 @@ function Module.OnInventorySlotUpdate(slotWidget)
 
     if not isHotbarSlot then return end
 
-    local okBox, numberBox = pcall(function() return slotWidget.HotkeyNumberBox end)
-    if okBox and numberBox:IsValid() then
+    local numberBox = slotWidget.HotkeyNumberBox
+    if numberBox and numberBox:IsValid() then
         if numberBox:GetVisibility() ~= 1 then
             numberBox:SetVisibility(1)
         end
     end
 
-    local okText, numberText = pcall(function() return slotWidget.HotkeyNumberText end)
-    if okText and numberText:IsValid() then
+    local numberText =slotWidget.HotkeyNumberText
+    if numberText and numberText:IsValid() then
         if numberText:GetVisibility() ~= 1 then
             numberText:SetVisibility(1)
         end

@@ -80,7 +80,7 @@ function Module.Init(config, log)
 end
 
 function Module.RegisterHooks()
-    return HookUtil.RegisterABFDeployedReceiveBeginPlay(
+    return HookUtil.RegisterABFDeployedBeginPlay(
         "^Deployed_Food_",
         Module.OnBeginPlay,
         Log

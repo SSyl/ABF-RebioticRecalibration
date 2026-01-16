@@ -369,12 +369,7 @@ end
 -- ============================================================
 
 function Module.RegisterHooks()
-    return HookUtil.Register(
-        "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
-        Module.OnSlotUpdate,
-        Log,
-        { warmup = true, runPostWarmup = true }
-    )
+    return HookUtil.RegisterABFInventorySlotUpdateUI(Module.OnSlotUpdate, Log)
 end
 
 -- ============================================================

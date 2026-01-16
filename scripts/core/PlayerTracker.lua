@@ -140,8 +140,7 @@ end
 -- ============================================================
 
 function Module.RegisterHooks()
-    local success = HookUtil.Register(
-        "/Game/Blueprints/Characters/Abiotic_PlayerCharacter.Abiotic_PlayerCharacter_C:ReceiveBeginPlay",
+    local success = HookUtil.RegisterABFPlayerCharacterBeginPlay(
         Module.OnPlayerBeginPlay,
         Log
     )

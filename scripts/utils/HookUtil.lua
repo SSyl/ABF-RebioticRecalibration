@@ -10,8 +10,13 @@ API:
 - Register(path, callback, log, options) - Single Blueprint/native hook
 - Register({hooks}, log) - Multiple hooks
 - RegisterNative(path, preCallback, postCallback, log) - Native C++ (typically /Script/Engine) with PRE/POST timing
-- RegisterABFDeployedReceiveBeginPlay(pattern, callback, log) - Consolidated ReceiveBeginPlay
 - ResetWarmup() - Reset warmup state (call on gameplay end)
+
+Consolidated Hooks (share single UE4SS hook across multiple modules):
+- RegisterABFDeployedBeginPlay(pattern, callback, log) - AbioticDeployed_ParentBP:ReceiveBeginPlay
+- RegisterABFPlayerCharacterBeginPlay(callback, log) - Abiotic_PlayerCharacter_C:ReceiveBeginPlay
+- RegisterABFInventorySlotUpdateUI(callback, log) - W_InventoryItemSlot_C:UpdateSlot_UI (warmup+cache)
+- RegisterABFInteractionPromptUpdate(callback, log) - W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts (warmup)
 
 Options for Register():
 - warmup: boolean - If true, delays callback execution for 2s after first fire
@@ -204,13 +209,25 @@ end
 local deployedReceiveBeginPlayRegistry = {}
 local deployedReceiveBeginPlayRegistered = false
 
+-- Registry for Abiotic_PlayerCharacter_C:ReceiveBeginPlay
+local playerCharacterReceiveBeginPlayRegistry = {}
+local playerCharacterReceiveBeginPlayRegistered = false
+
+-- Registry for W_InventoryItemSlot_C:UpdateSlot_UI
+local inventorySlotUpdateUIRegistry = {}
+local inventorySlotUpdateUIRegistered = false
+
+-- Registry for W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts
+local interactionPromptUpdateRegistry = {}
+local interactionPromptUpdateRegistered = false
+
 --- Registers a handler for AbioticDeployed_ParentBP:ReceiveBeginPlay with className filtering
 --- Multiple modules can register to the same hook - internally consolidates to single UE4SS hook
 --- @param classMatchPattern string Pattern to match against className (e.g., "^Deployed_Food_" or "Deployed_DistributionPad_C")
 --- @param callback function Handler that receives validated UObject
 --- @param log table Logger instance
 --- @return boolean True if registration succeeded
-function HookUtil.RegisterABFDeployedReceiveBeginPlay(classMatchPattern, callback, log)
+function HookUtil.RegisterABFDeployedBeginPlay(classMatchPattern, callback, log)
     -- Add pattern+callback to registry (all modules append here)
     table.insert(deployedReceiveBeginPlayRegistry, {
         pattern = classMatchPattern,
@@ -250,6 +267,153 @@ function HookUtil.RegisterABFDeployedReceiveBeginPlay(classMatchPattern, callbac
         end
 
         deployedReceiveBeginPlayRegistered = true
+    end
+
+    return true
+end
+
+--- Registers a handler for Abiotic_PlayerCharacter_C:ReceiveBeginPlay
+--- Multiple modules can register to the same hook - internally consolidates to single UE4SS hook
+--- @param callback function Handler that receives validated character UObject
+--- @param log table Logger instance
+--- @return boolean True if registration succeeded
+function HookUtil.RegisterABFPlayerCharacterBeginPlay(callback, log)
+    table.insert(playerCharacterReceiveBeginPlayRegistry, callback)
+
+    if not playerCharacterReceiveBeginPlayRegistered then
+        local ok, err = pcall(function()
+            RegisterHook(
+                "/Game/Blueprints/Characters/Abiotic_PlayerCharacter.Abiotic_PlayerCharacter_C:ReceiveBeginPlay",
+                function(Context)
+                    local character = Context:get()
+                    if not character:IsValid() then return end
+
+                    for _, registeredCallback in ipairs(playerCharacterReceiveBeginPlayRegistry) do
+                        registeredCallback(character)
+                    end
+                end
+            )
+        end)
+
+        if not ok then
+            log.Error("Failed to register Abiotic_PlayerCharacter_C:ReceiveBeginPlay hook: %s", tostring(err))
+            return false
+        end
+
+        playerCharacterReceiveBeginPlayRegistered = true
+    end
+
+    return true
+end
+
+--- Registers a handler for W_InventoryItemSlot_C:UpdateSlot_UI
+--- Multiple modules can register to the same hook - internally consolidates to single UE4SS hook
+--- NOTE: This hook has warmup+runPostWarmup built-in (2s delay, caches calls during warmup)
+--- @param callback function Handler that receives validated slot widget UObject
+--- @param log table Logger instance
+--- @return boolean True if registration succeeded
+function HookUtil.RegisterABFInventorySlotUpdateUI(callback, log)
+    table.insert(inventorySlotUpdateUIRegistry, callback)
+
+    if not inventorySlotUpdateUIRegistered then
+        local ok, err = pcall(function()
+            RegisterHook(
+                "/Game/Blueprints/Widgets/Inventory/W_InventoryItemSlot.W_InventoryItemSlot_C:UpdateSlot_UI",
+                function(Context)
+                    -- Warmup gate - uses global warmup state
+                    if not warmupComplete then
+                        if not warmupStarted then
+                            warmupStarted = true
+                            ExecuteWithDelay(WARMUP_DELAY_MS, function()
+                                warmupComplete = true
+                                for _, cached in ipairs(warmupCallCache) do
+                                    ExecuteInGameThread(function()
+                                        if cached.obj:IsValid() then
+                                            cached.callback(cached.obj)
+                                        end
+                                    end)
+                                end
+                                warmupCallCache = {}
+                            end)
+                        end
+
+                        -- Cache calls for all registered callbacks (runPostWarmup behavior)
+                        local slot = Context:get()
+                        if slot:IsValid() then
+                            for _, registeredCallback in ipairs(inventorySlotUpdateUIRegistry) do
+                                table.insert(warmupCallCache, {
+                                    callback = registeredCallback,
+                                    obj = slot
+                                })
+                            end
+                        end
+                        return
+                    end
+
+                    local slot = Context:get()
+                    if not slot:IsValid() then return end
+
+                    for _, registeredCallback in ipairs(inventorySlotUpdateUIRegistry) do
+                        registeredCallback(slot)
+                    end
+                end
+            )
+        end)
+
+        if not ok then
+            log.Error("Failed to register W_InventoryItemSlot_C:UpdateSlot_UI hook: %s", tostring(err))
+            return false
+        end
+
+        inventorySlotUpdateUIRegistered = true
+    end
+
+    return true
+end
+
+--- Registers a handler for W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts
+--- Multiple modules can register to the same hook - internally consolidates to single UE4SS hook
+--- NOTE: This hook has warmup built-in (2s delay, no caching)
+--- @param callback function Handler that receives (widget, HitActorParam)
+--- @param log table Logger instance
+--- @return boolean True if registration succeeded
+function HookUtil.RegisterABFInteractionPromptUpdate(callback, log)
+    table.insert(interactionPromptUpdateRegistry, callback)
+
+    if not interactionPromptUpdateRegistered then
+        local ok, err = pcall(function()
+            RegisterHook(
+                "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
+                function(Context, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
+                         ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
+                         ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
+                    -- Warmup gate - uses global warmup state (no caching for per-frame hooks)
+                    if not warmupComplete then
+                        if not warmupStarted then
+                            warmupStarted = true
+                            ExecuteWithDelay(WARMUP_DELAY_MS, function()
+                                warmupComplete = true
+                            end)
+                        end
+                        return
+                    end
+
+                    local widget = Context:get()
+                    if not widget:IsValid() then return end
+
+                    for _, registeredCallback in ipairs(interactionPromptUpdateRegistry) do
+                        registeredCallback(widget, HitActorParam)
+                    end
+                end
+            )
+        end)
+
+        if not ok then
+            log.Error("Failed to register W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts hook: %s", tostring(err))
+            return false
+        end
+
+        interactionPromptUpdateRegistered = true
     end
 
     return true

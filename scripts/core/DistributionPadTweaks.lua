@@ -291,7 +291,7 @@ function Module.RegisterHooks()
 
     -- Pad spawn hook (for Range and/or Indicator)
     if Config.Range.Enabled or Config.Indicator.Enabled then
-        success = HookUtil.RegisterABFDeployedReceiveBeginPlay(
+        success = HookUtil.RegisterABFDeployedBeginPlay(
             "Deployed_DistributionPad_C",
             Module.OnPadReceiveBeginPlay,
             Log
@@ -306,15 +306,9 @@ function Module.RegisterHooks()
             Log
         ) and success
 
-        success = HookUtil.Register(
-            "/Game/Blueprints/Widgets/W_PlayerHUD_InteractionPrompt.W_PlayerHUD_InteractionPrompt_C:UpdateInteractionPrompts",
-            function(widget, ShowPressInteract, ShowHoldInteract, ShowPressPackage, ShowHoldPackage,
-                     ObjectUnderConstruction, ConstructionPercent, RequiresPower, Radioactive,
-                     ShowDescription, ExtraNoteLines, HitActorParam, HitComponentParam, RequiresPlug)
-                Module.OnUpdateInteractionPrompts(widget, HitActorParam)
-            end,
-            Log,
-            { warmup = true }
+        success = HookUtil.RegisterABFInteractionPromptUpdate(
+            Module.OnUpdateInteractionPrompts,
+            Log
         ) and success
 
         -- OnRep_DistributionActive is late-bound in OnPadReceiveBeginPlay

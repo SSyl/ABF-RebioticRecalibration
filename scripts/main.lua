@@ -15,9 +15,9 @@ Hook Points:
 - "Gameplay": Registers when gameplay map loaded (once per map)
 
 Lifecycle:
-- Main menu detection via poll (UE4SS late on game start) + InitGameStatePost (returning from gameplay)
-- Gameplay detection via Abiotic_Survival_GameState_C:ReceiveBeginPlay (500ms delayed registration)
-- All cleanup via InitGameStatePre (fires before any new GameState initializes)
+- Main menu detection via Abiotic_PlayerCharacter_C:ReceiveBeginPlay (fires at MainMenu map)
+- Gameplay detection via Abiotic_Survival_GameState_C:ReceiveBeginPlay
+- Cleanup runs when transitioning between states (before init of new state)
 ]]
 
 local LogUtil = require("utils/LogUtil")
@@ -184,36 +184,26 @@ end
 local mainMenuFired = false
 local gameplayFired = false
 local gameplayHookRegistered = false
+local mainMenuHookRegistered = false
 
 -- ============================================================
 -- LIFECYCLE: MAIN MENU
 -- ============================================================
 
-local function OnMainMenuDetected(gameState)
+local function OnMainMenuDetected(character)
     if mainMenuFired then return end
-    mainMenuFired = true
 
-    Log.General.Debug("Main menu detected: %s", gameState:GetFullName())
+    -- Cleanup previous state if transitioning from gameplay
+    if gameplayFired then
+        HookUtil.ResetWarmup()
+        RunModuleCleanup("Gameplay")
+        gameplayFired = false
+    end
+
+    mainMenuFired = true
+    Log.General.Debug("Main menu detected: %s", character:GetFullName())
     RegisterModuleHooks("MainMenu")
 end
-
--- All cleanup: fires before any new GameState initializes
-RegisterInitGameStatePreHook(function(Context)
-    HookUtil.ResetWarmup()
-    RunModuleCleanup("Gameplay")
-    RunModuleCleanup("MainMenu")
-end)
-
--- Menu detection: works when returning from gameplay (UE4SS not late then)
-RegisterInitGameStatePostHook(function(Context)
-    local base = UEHelpers.GetGameStateBase()
-    if not base:IsValid() then return end
-
-    local fullName = base:GetFullName()
-    if fullName:find("GameState /Game/Maps/MainMenu.MainMenu:PersistentLevel.GameState", 1, true) then
-        OnMainMenuDetected(base)
-    end
-end)
 
 -- ============================================================
 -- LIFECYCLE: GAMEPLAY
@@ -221,8 +211,15 @@ end)
 
 local function OnGameplayDetected(gameState)
     if gameplayFired then return end
-    gameplayFired = true
 
+    -- Cleanup previous state if transitioning from main menu
+    if mainMenuFired then
+        HookUtil.ResetWarmup()
+        RunModuleCleanup("MainMenu")
+        mainMenuFired = false
+    end
+
+    gameplayFired = true
     Log.General.Debug("Gameplay detected: %s", gameState:GetFullName())
     RegisterModuleHooks("Gameplay")
 end
@@ -255,6 +252,30 @@ end
 
 ExecuteWithDelay(250, function() RegisterGameplayHook() end)
 
+-- Delayed registration of main menu hook (Blueprint not loaded on mod init)
+local function RegisterMainMenuHook(attempts)
+    attempts = attempts or 0
+    if mainMenuHookRegistered or attempts > 20 then return end
+
+    local ok = HookUtil.RegisterABFPlayerCharacterBeginPlay(function(character)
+        local fullName = character:GetFullName()
+        if fullName:find("/Game/Maps/MainMenu.MainMenu:PersistentLevel.", 1, true) then
+            OnMainMenuDetected(character)
+        end
+    end, Log.General)
+
+    if ok then
+        mainMenuHookRegistered = true
+        Log.General.Debug("Registered Abiotic_PlayerCharacter_C:ReceiveBeginPlay hook for main menu detection")
+    else
+        ExecuteWithDelay(250, function()
+            RegisterMainMenuHook(attempts + 1)
+        end)
+    end
+end
+
+ExecuteWithDelay(250, function() RegisterMainMenuHook() end)
+
 -- ============================================================
 -- LIFECYCLE: POLL FOR MISSED STATE (late init / hot-reload)
 -- ============================================================
@@ -275,12 +296,17 @@ local function PollForMissedState(attempts)
 
         local fullName = base:GetFullName()
 
-        if not mainMenuFired and fullName:find("MainMenu", 1, true) then
-            OnMainMenuDetected(base)
-        end
-
-        if not gameplayFired and fullName:find("Abiotic_Survival_GameState_C", 1, true) then
+        if fullName:find("Abiotic_Survival_GameState_C", 1, true) then
             OnGameplayDetected(base)
+        elseif fullName:find("/Game/Maps/MainMenu.MainMenu:PersistentLevel.", 1, true) then
+            -- At main menu - find the character for OnMainMenuDetected
+            local character = FindFirstOf("Abiotic_PlayerCharacter_C")
+            if character:IsValid() then
+                local charName = character:GetFullName()
+                if charName:find("/Game/Maps/MainMenu.MainMenu:PersistentLevel.", 1, true) then
+                    OnMainMenuDetected(character)
+                end
+            end
         end
     end)
 end
