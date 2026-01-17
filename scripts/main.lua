@@ -14,10 +14,11 @@ Hook Points:
 - "MainMenu": Registers when main menu detected
 - "Gameplay": Registers when gameplay map loaded (once per map)
 
-Lifecycle:
-- Main menu detection via Abiotic_PlayerCharacter_C:ReceiveBeginPlay (fires at MainMenu map)
-- Gameplay detection via Abiotic_Survival_GameState_C:ReceiveBeginPlay
-- Cleanup runs when transitioning between states (before init of new state)
+Lifecycle Detection (single hook):
+- Abiotic_PlayerCharacter_C:ReceiveBeginPlay fires for all player spawns
+- MainMenu path in character name → main menu
+- Abiotic_Survival_GameState_C exists → gameplay
+- Cleanup runs when transitioning between states
 ]]
 
 local LogUtil = require("utils/LogUtil")
@@ -183,8 +184,7 @@ end
 
 local mainMenuFired = false
 local gameplayFired = false
-local gameplayHookRegistered = false
-local mainMenuHookRegistered = false
+local lifecycleHookRegistered = false
 
 -- ============================================================
 -- LIFECYCLE: MAIN MENU
@@ -201,7 +201,7 @@ local function OnMainMenuDetected(character)
     end
 
     mainMenuFired = true
-    Log.General.Debug("Main menu detected: %s", character:GetFullName())
+    Log.General.Debug("Main menu detected")
     RegisterModuleHooks("MainMenu")
 end
 
@@ -220,61 +220,48 @@ local function OnGameplayDetected(gameState)
     end
 
     gameplayFired = true
-    Log.General.Debug("Gameplay detected: %s", gameState:GetFullName())
+    Log.General.Debug("Gameplay detected")
     RegisterModuleHooks("Gameplay")
 end
 
--- Delayed registration of gameplay hook (Blueprint not loaded on mod init)
-local function RegisterGameplayHook(attempts)
+-- Delayed registration of lifecycle hook (Blueprint not loaded on mod init)
+local function RegisterLifecycleHook(attempts)
     attempts = attempts or 0
-    if gameplayHookRegistered or attempts > 20 then return end
-
-    local ok, err = pcall(function()
-        RegisterHook(
-            "/Game/Blueprints/Meta/Abiotic_Survival_GameState.Abiotic_Survival_GameState_C:ReceiveBeginPlay",
-            function(Context)
-                local gameState = Context:get()
-                if not gameState:IsValid() then return end
-                OnGameplayDetected(gameState)
-            end
-        )
-    end)
-
-    if ok then
-        gameplayHookRegistered = true
-        Log.General.Debug("Registered Abiotic_Survival_GameState_C:ReceiveBeginPlay hook")
-    else
-        ExecuteWithDelay(250, function()
-            RegisterGameplayHook(attempts + 1)
-        end)
-    end
-end
-
-ExecuteWithDelay(250, function() RegisterGameplayHook() end)
-
--- Delayed registration of main menu hook (Blueprint not loaded on mod init)
-local function RegisterMainMenuHook(attempts)
-    attempts = attempts or 0
-    if mainMenuHookRegistered or attempts > 20 then return end
+    if lifecycleHookRegistered or attempts > 20 then return end
 
     local ok = HookUtil.RegisterABFPlayerCharacterBeginPlay(function(character)
         local fullName = character:GetFullName()
-        if fullName:find("/Game/Maps/MainMenu.MainMenu:PersistentLevel.", 1, true) then
+        local isMainMenuSpawn = fullName:find("/Game/Maps/MainMenu", 1, true)
+
+        -- Smart early exits: only process potential transitions
+        if mainMenuFired and isMainMenuSpawn then return end
+        if gameplayFired and not isMainMenuSpawn then return end
+
+        if isMainMenuSpawn then
             OnMainMenuDetected(character)
+            return
+        end
+
+        -- Check for gameplay (Abiotic_Survival_GameState_C exists)
+        local survivalGameState = FindFirstOf("Abiotic_Survival_GameState_C")
+        if survivalGameState and survivalGameState:IsValid() then
+            OnGameplayDetected(survivalGameState)
+        else
+            Log.General.Debug("PlayerCharacter: Unknown map: %s", fullName)
         end
     end, Log.General)
 
     if ok then
-        mainMenuHookRegistered = true
-        Log.General.Debug("Registered Abiotic_PlayerCharacter_C:ReceiveBeginPlay hook for main menu detection")
+        lifecycleHookRegistered = true
+        Log.General.Debug("Registered lifecycle hook (Abiotic_PlayerCharacter_C:ReceiveBeginPlay)")
     else
         ExecuteWithDelay(250, function()
-            RegisterMainMenuHook(attempts + 1)
+            RegisterLifecycleHook(attempts + 1)
         end)
     end
 end
 
-ExecuteWithDelay(250, function() RegisterMainMenuHook() end)
+ExecuteWithDelay(250, function() RegisterLifecycleHook() end)
 
 -- ============================================================
 -- LIFECYCLE: POLL FOR MISSED STATE (late init / hot-reload)
