@@ -47,14 +47,14 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local KismetRenderingLibraryCache = nil
+local KismetRenderingLibraryCache = CreateInvalidObject()
 
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
 
 local function GetKismetRenderingLibrary()
-    if KismetRenderingLibraryCache and KismetRenderingLibraryCache:IsValid() then
+    if KismetRenderingLibraryCache:IsValid() then
         return KismetRenderingLibraryCache
     end
 
