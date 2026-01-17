@@ -1,6 +1,6 @@
 --[[
 ============================================================================
-FlashlightFlicker - Disable Ambient Flashlight Flicker
+FlashlightFlickerFix - Disable Ambient Flashlight Flicker
 ============================================================================
 
 Disables flashlight flicker during ambient earthquakes (Debuff_QuakeDisruption)
@@ -21,8 +21,8 @@ local UEHelpers = require("UEHelpers")
 -- ============================================================
 
 local Module = {
-    name = "FlashlightFlicker",
-    configKey = "FlashlightFlicker",
+    name = "FlashlightFlickerFix",
+    configKey = "FlashlightFlickerFix",
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -51,14 +51,14 @@ function Module.Init(config, log)
     Log = log
 
     local status = Config.Enabled and "Enabled" or "Disabled"
-    Log.Info("FlashlightFlicker - %s", status)
+    Log.Info("FlashlightFlickerFix - %s", status)
 end
 
 function Module.GameplayCleanup()
     hasAmbientDebuff = false
     hasReaperDebuff = false
     cachedPlayerPawn = CreateInvalidObject()
-    Log.Debug("FlashlightFlicker state cleaned up")
+    Log.Debug("FlashlightFlickerFix state cleaned up")
 end
 
 -- ============================================================

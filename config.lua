@@ -60,20 +60,20 @@ return {
     },
 
     -- ============================================================
-    -- Vehicle Lights
-    -- Manual control for vehicle headlights via F key on driver seat
+    -- Vehicle Light Toggle
+    -- Manual control for vehicle headlights via F key on the vehicle
     -- ============================================================
-    VehicleLights = {
+    VehicleLightToggle = {
         -- Allows you to toggle vehicle lights on/off using F key on driver's seat
         -- Works on SUV, Forklift, and Security Cart
         Enabled = true, -- [default = true]
     },
 
     -- ============================================================
-    -- Flashlight Flicker
+    -- Flashlight Flicker Fix
     -- Disables flashlight flicker during ambient earthquakes
     -- ============================================================
-    FlashlightFlicker = {
+    FlashlightFlickerFix = {
         -- Prevents flashlight from flickering during earthquakes while keeping camera shake/audio.
         -- Other causes of flashlight flickering (like from enemies) will still happen.
         Enabled = true, -- [default = true]
@@ -87,6 +87,19 @@ return {
         -- Shows a colored outline around other players in multiplayer
         -- Disabled by default: some may consider this cheaty since there's a trinket for it
         Enabled = false, -- [default = false]
+    },
+
+    -- ============================================================
+    -- Beds Keep Spawn
+    -- Tap interact button on beds to sleep without changing respawn point
+    -- ============================================================
+    BedsKeepSpawn = {
+        -- Adds tap interaction to beds: sleep without changing respawn
+        -- Long-press E remains unchanged (sleep + set respawn)
+        Enabled = true, -- [default = true]
+
+        -- Text to show in the interact prompt
+        PromptText = "just sleep", -- [default = "just sleep"]
     },
 
     -- ============================================================
@@ -331,10 +344,10 @@ return {
     },
 
     -- ============================================================
-    -- Minigame Bar Fix
+    -- Minigame Zone Fix
     -- Fixes visual size of success zones to match actual hitbox
     -- ============================================================
-    MinigameBarFix = {
+    MinigameZoneFix = {
         -- Makes the success zones true-to-size in bathroom and weightlifting minigames
         Enabled = true, -- [default = true]
     },
@@ -358,9 +371,10 @@ return {
     DebugFlags = {
         Main = false, -- Debug logging for main.lua (hook registration, cleanup, etc.)
         DistributionPad = false,
-        VehicleLights = false,
-        FlashlightFlicker = false,
+        VehicleLightToggle = false,
+        FlashlightFlickerFix = false,
         PlayerTracker = false,
+        BedsKeepSpawn = false,
         AutoJumpCrouch = false,
         AmmoCounter = false,
         TeleporterTags = false,
@@ -369,7 +383,7 @@ return {
         HideHotbarHotkeys = false,
         FoodDisplayFix = false,
         CraftingMenu = false,
-        MinigameBarFix = false,
+        MinigameZoneFix = false,
         CorpseGibFix = false,
     },
 }

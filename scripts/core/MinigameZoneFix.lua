@@ -1,6 +1,6 @@
 --[[
 ============================================================================
-MinigameBarFix - Fix Success Zone Visual Size Mismatch
+MinigameZoneFix - Fix Success Zone Visual Size Mismatch
 ============================================================================
 
 Fixes minigame success zones appearing smaller than hitbox. Uses SetRenderScale
@@ -21,8 +21,8 @@ local HookUtil = require("utils/HookUtil")
 -- ============================================================
 
 local Module = {
-    name = "MinigameBarFix",
-    configKey = "MinigameBarFix",
+    name = "MinigameZoneFix",
+    configKey = "MinigameZoneFix",
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -54,7 +54,7 @@ function Module.Init(config, log)
     Log = log
 
     local status = Config.Enabled and "Enabled" or "Disabled"
-    Log.Info("MinigameBarFix - %s", status)
+    Log.Info("MinigameZoneFix - %s", status)
 end
 
 function Module.GameplayCleanup()

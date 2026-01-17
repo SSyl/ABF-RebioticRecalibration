@@ -10,7 +10,7 @@ API:
 - ValidateFromSchema(userConfig, schema, logFunc) -> validatedConfig
 - ValidateBoolean(value, default, logFunc, fieldName) -> boolean
 - ValidateNumber(value, default, min, max, logFunc, fieldName) -> number
-- ValidateString(value, default, maxLength, trim, logFunc, fieldName) -> string
+- ValidateString(value, default, minLength, maxLength, trim, logFunc, fieldName) -> string
 - ValidateColor(value, default, logFunc, fieldName) -> {R, G, B, A} (normalized 0-1)
 - ValidateTextColor(value, default, logFunc, fieldName) -> SlateColor format for text widgets
 ]]
@@ -32,7 +32,7 @@ end
 function ConfigUtil.ValidateBoolean(value, default, logFunc, fieldName)
     if type(value) ~= "boolean" then
         if value ~= nil and logFunc and fieldName then
-            logFunc(string.format("Invalid %s (must be boolean), using %s", fieldName, tostring(default)), "warning")
+            logFunc.Warning("Invalid %s (must be boolean), using %s", fieldName, tostring(default))
         end
         return default
     end
@@ -42,7 +42,7 @@ end
 function ConfigUtil.ValidateNumber(value, default, min, max, logFunc, fieldName)
     if type(value) ~= "number" then
         if value ~= nil and logFunc and fieldName then
-            logFunc(string.format("Invalid %s (must be number), using %s", fieldName, tostring(default)), "warning")
+            logFunc.Warning("Invalid %s (must be number), using %s", fieldName, tostring(default))
         end
         return default
     end
@@ -57,7 +57,7 @@ function ConfigUtil.ValidateNumber(value, default, min, max, logFunc, fieldName)
             elseif max then
                 bounds = string.format(" (must be <= %s)", max)
             end
-            logFunc(string.format("Invalid %s%s, using %s", fieldName, bounds, tostring(default)), "warning")
+            logFunc.Warning("Invalid %s%s, using %s", fieldName, bounds, tostring(default))
         end
         return default
     end
@@ -65,27 +65,38 @@ function ConfigUtil.ValidateNumber(value, default, min, max, logFunc, fieldName)
     return value
 end
 
-function ConfigUtil.ValidateString(value, default, maxLength, trim, logFunc, fieldName)
+function ConfigUtil.ValidateString(value, default, minLength, maxLength, trim, logFunc, fieldName)
     if type(value) ~= "string" then
         if value ~= nil and logFunc and fieldName then
-            logFunc(string.format("Invalid %s (must be string), using %s", fieldName, tostring(default)), "warning")
+            logFunc.Warning("Invalid %s (must be string), using %s", fieldName, tostring(default))
         end
         return default
     end
+
+    -- Always trim leading/trailing whitespace
+    value = value:match("^%s*(.-)%s*$")
 
     if maxLength and #value > maxLength then
         if trim then
             local trimmed = value:sub(1, maxLength)
             if logFunc and fieldName then
-                logFunc(string.format("%s exceeded %d chars, trimmed", fieldName, maxLength), "warning")
+                logFunc.Warning("%s exceeded %d chars, trimmed", fieldName, maxLength)
             end
             return trimmed
         else
             if logFunc and fieldName then
-                logFunc(string.format("%s exceeded %d chars, using default", fieldName, maxLength), "warning")
+                logFunc.Warning("%s exceeded %d chars, using default", fieldName, maxLength)
             end
             return default
         end
+    end
+
+    -- Optional min length check
+    if minLength and #value < minLength then
+        if logFunc and fieldName then
+            logFunc.Warning("%s shorter than %d chars, using default", fieldName, minLength)
+        end
+        return default
     end
 
     return value
@@ -106,7 +117,7 @@ function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
     local source = value
     if not isValidRGB(value) then
         if value ~= nil and logFunc and fieldName then
-            logFunc(string.format("Invalid %s (must be {R=0-255, G=0-255, B=0-255}), using default", fieldName), "warning")
+            logFunc.Warning("Invalid %s (must be {R=0-255, G=0-255, B=0-255}), using default", fieldName)
         end
         source = default
     end
@@ -184,7 +195,7 @@ function ConfigUtil.ValidateFromSchema(userConfig, schema, logFunc)
         elseif entryType == "number" then
             validated = ConfigUtil.ValidateNumber(value, default, entry.min, entry.max, logFunc, path)
         elseif entryType == "string" then
-            validated = ConfigUtil.ValidateString(value, default, entry.maxLength, entry.trim, logFunc, path)
+            validated = ConfigUtil.ValidateString(value, default, entry.min, entry.max, entry.trim, logFunc, path)
         elseif entryType == "color" then
             validated = ConfigUtil.ValidateColor(value, default, logFunc, path)
         elseif entryType == "textcolor" then

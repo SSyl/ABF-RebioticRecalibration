@@ -1,6 +1,6 @@
 --[[
 ============================================================================
-VehicleLights - Manual Headlight Control for Vehicles
+VehicleLightToggle - Manual Headlight Control for Vehicles
 ============================================================================
 
 Adds tap-F interaction to toggle vehicle headlights (SUV, Forklift, SecurityCart).
@@ -23,8 +23,8 @@ local UEHelpers = require("UEHelpers")
 -- ============================================================
 
 local Module = {
-    name = "VehicleLights",
-    configKey = "VehicleLights",
+    name = "VehicleLightToggle",
+    configKey = "VehicleLightToggle",
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -62,11 +62,11 @@ function Module.Init(config, log)
     Log = log
 
     local status = Config.Enabled and "Enabled" or "Disabled"
-    Log.Info("VehicleLights - %s", status)
+    Log.Info("VehicleLightToggle - %s", status)
 end
 
 function Module.GameplayCleanup()
-    Log.Debug("Cleaning up VehicleLights state")
+    Log.Debug("Cleaning up VehicleLightToggle state")
     CanInteractCache = {}
     ReplicationEnabledCache = {}
     PromptTextCache.lastVehicleAddr = nil

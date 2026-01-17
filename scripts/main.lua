@@ -37,15 +37,16 @@ local MODULE_PATHS = {
     "core/CraftingPreviewFix",
     "core/DistributionPadTweaks",
     "core/LowHealthVignette",
-    "core/FlashlightFlicker",
+    "core/FlashlightFlickerFix",
     "core/AutoJumpCrouch",
-    "core/VehicleLights",
+    "core/VehicleLightToggle",
     "core/HideHotbarHotkeys",
-    "core/MinigameBarFix",
+    "core/MinigameZoneFix",
     "core/CorpseGibFix",
     "core/PlayerTracker",
     "core/AmmoCounter",
     "core/TeleporterTags",
+    "core/BedsKeepSpawn",
 }
 
 -- ============================================================
@@ -72,6 +73,7 @@ for _, path in ipairs(MODULE_PATHS) do
                     default = entry.default,
                     min = entry.min,
                     max = entry.max,
+                    trim = entry.trim,
                 })
             end
         end
