@@ -93,8 +93,7 @@ end
 -- ============================================================
 
 function Module.OnBeginPlay(deployable)
-    local okClass, className = pcall(function() return deployable:GetClass():GetFName():ToString() end)
-    Log.Debug("Food deployable ReceiveBeginPlay: %s", okClass and className or "unknown")
+    Log.Debug("Food deployable ReceiveBeginPlay")
 
     local hasAuthority = deployable:HasAuthority()
     if not hasAuthority then
