@@ -8,9 +8,9 @@ while preserving camera shake and audio. Reaper disruption (Debuff_Disruption)
 still triggers flicker normally. Stops FlashlightFlickerTimeline and resets alpha.
 
 HOOKS:
-- Abiotic_CharacterBuffComponent_C:BuffReceived
-- Abiotic_CharacterBuffComponent_C:BuffRemoved
 - Abiotic_PlayerCharacter_C:ToggleFlickering
+
+Queries buff state via HasBuff? on BuffDebuffComponent (works on host AND clients).
 ]]
 
 local HookUtil = require("utils/HookUtil")
@@ -39,8 +39,6 @@ local Config = nil
 local Log = nil
 
 local cachedPlayerPawn = CreateInvalidObject()
-local hasAmbientDebuff = false
-local hasReaperDebuff = false
 
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
@@ -55,10 +53,7 @@ function Module.Init(config, log)
 end
 
 function Module.GameplayCleanup()
-    hasAmbientDebuff = false
-    hasReaperDebuff = false
     cachedPlayerPawn = CreateInvalidObject()
-    Log.Debug("FlashlightFlickerFix state cleaned up")
 end
 
 -- ============================================================
@@ -71,13 +66,36 @@ local function GetLocalPlayer(actor)
     end
 
     if not actor:IsValid() then return nil end
-    if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then return nil end
+    if not cachedPlayerPawn:IsValid() then return nil end
 
-    local actorAddr = actor:GetAddress()
-    local playerAddr = cachedPlayerPawn:GetAddress()
-    if actorAddr ~= playerAddr then return nil end
+    if actor:GetAddress() ~= cachedPlayerPawn:GetAddress() then return nil end
 
     return cachedPlayerPawn
+end
+
+--- Query buff component for active buff using HasBuff?
+--- @param player AAbiotic_PlayerCharacter_C The player character
+--- @param buffName string The buff row name (e.g., "Debuff_QuakeDisruption")
+--- @return boolean Whether the buff is active
+local function HasActiveBuff(player, buffName)
+    local buffComponent = player.BuffDebuffComponent
+    if not buffComponent:IsValid() then return false end
+
+    local outParams = {}
+    local ok = pcall(function()
+        buffComponent['HasBuff?'](
+            buffComponent,
+            FName(buffName),  -- BuffID
+            {},               -- BuffRow (empty/default)
+            false,            -- MustBeOnSameLimb
+            0,                -- Limb (any)
+            1,                -- CountRequired
+            outParams,        -- FoundBuff (OUT)
+            {}                -- OnLimbs (OUT)
+        )
+    end)
+
+    return ok and outParams.FoundBuff == true
 end
 
 -- ============================================================
@@ -85,113 +103,39 @@ end
 -- ============================================================
 
 function Module.RegisterHooks()
-    return HookUtil.Register({
-        {
-            path = "/Game/Blueprints/Characters/Abiotic_CharacterBuffComponent.Abiotic_CharacterBuffComponent_C:BuffReceived",
-            callback = Module.OnBuffReceived
-        },
-        {
-            path = "/Game/Blueprints/Characters/Abiotic_CharacterBuffComponent.Abiotic_CharacterBuffComponent_C:BuffRemoved",
-            callback = Module.OnBuffRemoved
-        },
-        {
-            path = "/Game/Blueprints/Characters/Abiotic_PlayerCharacter.Abiotic_PlayerCharacter_C:ToggleFlickering",
-            callback = Module.OnToggleFlickering
-        },
-    }, Log)
+    return HookUtil.Register(
+        "/Game/Blueprints/Characters/Abiotic_PlayerCharacter.Abiotic_PlayerCharacter_C:ToggleFlickering",
+        Module.OnToggleFlickering,
+        Log
+    )
 end
 
 -- ============================================================
 -- HOOK CALLBACKS
 -- ============================================================
 
-function Module.OnBuffReceived(buffComponent, BuffRowHandleParam)
-    local okBuff, buffHandle = pcall(function() return BuffRowHandleParam:get() end)
-    if not okBuff or not buffHandle then return end
-
-    local okRowName, rowName = pcall(function() return buffHandle.RowName:ToString() end)
-    if not okRowName then return end
-
-    if rowName == "Debuff_Disruption" then
-        local owner = buffComponent:GetOwner()
-        local cachedPlayer = GetLocalPlayer(owner)
-        if not cachedPlayer then return end
-
-        hasReaperDebuff = true
-        Log.Debug("Reaper disruption detected - allowing flicker")
-    end
-
-    if rowName == "Debuff_QuakeDisruption" then
-        local owner = buffComponent:GetOwner()
-        local cachedPlayer = GetLocalPlayer(owner)
-        if not cachedPlayer then return end
-
-        hasAmbientDebuff = true
-
-        if not hasReaperDebuff then
-            Log.Debug("Ambient earthquake - stopping timeline")
-            local timeline = cachedPlayer.FlashlightFlickerTimeline
-            if timeline and timeline:IsValid() then
-                timeline:Stop()
-            end
-            cachedPlayer.Light_FlickerAlpha = 1.0
-        else
-            Log.Debug("Reaper active - not stopping timeline")
-        end
-    end
-end
-
-function Module.OnBuffRemoved(buffComponent, BuffRowHandleParam)
-    local okBuff, buffHandle = pcall(function() return BuffRowHandleParam:get() end)
-    if not okBuff or not buffHandle then return end
-
-    local okRowName, rowName = pcall(function() return buffHandle.RowName:ToString() end)
-    if not okRowName then return end
-
-    if rowName == "Debuff_Disruption" then
-        local owner = buffComponent:GetOwner()
-        local cachedPlayer = GetLocalPlayer(owner)
-        if not cachedPlayer then return end
-
-        hasReaperDebuff = false
-        Log.Debug("Reaper disruption removed")
-    end
-
-    if rowName == "Debuff_QuakeDisruption" then
-        local owner = buffComponent:GetOwner()
-        local cachedPlayer = GetLocalPlayer(owner)
-        if not cachedPlayer then return end
-
-        hasAmbientDebuff = false
-        Log.Debug("Ambient earthquake debuff removed")
-    end
-end
-
 function Module.OnToggleFlickering(player, StartParam)
-    local okStart, start = pcall(function() return StartParam:get() end)
-    if not okStart then return end
-
+    local start = StartParam:get()
     if not start then return end
 
-    local cachedPlayer = GetLocalPlayer(player)
-    if not cachedPlayer then return end
+    local localPlayer = GetLocalPlayer(player)
+    if not localPlayer then return end
 
-    if hasReaperDebuff then
-        Log.Debug("Allowed flicker (reaper warning)")
+    -- Reaper debuff takes priority - allow flicker as warning
+    if HasActiveBuff(localPlayer, "Debuff_Disruption") then
+        Log.Debug("Reaper nearby - allowing flicker")
         return
     end
 
-    if hasAmbientDebuff then
-        Log.Debug("Blocked ambient earthquake flicker - stopping timeline")
-        local timeline = cachedPlayer.FlashlightFlickerTimeline
-        if timeline and timeline:IsValid() then
+    -- Ambient earthquake only - block the flicker
+    if HasActiveBuff(localPlayer, "Debuff_QuakeDisruption") then
+        Log.Debug("Ambient earthquake - blocking flicker")
+        local timeline = localPlayer.FlashlightFlickerTimeline
+        if timeline:IsValid() then
             timeline:Stop()
         end
-        cachedPlayer.Light_FlickerAlpha = 1.0
-        return
+        localPlayer.Light_FlickerAlpha = 1.0
     end
-
-    Log.Debug("Allowed flicker (other threat)")
 end
 
 return Module
