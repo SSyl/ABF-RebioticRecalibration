@@ -24,6 +24,7 @@ Lifecycle Detection (single hook):
 local LogUtil = require("utils/LogUtil")
 local ConfigUtil = require("utils/ConfigUtil")
 local HookUtil = require("utils/HookUtil")
+local PlayerUtil = require("utils/PlayerUtil")
 local UEHelpers = require("UEHelpers")
 
 -- ============================================================
@@ -199,6 +200,7 @@ local function OnMainMenuDetected(character)
     if gameplayFired then
         HookUtil.ResetWarmup()
         RunModuleCleanup("Gameplay")
+        PlayerUtil.Reset()
         gameplayFired = false
     end
 

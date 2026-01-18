@@ -20,7 +20,7 @@ PERFORMANCE: Per-frame hook with visibility early-exit and change detection cach
 
 local HookUtil = require("utils/HookUtil")
 local WidgetUtil = require("utils/WidgetUtil")
-local UEHelpers = require("UEHelpers")
+local PlayerUtil = require("utils/PlayerUtil")
 
 -- ============================================================
 -- MODULE METADATA
@@ -55,7 +55,6 @@ local inventoryTextWidget = CreateInvalidObject()
 local separatorWidget = CreateInvalidObject()
 
 -- Cached references for OnRep_CurrentInventory hook
-local cachedPlayerPawn = CreateInvalidObject()
 local cachedWidget = CreateInvalidObject()
 local cachedWeapon = CreateInvalidObject()
 
@@ -82,7 +81,6 @@ function Module.Init(config, log)
 end
 
 function Module.GameplayCleanup()
-    cachedPlayerPawn = CreateInvalidObject()
     cachedWidget = CreateInvalidObject()
     cachedWeapon = CreateInvalidObject()
     inventoryTextWidget = CreateInvalidObject()
@@ -432,12 +430,10 @@ function Module.OnUpdateAmmo(widget)
         return
     end
 
-    if not cachedPlayerPawn:IsValid() then
-        cachedPlayerPawn = UEHelpers.GetPlayer()
-        if not cachedPlayerPawn:IsValid() then return end
-    end
+    local player = PlayerUtil.Get()
+    if not player then return end
 
-    local weapon = cachedPlayerPawn.ItemInHand_BP
+    local weapon = player.ItemInHand_BP
 
     if not weapon:IsValid() then
         cachedMaxCapacity = nil
@@ -470,17 +466,8 @@ function Module.OnRepCurrentInventory(inventory)
         return
     end
 
-    if not cachedPlayerPawn:IsValid() then
-        cachedPlayerPawn = UEHelpers.GetPlayer()
-        if not cachedPlayerPawn:IsValid() then return end
-    end
-
-    -- Filter: only process local player's inventory (compare addresses)
-    local ownerAddr = owner:GetAddress()
-    local playerAddr = cachedPlayerPawn:GetAddress()
-    if ownerAddr ~= playerAddr then
-        return
-    end
+    -- Filter: only process local player's inventory
+    if not PlayerUtil.IsLocal(owner) then return end
 
     OnInventoryChanged()
 end

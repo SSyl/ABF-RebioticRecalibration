@@ -15,7 +15,7 @@ PERFORMANCE: Fires on jump/landing, not per-frame
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local UEHelpers = require("UEHelpers")
+local PlayerUtil = require("utils/PlayerUtil")
 
 -- ============================================================
 -- MODULE METADATA
@@ -43,25 +43,7 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local cachedPlayerPawn = nil
 local autoCrouched = false
-
--- ============================================================
--- HELPER FUNCTIONS
--- ============================================================
-
-local function GetLocalPlayer(character)
-    if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then
-        cachedPlayerPawn = UEHelpers.GetPlayer()
-    end
-
-    if not character:IsValid() then return nil end
-    if not cachedPlayerPawn or not cachedPlayerPawn:IsValid() then return nil end
-
-    if character:GetAddress() ~= cachedPlayerPawn:GetAddress() then return nil end
-
-    return cachedPlayerPawn
-end
 
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
@@ -78,7 +60,6 @@ end
 
 function Module.GameplayCleanup()
     autoCrouched = false
-    cachedPlayerPawn = nil
 end
 
 -- ============================================================
@@ -108,7 +89,7 @@ end
 -- ============================================================
 
 function Module.OnJump(character)
-    local player = GetLocalPlayer(character)
+    local player = PlayerUtil.GetIfLocal(character)
     if not player then return end
 
     autoCrouched = false
@@ -167,7 +148,7 @@ function Module.OnJump(character)
 end
 
 function Module.OnTryApplyFallDamage(character)
-    local player = GetLocalPlayer(character)
+    local player = PlayerUtil.GetIfLocal(character)
     if not player then return end
 
     if Config.DisableAutoUncrouch then

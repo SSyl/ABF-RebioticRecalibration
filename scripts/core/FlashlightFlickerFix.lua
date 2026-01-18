@@ -14,7 +14,7 @@ Queries buff state via HasBuff? on BuffDebuffComponent (works on host AND client
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local UEHelpers = require("UEHelpers")
+local PlayerUtil = require("utils/PlayerUtil")
 
 -- ============================================================
 -- MODULE METADATA
@@ -38,8 +38,6 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local cachedPlayerPawn = CreateInvalidObject()
-
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
 -- ============================================================
@@ -52,26 +50,9 @@ function Module.Init(config, log)
     Log.Info("FlashlightFlickerFix - %s", status)
 end
 
-function Module.GameplayCleanup()
-    cachedPlayerPawn = CreateInvalidObject()
-end
-
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
-
-local function GetLocalPlayer(actor)
-    if not cachedPlayerPawn:IsValid() then
-        cachedPlayerPawn = UEHelpers.GetPlayer()
-    end
-
-    if not actor:IsValid() then return nil end
-    if not cachedPlayerPawn:IsValid() then return nil end
-
-    if actor:GetAddress() ~= cachedPlayerPawn:GetAddress() then return nil end
-
-    return cachedPlayerPawn
-end
 
 --- Query buff component for active buff using HasBuff?
 --- @param player AAbiotic_PlayerCharacter_C The player character
@@ -118,7 +99,7 @@ function Module.OnToggleFlickering(player, StartParam)
     local start = StartParam:get()
     if not start then return end
 
-    local localPlayer = GetLocalPlayer(player)
+    local localPlayer = PlayerUtil.GetIfLocal(player)
     if not localPlayer then return end
 
     -- Reaper debuff takes priority - allow flicker as warning

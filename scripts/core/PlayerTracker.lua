@@ -12,7 +12,7 @@ PERFORMANCE: Fires on player spawn, address-cached to prevent re-processing
 ]]
 
 local HookUtil = require("utils/HookUtil")
-local UEHelpers = require("UEHelpers")
+local PlayerUtil = require("utils/PlayerUtil")
 
 -- ============================================================
 -- MODULE METADATA
@@ -36,7 +36,6 @@ local Module = {
 local Config = nil
 local Log = nil
 
-local cachedLocalPlayer = nil
 local cachedGameStateClass = nil
 
 -- E_OutlineMode enum value for FriendFinder
@@ -45,22 +44,6 @@ local OUTLINE_MODE_FRIEND_FINDER = 3
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
-
-local function GetLocalPlayer()
-    if not cachedLocalPlayer or not cachedLocalPlayer:IsValid() then
-        cachedLocalPlayer = UEHelpers.GetPlayer()
-    end
-    return cachedLocalPlayer
-end
-
-local function IsLocalPlayer(player)
-    local localPlayer = GetLocalPlayer()
-    if not localPlayer or not localPlayer:IsValid() then
-        return false
-    end
-
-    return player:GetAddress() == localPlayer:GetAddress()
-end
 
 local function GetGameStateClass()
     if not cachedGameStateClass or not cachedGameStateClass:IsValid() then
@@ -84,7 +67,7 @@ local function ApplyOutline(player)
 
     if not IsInGameplay(player) then return false end
 
-    if IsLocalPlayer(player) then return false end
+    if PlayerUtil.IsLocal(player) then return false end
 
     local outline = player.OutlineComponent
     if not outline or not outline:IsValid() then
@@ -130,9 +113,7 @@ function Module.Init(config, log)
 end
 
 function Module.GameplayCleanup()
-    cachedLocalPlayer = nil
     cachedGameStateClass = nil
-    Log.Debug("PlayerTracker state cleaned up")
 end
 
 -- ============================================================
