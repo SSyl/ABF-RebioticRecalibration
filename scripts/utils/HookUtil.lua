@@ -30,6 +30,9 @@ local LogUtil = require("utils/LogUtil")
 local HookUtil = {}
 local Log = LogUtil.CreateLogger("HookUtil", true)  -- TODO: wire up to config debug flag
 
+-- Tracks registered hook paths to prevent duplicate registration
+local registeredPaths = {}
+
 -- ============================================================
 -- WARMUP STATE (crash prevention for per-frame hooks)
 -- ============================================================
@@ -64,6 +67,11 @@ end
 --- @param options table|nil Optional settings: { warmup = bool, runPostWarmup = bool }
 --- @return boolean True if registration succeeded
 local function RegisterSingle(blueprintPath, callback, log, options)
+    -- Guard against duplicate registration
+    if registeredPaths[blueprintPath] then
+        return true
+    end
+
     local needsWarmup = options and options.warmup
     local runPostWarmup = options and options.runPostWarmup
 
@@ -113,6 +121,7 @@ local function RegisterSingle(blueprintPath, callback, log, options)
         return false
     end
 
+    registeredPaths[blueprintPath] = true
     return true
 end
 
@@ -173,6 +182,11 @@ end
 ---   POST-HOOK only: RegisterNative("/Script/Engine.Character:Jump", nil, OnJump, Log)
 ---   Both hooks:     RegisterNative("/Script/Engine.Character:Jump", OnJumpPre, OnJumpPost, Log)
 function HookUtil.RegisterNative(path, preCallback, postCallback, log)
+    -- Guard against duplicate registration
+    if registeredPaths[path] then
+        return true
+    end
+
     if not preCallback and not postCallback then
         log.Error("RegisterNative '%s': At least one of preCallback or postCallback must be provided", path)
         return false
@@ -207,6 +221,7 @@ function HookUtil.RegisterNative(path, preCallback, postCallback, log)
         return false
     end
 
+    registeredPaths[path] = true
     return true
 end
 
