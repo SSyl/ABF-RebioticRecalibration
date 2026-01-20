@@ -67,6 +67,10 @@ return {
         -- Allows you to toggle vehicle lights on/off using F key on driver's seat
         -- Works on SUV, Forklift, and Security Cart
         Enabled = true, -- [default = true]
+
+        -- Volume for the light switch sound (0-100, 0 = disabled)
+        -- Note: This is independent of in-game volume settings
+        SoundVolume = 75, -- [default = 75]
     },
 
     -- ============================================================

@@ -28,6 +28,7 @@ local Module = {
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
+        { path = "SoundVolume", type = "number", default = 75, min = 0, max = 100 },
     },
 
     hookPoint = "Gameplay",
@@ -50,8 +51,12 @@ local CanInteractCache = {}
 local ReplicationEnabledCache = {}
 local PromptTextCache = { lastVehicleAddr = nil, isSupported = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
-local LightSwitchSound = nil
-local GameplayStaticsCache = nil
+local LightSwitchSound = CreateInvalidObject()
+local LightSwitchAttenuation = CreateInvalidObject()
+local GameplayStaticsCache = CreateInvalidObject()
+
+local SOUND_ASSET = "SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'"
+local ATTENUATION_ASSET = "SoundAttenuation'/Game/Audio/Att_VerySmallSound.Att_VerySmallSound'"
 
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
@@ -73,8 +78,9 @@ function Module.GameplayCleanup()
     PromptTextCache.isSupported = false
     TextBlockCache.widgetAddr = nil
     TextBlockCache.textBlock = nil
-    LightSwitchSound = nil
-    GameplayStaticsCache = nil
+    LightSwitchSound = CreateInvalidObject()
+    LightSwitchAttenuation = CreateInvalidObject()
+    GameplayStaticsCache = CreateInvalidObject()
 end
 
 -- ============================================================
@@ -105,13 +111,30 @@ function Module.RegisterHooks()
         Log
     )
 
-    ExecuteInGameThread(function()
-        local sound, wasFound, didLoad = LoadAsset("SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'")
-        if wasFound and didLoad and sound:IsValid() then
-            LightSwitchSound = sound
-            Log.Debug("Pre-loaded light switch sound")
-        end
-    end)
+    -- LocalFX hook - fires on the client that initiates the interaction (for sound)
+    local localFXSuccess = HookUtil.Register(
+        "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:InteractWith_B_LocalFX",
+        function(vehicle, HoldParam)
+            Module.OnVehicleInteractB_LocalFX(vehicle)
+        end,
+        Log
+    )
+
+    if Config.SoundVolume > 0 then
+        ExecuteInGameThread(function()
+            local sound, wasFound, didLoad = LoadAsset(SOUND_ASSET)
+            if wasFound and didLoad and sound:IsValid() then
+                LightSwitchSound = sound
+                Log.Debug("Pre-loaded light switch sound")
+            end
+
+            local att, attFound, attLoaded = LoadAsset(ATTENUATION_ASSET)
+            if attFound and attLoaded and att:IsValid() then
+                LightSwitchAttenuation = att
+                Log.Debug("Pre-loaded light switch attenuation")
+            end
+        end)
+    end
 
     return canInteractSuccess and promptTextSuccess and interactSuccess
 end
@@ -194,9 +217,7 @@ end
 
 function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
     local className = vehicle:GetClass():GetFName():ToString()
-    if not SUPPORTED_VEHICLES[className] then
-        return
-    end
+    if not SUPPORTED_VEHICLES[className] then return end
 
     local headlights = vehicle.Headlights
     if not headlights:IsValid() then
@@ -216,42 +237,47 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
 
     headlights:SetVisibility(newState, false)
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
+end
 
-    if LightSwitchSound and LightSwitchSound:IsValid() then
-        local location = vehicle:K2_GetActorLocation()
-        if not location then
-            Log.Debug("Failed to get vehicle location")
-            return
-        end
+function Module.OnVehicleInteractB_LocalFX(vehicle)
+    local className = vehicle:GetClass():GetFName():ToString()
+    if not SUPPORTED_VEHICLES[className] then return end
 
-        if not GameplayStaticsCache or not GameplayStaticsCache:IsValid() then
-            GameplayStaticsCache = UEHelpers.GetGameplayStatics()
-        end
-        if not GameplayStaticsCache or not GameplayStaticsCache:IsValid() then
-            Log.Debug("GameplayStatics not valid")
-            return
-        end
+    local headlights = vehicle.Headlights
+    if not headlights:IsValid() then return end
 
-        local okSound, errSound = pcall(function()
-            GameplayStaticsCache:PlaySoundAtLocation(
-                vehicle,           -- WorldContextObject
-                LightSwitchSound,  -- Sound
-                location,          -- Location
-                {},                -- Rotation (default)
-                1.0,               -- VolumeMultiplier
-                1.0,               -- PitchMultiplier
-                0.0,               -- StartTime
-                nil,               -- AttenuationSettings
-                nil,               -- ConcurrencySettings
-                nil,               -- OwningActor
-                nil                -- InitialParams
-            )
-        end)
-        if not okSound then
-            Log.Debug("PlaySoundAtLocation failed: %s", tostring(errSound))
-        end
-    else
-        Log.Debug("LightSwitchSound not valid")
+    -- Toggle cosmetic FX locally (headlight textures/bloom)
+    local newState = not headlights:IsVisible()
+    vehicle:ToggleHeadlightsFX(newState)
+
+    -- Play light switch sound
+    if Config.SoundVolume == 0 then return end
+    if not LightSwitchSound:IsValid() then return end
+
+    if not GameplayStaticsCache:IsValid() then GameplayStaticsCache = UEHelpers.GetGameplayStatics() end
+    if not GameplayStaticsCache:IsValid() then return end
+
+    local volumeMultiplier = Config.SoundVolume / 100
+
+    local okSound, errSound = pcall(function()
+        GameplayStaticsCache:SpawnSoundAttached(
+            LightSwitchSound,       -- Sound
+            headlights,             -- AttachToComponent
+            FName("None"),          -- AttachPointName (no socket)
+            {X=0, Y=0, Z=0},        -- Location (relative)
+            {Pitch=0, Yaw=0, Roll=0}, -- Rotation (relative)
+            0,                      -- LocationType (KeepRelativeOffset)
+            true,                   -- bStopWhenAttachedToDestroyed
+            volumeMultiplier,       -- VolumeMultiplier
+            1.0,                    -- PitchMultiplier
+            0.0,                    -- StartTime
+            LightSwitchAttenuation, -- AttenuationSettings
+            nil,                    -- ConcurrencySettings
+            true                    -- bAutoDestroy
+        )
+    end)
+    if not okSound then
+        Log.Debug("OnVehicleInteractB_LocalFX: SpawnSoundAttached failed: %s", tostring(errSound))
     end
 end
 
