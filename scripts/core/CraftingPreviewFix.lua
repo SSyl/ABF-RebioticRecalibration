@@ -130,7 +130,7 @@ function Module.OnSet3DPreviewMesh(itemDisplay)
 
     local pointLight2 = itemDisplay.PointLight2
     if pointLight2:IsValid() then
-        pointLight2:SetIntensity(lightIntensity / 2)
+        pointLight2:SetIntensity(lightIntensity)
     end
 end
 
