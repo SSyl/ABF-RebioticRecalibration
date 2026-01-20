@@ -25,6 +25,7 @@ local Module = {
     schema = {
         { path = "Enabled", type = "boolean", default = true },
         { path = "IconColor.Enabled", type = "boolean", default = false },
+        { path = "IconColor.Seed", type = "number", default = 0 },
         { path = "Text.Enabled", type = "boolean", default = true },
         { path = "Text.Scale", type = "number", default = 0.8, min = 0.1, max = 2.0 },
         { path = "Text.Position", type = "string", default = "TOP" },
@@ -57,6 +58,7 @@ local colorCache = {}
 -- Derived config values (computed once in Init)
 local TextSettings = nil
 local UseCustomTextColor = false
+local ColorSeed = 0
 
 -- ============================================================
 -- CONSTANTS
@@ -125,12 +127,14 @@ local function StringToColor(text)
         return nil
     end
 
-    -- Check cache first
-    if colorCache[text] then
-        return colorCache[text]
+    -- Check cache first (include seed in key so seed changes produce new colors)
+    local cacheKey = text .. "|" .. ColorSeed
+    if colorCache[cacheKey] then
+        return colorCache[cacheKey]
     end
 
-    local hash = 5381
+    -- Incorporate seed into initial hash value
+    local hash = 5381 + ColorSeed
     for i = 1, #text do
         hash = ((hash << 5) + hash) + string.byte(text, i)
     end
@@ -142,7 +146,7 @@ local function StringToColor(text)
     local r, g, b = HSLtoRGB(hue, saturation, lightness)
 
     local color = { R = r, G = g, B = b, A = 1.0 }
-    colorCache[text] = color
+    colorCache[cacheKey] = color
     return color
 end
 
@@ -349,9 +353,14 @@ function Module.Init(config, log)
     -- Compute derived config values
     TextSettings = ComputeTextSettings(Config)
     UseCustomTextColor = not IsDefaultTextColor(Config.Text.Color)
+    ColorSeed = Config.IconColor.Seed or 0
 
     local colorStatus = UseCustomTextColor and "custom" or "default"
     Log.Debug("Text color: %s", colorStatus)
+
+    if ColorSeed ~= 0 then
+        Log.Debug("Color seed: %d", ColorSeed)
+    end
 
     local status = Config.Enabled and "Enabled" or "Disabled"
     Log.Info("TeleporterTags - %s", status)

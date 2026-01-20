@@ -223,6 +223,10 @@ return {
             -- Tints teleporter icon with a unique color based on bench name
             -- Each destination gets a consistent, automatically-generated color
             Enabled = false, -- [default = false]
+
+            -- Change this number to randomize the colors from default
+            -- For example, changing it from 0 to 12 will produce completely different colors
+            Seed = 0, -- [default = 0]
         },
     },
 
