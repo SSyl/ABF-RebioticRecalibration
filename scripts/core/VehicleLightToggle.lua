@@ -52,11 +52,9 @@ local ReplicationEnabledCache = {}
 local PromptTextCache = { lastVehicleAddr = nil, isSupported = false }
 local TextBlockCache = { widgetAddr = nil, textBlock = nil }
 local LightSwitchSound = CreateInvalidObject()
-local LightSwitchAttenuation = CreateInvalidObject()
 local GameplayStaticsCache = CreateInvalidObject()
 
 local SOUND_ASSET = "SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'"
-local ATTENUATION_ASSET = "SoundAttenuation'/Game/Audio/Att_VerySmallSound.Att_VerySmallSound'"
 
 -- ============================================================
 -- LIFECYCLE FUNCTIONS
@@ -79,7 +77,6 @@ function Module.GameplayCleanup()
     TextBlockCache.widgetAddr = nil
     TextBlockCache.textBlock = nil
     LightSwitchSound = CreateInvalidObject()
-    LightSwitchAttenuation = CreateInvalidObject()
     GameplayStaticsCache = CreateInvalidObject()
 end
 
@@ -126,12 +123,6 @@ function Module.RegisterHooks()
             if wasFound and didLoad and sound:IsValid() then
                 LightSwitchSound = sound
                 Log.Debug("Pre-loaded light switch sound")
-            end
-
-            local att, attFound, attLoaded = LoadAsset(ATTENUATION_ASSET)
-            if attFound and attLoaded and att:IsValid() then
-                LightSwitchAttenuation = att
-                Log.Debug("Pre-loaded light switch attenuation")
             end
         end)
     end
@@ -271,7 +262,7 @@ function Module.OnVehicleInteractB_LocalFX(vehicle)
             volumeMultiplier,       -- VolumeMultiplier
             1.0,                    -- PitchMultiplier
             0.0,                    -- StartTime
-            LightSwitchAttenuation, -- AttenuationSettings
+            nil,                    -- AttenuationSettings
             nil,                    -- ConcurrencySettings
             true                    -- bAutoDestroy
         )
