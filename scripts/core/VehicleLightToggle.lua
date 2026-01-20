@@ -54,6 +54,9 @@ local TextBlockCache = { widgetAddr = nil, textBlock = nil }
 local LightSwitchSound = CreateInvalidObject()
 local GameplayStaticsCache = CreateInvalidObject()
 
+-- State tracking for headlight visibility (to detect replicated changes)
+local HeadlightStateCache = {}  -- vehicleAddr -> lastKnownVisibility
+
 local SOUND_ASSET = "SoundWave'/Game/Audio/Environment/Buttons/s_lightswitch_02.s_lightswitch_02'"
 
 -- ============================================================
@@ -72,6 +75,7 @@ function Module.GameplayCleanup()
     Log.Debug("Cleaning up VehicleLightToggle state")
     CanInteractCache = {}
     ReplicationEnabledCache = {}
+    HeadlightStateCache = {}
     PromptTextCache.lastVehicleAddr = nil
     PromptTextCache.isSupported = false
     TextBlockCache.widgetAddr = nil
@@ -135,10 +139,26 @@ end
 -- ============================================================
 
 function Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
+    if not vehicle:IsValid() then return end
+
     local className = vehicle:GetClass():GetFName():ToString()
     if not SUPPORTED_VEHICLES[className] then return end
 
     local vehicleAddr = vehicle:GetAddress()
+
+    -- Sync FX state with actual headlight visibility (catches replicated changes)
+    local headlights = vehicle.Headlights
+    if headlights:IsValid() and vehicleAddr then
+        local isVisible = headlights:IsVisible()
+        local lastState = HeadlightStateCache[vehicleAddr]
+
+        if lastState ~= isVisible then
+            HeadlightStateCache[vehicleAddr] = isVisible
+            Log.Debug("OnCanInteractB: Syncing FX state to %s", tostring(isVisible))
+            vehicle:ToggleHeadlightsFX(isVisible)
+        end
+    end
+
     if vehicleAddr and CanInteractCache[vehicleAddr] then
         SuccessParam:set(true)
         return
@@ -153,6 +173,8 @@ function Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
 end
 
 function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
+    if not widget:IsValid() then return end
+
     local okHitActor, hitActor = pcall(function() return HitActorParam:get() end)
     if not okHitActor or not hitActor:IsValid() then
         PromptTextCache.lastVehicleAddr = nil
@@ -207,6 +229,8 @@ function Module.OnUpdateInteractionPrompts(widget, HitActorParam)
 end
 
 function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, ComponentUsedParam)
+    if not vehicle:IsValid() then return end
+
     local className = vehicle:GetClass():GetFName():ToString()
     if not SUPPORTED_VEHICLES[className] then return end
 
@@ -227,10 +251,13 @@ function Module.OnVehicleInteractB(vehicle, InteractingCharacterParam, Component
     local newState = not isVisible
 
     headlights:SetVisibility(newState, false)
+
     Log.Info("Vehicle lights: %s", newState and "ON" or "OFF")
 end
 
 function Module.OnVehicleInteractB_LocalFX(vehicle)
+    if not vehicle:IsValid() then return end
+
     local className = vehicle:GetClass():GetFName():ToString()
     if not SUPPORTED_VEHICLES[className] then return end
 
