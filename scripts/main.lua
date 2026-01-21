@@ -1,8 +1,8 @@
-print("=== [Rebiotic Fixer] MOD LOADING ===\n")
+print("=== [Rebiotic Recalibration] MOD LOADING ===\n")
 
 --[[
 ============================================================================
-Rebiotic Fixer - Main Entry Point
+Rebiotic Recalibration - Main Entry Point
 ============================================================================
 
 Module-driven architecture:
@@ -86,7 +86,7 @@ for _, path in ipairs(MODULE_PATHS) do
             default = false,
         })
     else
-        print(string.format("[Rebiotic Fixer] ERROR: Failed to load module '%s': %s", path, tostring(mod)))
+        print(string.format("[Rebiotic Recalibration] ERROR: Failed to load module '%s': %s", path, tostring(mod)))
     end
 end
 
@@ -95,7 +95,7 @@ end
 -- ============================================================
 
 local UserConfig = require("../config")
-local configLogger = LogUtil.CreateLogger("Rebiotic Fixer (Config)", false)
+local configLogger = LogUtil.CreateLogger("Rebiotic Recalibration (Config)", false)
 local Config = ConfigUtil.ValidateFromSchema(UserConfig, SCHEMA, configLogger)
 
 -- Derived fields (computed from validated config)
@@ -109,14 +109,14 @@ end
 -- ============================================================
 
 local Log = {
-    General = LogUtil.CreateLogger("Rebiotic Fixer", Config.DebugFlags.Misc),
+    General = LogUtil.CreateLogger("Rebiotic Recalibration", Config.DebugFlags.Misc),
 }
 
 for _, mod in ipairs(Modules) do
     local debugKey = mod.debugKey or mod.configKey
     local debugEnabled = Config.DebugFlags[debugKey] or false
 
-    mod._log = LogUtil.CreateLogger("Rebiotic Fixer|" .. mod.name, debugEnabled)
+    mod._log = LogUtil.CreateLogger("Rebiotic Recalibration|" .. mod.name, debugEnabled)
 
     mod._config = Config[mod.configKey]
 
