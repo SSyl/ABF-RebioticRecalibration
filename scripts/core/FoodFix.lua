@@ -26,10 +26,10 @@ local Module = {
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
-        { path = "FixExistingFoodOnLoad", type = "boolean", default = false },
+        { path = "FixExistingFoodOnLoad", type = "boolean", default = true },
     },
 
-    hookPoint = "Gameplay",
+    hookPoint = "MainMenu",
 }
 
 -- ============================================================

@@ -325,7 +325,7 @@ return {
 
         -- When enabled, retroactively fixes existing placed food when loading a save
         -- If false, only newly placed food is fixed
-        FixExistingFoodOnLoad = true, -- [default = false]
+        FixExistingFoodOnLoad = true, -- [default = true]
     },
 
     -- ============================================================
