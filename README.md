@@ -79,14 +79,14 @@ Changes take effect on game restart or UE4SS hot-reload.
 
 ## Multiplayer
 
-All features work client-side in multiplayer with these exceptions:
+All features work client-side in multiplayer. The following features require the host to have the mod installed and **only work in peer-to-peer (player-hosted) games, not dedicated servers**:
 
-- **Food Display Fix**: If the host has it enabled, the fix applies to all players. If only a client has it enabled, the fix only applies to them.
-- **Distribution Pad Range**: Host only (server-authoritative).
-- **Beds Keep Spawn**: Host only (server-authoritative). Clients can see the "just sleep" prompt, but the interaction won't work unless the host has the mod.
-- **Vehicle Light Toggle**: Host only (server-authoritative).
+- **Food Display Fix**: Host installation applies the fix for all players.
+- **Distribution Pad Range**
+- **Beds Keep Spawn**
+- **Vehicle Light Toggle**
 
-Not tested on dedicated servers, but these should be the only features requiring server-side installation.
+Dedicated server support is being explored, but Blueprint hooks don't currently fire on dedicated servers.
 
 ## Troubleshooting
 
