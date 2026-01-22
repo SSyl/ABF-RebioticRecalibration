@@ -429,7 +429,7 @@ end
 
 function ConfigMigration.EnsureConfig(modRoot)
     local configPath = modRoot .. "/config.lua"
-    local defaultsPath = modRoot .. "/scripts/utils/config.defaults.lua"
+    local defaultsPath = modRoot .. "/scripts/config.defaults.lua"
 
     -- Check if defaults exist
     if not FileExists(defaultsPath) then
