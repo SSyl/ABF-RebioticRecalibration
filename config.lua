@@ -300,12 +300,18 @@ return {
 
     -- ============================================================
     -- Hide Hotbar Hotkeys
-    -- Removes the on-screen hotbar key hints (1,2,3,4,5,6,7,8,9,0)
+    -- Removes or customizes the on-screen hotbar key hints
     -- ============================================================
     HideHotbarHotkeys = {
-        -- Hide the numeric hotkey indicators on the hotbar
+        -- Enable/disable this feature
         -- Disabled by default: some players rely on the visual key hints
         Enabled = false, -- [default = false]
+
+        -- Mode options:
+        --   "Hide" - Completely hide the hotkey indicators
+        --   "ShowBindings" - Display your actual keybindings (e.g., if you rebound 1 to Z, shows "Z")
+        --                    Note: Restart game after changing keybindings for changes to appear
+        Mode = "Hide", -- [default = "Hide"]
     },
 
     -- ############################################################
