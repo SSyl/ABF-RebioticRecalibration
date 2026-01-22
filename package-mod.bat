@@ -76,6 +76,15 @@ if exist "enabled.txt" (
     )
 )
 
+if exist "icon-list.txt" (
+    for %%A in ("icon-list.txt") do (
+        set /a TOTAL_SIZE+=%%~zA
+        set /a FILE_COUNT+=1
+        call :FormatSize %%~zA
+        echo   icon-list.txt - [%C_CYAN%!FORMATTED_SIZE!%C_RESET%]
+    )
+)
+
 REM Recursively find all .lua files in scripts folder
 for /R scripts %%F in (*.lua) do (
     set /a TOTAL_SIZE+=%%~zF
@@ -143,6 +152,10 @@ if exist "config.lua" (
 
 if exist "enabled.txt" (
     copy "enabled.txt" "%TEMP_DIR%\%MOD_PATH%\enabled.txt" >nul
+)
+
+if exist "icon-list.txt" (
+    copy "icon-list.txt" "%TEMP_DIR%\%MOD_PATH%\icon-list.txt" >nul
 )
 
 REM Recursively copy all .lua files preserving folder structure
