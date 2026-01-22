@@ -87,9 +87,12 @@ local function RegisterSingle(blueprintPath, callback, log, options)
                         -- Fire cached calls after warmup
                         for _, cached in ipairs(warmupCallCache) do
                             ExecuteInGameThread(function()
-                                if cached.obj:IsValid() then
-                                    cached.callback(cached.obj, table.unpack(cached.args))
-                                end
+                                -- pcall guards against Lua state invalidation during hot-reload
+                                pcall(function()
+                                    if cached.obj:IsValid() then
+                                        cached.callback(cached.obj, table.unpack(cached.args))
+                                    end
+                                end)
                             end)
                         end
                         warmupCallCache = {}
@@ -411,9 +414,12 @@ function HookUtil.RegisterABFInventorySlotUpdateUI(callback, log)
                                 warmupComplete = true
                                 for _, cached in ipairs(warmupCallCache) do
                                     ExecuteInGameThread(function()
-                                        if cached.obj:IsValid() then
-                                            cached.callback(cached.obj)
-                                        end
+                                        -- pcall guards against Lua state invalidation during hot-reload
+                                        pcall(function()
+                                            if cached.obj:IsValid() then
+                                                cached.callback(cached.obj)
+                                            end
+                                        end)
                                     end)
                                 end
                                 warmupCallCache = {}
