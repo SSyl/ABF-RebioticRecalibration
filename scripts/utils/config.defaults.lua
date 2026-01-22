@@ -1,4 +1,8 @@
 return {
+    -- Config version - DO NOT MODIFY
+    -- Used for automatic config migration when new options are added
+    ConfigVersion = 1,
+
     -- ############################################################
     -- GAMEPLAY QOL
     -- Features that enhance or modify gameplay mechanics

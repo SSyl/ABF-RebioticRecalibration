@@ -22,6 +22,7 @@ Lifecycle Detection (single hook):
 ]]
 
 local LogUtil = require("utils/LogUtil")
+local ConfigMigration = require("utils/ConfigMigration")
 local ConfigUtil = require("utils/ConfigUtil")
 local HookUtil = require("utils/HookUtil")
 local PlayerUtil = require("utils/PlayerUtil")
@@ -91,10 +92,34 @@ for _, path in ipairs(MODULE_PATHS) do
 end
 
 -- ============================================================
+-- CONFIG MIGRATION
+-- ============================================================
+
+-- Get mod root path (parent of scripts folder)
+local sourceInfo = debug.getinfo(1, "S").source
+local modRoot = sourceInfo:match("@(.+[\\/])[Ss]cripts[\\/]")
+if modRoot then
+    modRoot = modRoot:gsub("[\\/]$", "")  -- Remove trailing slash
+    local ok, msg = ConfigMigration.EnsureConfig(modRoot)
+    if msg then
+        print("[Rebiotic Recalibration] " .. msg)
+    end
+else
+    print("[Rebiotic Recalibration] WARNING: Could not determine mod root path, config migration skipped")
+end
+
+-- ============================================================
 -- CONFIG VALIDATION
 -- ============================================================
 
-local UserConfig = require("../config")
+-- Try to load config - fall back to empty table if missing/corrupted
+local loadOk, UserConfig = pcall(require, "../config")
+if not loadOk then
+    print("[Rebiotic Recalibration] WARNING: Could not load config.lua, using defaults")
+    UserConfig = {}
+end
+
+-- Schema validation fills missing fields with defaults
 local configLogger = LogUtil.CreateLogger("Rebiotic Recalibration (Config)", false)
 local Config = ConfigUtil.ValidateFromSchema(UserConfig, SCHEMA, configLogger)
 
