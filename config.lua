@@ -345,7 +345,7 @@ return {
             -- The vanilla preview is blurry because it renders at low resolution
             Enabled = true, -- [default = true]
 
-            -- Vanilla is 512. Higher = sharper but may impact performance. 1024 shouldn't cause any performance issues on anything but the lowest-end systems.
+            -- Vanilla is 512. Higher = sharper but may impact performance. 1024 shouldn't cause any performance issues.
             -- Options: 512, 1024, 2048, 4096, or 8192
             Resolution = 1024, -- [default = 1024]
         },

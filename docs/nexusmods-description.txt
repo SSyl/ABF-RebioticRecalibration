@@ -1,0 +1,124 @@
+[size=6][b][center]Rebiotic Recalibration[/center][/b][/size]
+A UE4SS Lua mod that bundles quality-of-life tweaks, visual enhancements, and bug fixes into a single configurable package. No more guessing which containers your distribution pad can reach, no more squinting at dark crafting previews, and no more cracked food displays ruining your kitchen aesthetic.
+
+Every feature can be toggled on or off. Enable what you want, disable what you don't. Disabled features have zero performance cost - they don't register hooks or run any logic.
+
+[size=3][b]Features[/b][/size]
+
+[b]Gameplay[/b]
+[list]
+[*][b]Distribution Pad Indicators[/b] - Shows an icon next to containers within range of a distribution pad. Customize icon, color, size, position - or use text instead
+[*][b]Distribution Pad Range[/b] - Increases distribution pad deposit range (off by default)
+[*][b]Vehicle Light Toggle[/b] - Adds interaction to toggle headlights on SUV, Forklift, and Security Cart
+[*][b]Flashlight Flicker Fix[/b] - Prevents flashlight flicker during earthquakes (flickers caused by enemies will still happen)
+[*][b]Beds Keep Spawn[/b] - Tap interact on beds to sleep without changing your respawn point
+[*][b]Player Tracker[/b] - Outline other players, like the Employee Locator trinket but without NPC tracking (off by default)
+[*][b]Auto Jump-Crouch[/b] - Automatically crouch mid-jump for extra height. Configurable delay, hold vs tap to crouch, auto-uncrouch on landing. Helpful for controller users (off by default)
+[/list]
+
+[b]Visual[/b]
+[list]
+[*][b]Ammo Counter[/b] - Color-coded ammo display showing loaded + inventory count. Customize warning thresholds and colors for good/low/empty states
+[*][b]Teleporter Tags[/b] - Text labels and/or color tinting on synced Personal Teleporter icons. Toggle text/color independently, multiple abbreviation modes, adjustable scale and position
+[*][b]Low Health Vignette[/b] - Red screen edge effect when health drops below threshold. Customize threshold, color, opacity, and toggle pulsing
+[*][b]Hide Hotbar Hotkeys[/b] - Removes numeric key indicators (1-0) from hotbar (off by default)
+[*][b]Skip LAN hosting delay[/b] - Removes the 3 second delay when trying to host a LAN game (off by default)
+[*][b]Custom Server Button[/b] - Configurable icon, color, and text that connects directly to a server of your choice (off by default)
+[/list]
+
+[b]Bug Fixes[/b]
+[list]
+[*][b]Food Display Fix[/b] - Removes damage cracks on placed food caused by inventory decay
+[*][b]Crafting Preview Fix[/b] - Brighter, sharper 3D item preview in crafting menu
+[*][b]Minigame Zone Fix[/b] - Success zones in bathroom/weightlifting minigames match actual hitbox
+[*][b]Corpse Gib Fix[/b] - Prevents gore VFX replay when loading or teleporting into areas with destroyed corpses
+[/list]
+All of these features can be toggled on or off and the vast majority of them have additional options. Don't like something about it or wish it could be customized? Chances are, there's a customization option for it. If there's not, leave a comment and it may be something I can add.
+
+[size=3][b]Requirements[/b][/size]
+
+[list]
+[*]UE4SS 3.0.1 or later. Available at [url=https://www.nexusmods.com/abioticfactor/mods/35]Nexus Mods[/url] or [url=https://github.com/UE4SS-RE/RE-UE4SS]GitHub[/url]
+[*]Abiotic Factor (tested on v1.2 Holiday Cryosphere Update)
+[/list]
+
+[size=3][b]Installation[/b][/size]
+
+[list=1]
+[*]Install UE4SS if you haven't already from [url=https://www.nexusmods.com/abioticfactor/mods/35]Nexus Mods[/url]
+[*]Download and extract to [code][...]Steam\steamapps\common\AbioticFactor\AbioticFactor\Binaries\Win64[/code]
+[*]Folder structure should be: [code]Mods\RebioticRecalibration\scripts\main.lua[/code]
+[/list]
+
+[b]Verify it works:[/b] On game launch, check UE4SS.log for [code][Rebiotic Recalibration] MOD LOADING[/code]
+
+[b]To uninstall:[/b] Delete the [code]Mods/RebioticRecalibration/[/code] folder.
+[b]To temporarily disable:[/b] Rename or delete the [code]enabled.txt[/code] file in the mod folder.
+
+[size=3][b]Configuration[/b][/size]
+
+Edit [code]config.lua[/code] to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+
+Example:
+[code]
+AmmoCounter = {
+    Enabled = true,
+    LoadedAmmoWarning = 0.5,  -- Yellow at 50% capacity
+},
+
+LowHealthVignette = {
+    Enabled = true,
+    Threshold = 0.25,  -- Trigger at 25% health
+},
+[/code]
+
+Changes take effect on game restart.
+
+[size=3][b]Multiplayer[/b][/size]
+
+All features tested and work client-side in multiplayer with two caveats:
+
+[list]
+[*][b]Food Display Fix[/b] - If the host has it enabled, the fix applies to all players. If only a client has it enabled, the fix only visually applies for them.
+[*][b]Distribution Pad Range[/b] - Host only (server-authoritative).
+[/list]
+The mod has not been tested on dedicated servers, but those two should features should be the only ones requiring server-side installation.
+
+[size=3][b]Known Issues & Workarounds[/b][/size]
+
+[b]Intermittent UE4SS startup crashes (~10% of launches)[/b]
+
+This can occur during game startup due to UE4SS injection timing and is not specific to this mod. It's a known issue with this game and UE4SS. However, once in-game, it'll be stable with no crashing.
+
+Workarounds:
+[list]
+[*]Restart the game (this will fix 99% of crashes)
+[*]If running multiple UE4SS mods, try disabling others to isolate conflicts.
+[/list]
+
+[b]Mod conflicts[/b]
+
+May conflict with other mods that hook the same widgets or HUD elements. If you experience issues, try disabling overlapping features in config.lua first.
+
+[size=3][b]Reporting Issues[/b][/size]
+
+When reporting issues, please include: UE4SS version, game version, other installed UE4SS mods, and UE4SS.log
+
+[size=3][b]FAQ[/b][/size]
+
+[b]Why UE4SS instead of a .pak mod?[/b]
+I have more experience with programming than with Unreal Engine Editor. UE4SS lets me write Lua code to hook into the game at runtime, which fits my skillset better.
+
+[b]Why bundle everything instead of separate mods?[/b]
+Many features share the same hooks internally. Bundling them reduces overhead in UE4SS compared to having multiple separate mods register the same hooks independently. If you use more than a couple features, this approach is more performant. That said, if there's enough demand to split off specific features into standalone mods, I'm open to it.
+
+[b]Will unused or disabled features hurt my performance?[/b]
+No. Features check their config on startup. If disabled, they don't register any hooks or run any logic - zero performance cost. You can safely leave the whole mod installed and pick and choose what you want or don't want.
+
+[size=3][b]Source Code[/b][/size]
+
+Source available on GitHub. Contributions and feature suggestions welcome.
+
+[size=3][b]Credits[/b][/size]
+
+Built on [url=https://github.com/UE4SS-RE/RE-UE4SS]UE4SS[/url] by the RE-UE4SS team. Thanks to the UE4SS team and other Abiotic Factor modders for help.
