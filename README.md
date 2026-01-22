@@ -43,9 +43,9 @@ A UE4SS Lua mod for [Abiotic Factor](https://store.steampowered.com/app/427410/A
 ## Installation
 
 1. Install UE4SS if you haven't already ([installation guide](https://docs.ue4ss.com/installation-guide.html))
-2. Download the latest release (links coming soon)
-3. Extract to `AbioticFactor/Binaries/Win64/ue4ss/Mods/`
-4. Folder structure should be: `Mods/RebioticRecalibration/scripts/main.lua`
+2. Download the latest release at [Nexus Mods](https://www.nexusmods.com/abioticfactor/mods/180)
+3. Extract to `[...]Steam\steamapps\common\AbioticFactor\AbioticFactor\Binaries\Win64\`
+4. Folder structure should be: `Mods\RebioticRecalibration\scripts\main.lua`
 
 **Verify it works:** On game launch, check UE4SS.log for `[Rebiotic Recalibration] MOD LOADING`.
 
