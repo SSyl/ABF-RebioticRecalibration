@@ -21,7 +21,7 @@ Every feature can be toggled on or off. Enable what you want, disable what you d
 [*][b]Ammo Counter[/b] - Color-coded ammo display showing loaded + inventory count. Customize warning thresholds and colors for good/low/empty states
 [*][b]Teleporter Tags[/b] - Text labels and/or color tinting on synced Personal Teleporter icons. Toggle text/color independently, multiple abbreviation modes, adjustable scale and position
 [*][b]Low Health Vignette[/b] - Red screen edge effect when health drops below threshold. Customize threshold, color, opacity, and toggle pulsing
-[*][b]Hide Hotbar Hotkeys[/b] - Removes numeric key indicators (1-0) from hotbar (off by default)
+[*][b]Hide Hotbar Hotkeys[/b] - Hide hotbar key indicators completely, or show your actual keybindings (e.g., if you rebound 1 to Z, shows "Z") (off by default)
 [*][b]Skip LAN hosting delay[/b] - Removes the 3 second delay when trying to host a LAN game (off by default)
 [*][b]Custom Server Button[/b] - Configurable icon, color, and text that connects directly to a server of your choice (off by default)
 [/list]
@@ -61,7 +61,9 @@ This mod runs on UE4SS, which can occasionally crash during game startup or worl
 
 [size=3][b]Configuration[/b][/size]
 
-Edit [code]config.lua[/code] to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+On first run, the mod automatically generates [code]config.lua[/code] in the mod folder. Edit this file to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+
+When the mod updates with new options, your existing config is automatically patched - your settings are preserved and only missing options are added.
 
 For custom icons (Distribution Pad Indicators, Custom Server Button), see [code]icon-list.txt[/code] in the mod folder for available icon names.
 
@@ -116,6 +118,9 @@ Many features share the same hooks internally. Bundling them reduces overhead in
 
 [b]Will unused or disabled features hurt my performance?[/b]
 No. Features check their config on startup. If disabled, they don't register any hooks or run any logic - zero performance cost. You can safely leave the whole mod installed and pick and choose what you want or don't want.
+
+[b]How do I edit the config? I can't find config.lua![/b]
+The config file is automatically generated on first run. Launch the game once with the mod installed, then look for [code]config.lua[/code] in the mod folder ([code]Mods\RebioticRecalibration\config.lua[/code]). If it's still missing, check that the mod loaded successfully by looking for [code][Rebiotic Recalibration] MOD LOADING[/code] in UE4SS.log. You can also find the latest default config in the Optional Files section for reference.
 
 [size=3][b]Source Code[/b][/size]
 

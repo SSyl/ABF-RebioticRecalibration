@@ -23,7 +23,7 @@ A UE4SS Lua mod for [Abiotic Factor](https://store.steampowered.com/app/427410/A
 | **Ammo Counter** | Color-coded ammo display showing loaded + inventory count | On |
 | **Teleporter Tags** | Text labels and/or color tinting on synced Personal Teleporter icons | On |
 | **Low Health Vignette** | Red screen edge effect when health drops below threshold | On |
-| **Hide Hotbar Hotkeys** | Removes numeric key indicators (1-0) from hotbar | Off |
+| **Hide Hotbar Hotkeys** | Hide hotbar key indicators, or show your actual keybindings | Off |
 | **Menu Tweaks** | Skip LAN hosting delay. Add a custom main menu button with configurable icon, color, and text that connects directly to a server | Off |
 
 ### Bug Fixes
@@ -57,7 +57,9 @@ To temporarily disable without uninstalling, rename or delete the `enabled.txt` 
 
 ## Configuration
 
-Edit `config.lua` to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+On first run, the mod automatically generates `config.lua` in the mod folder. Edit this file to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+
+When the mod updates with new options, your existing config is automatically patched - your settings are preserved and only missing options are added.
 
 For custom icons (Distribution Pad Indicators, Custom Server Button), see `icon-list.txt` in the mod folder for available icon names.
 
@@ -126,6 +128,7 @@ See [docs/AddingNewFeatures.md](docs/AddingNewFeatures.md) for a guide on adding
 ```
 scripts/
 ├── main.lua              # Entry point, module loader, lifecycle management
+├── config.defaults.lua   # Default configuration (template for config.lua)
 ├── core/                 # Feature modules (one per feature)
 │   ├── AmmoCounter.lua
 │   ├── DistributionPadTweaks.lua
@@ -133,8 +136,9 @@ scripts/
 └── utils/                # Shared utilities
     ├── HookUtil.lua      # Safe hook registration, consolidated hooks
     ├── ConfigUtil.lua    # Schema validation
+    ├── ConfigMigration.lua # Auto-generates and updates config.lua
     ├── LogUtil.lua       # Logger factory
     ├── PlayerUtil.lua    # Local player caching
     └── WidgetUtil.lua    # Widget cloning
-config.lua                # User configuration
+config.lua                # User configuration (auto-generated)
 ```
