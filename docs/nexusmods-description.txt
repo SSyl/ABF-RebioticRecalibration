@@ -35,10 +35,14 @@ Every feature can be toggled on or off. Enable what you want, disable what you d
 [/list]
 All of these features can be toggled on or off and the vast majority of them have additional options. Don't like something about it or wish it could be customized? Chances are, there's a customization option for it. If there's not, leave a comment and it may be something I can add.
 
+[size=3][b]Heads Up (UE4SS)[/b][/size]
+
+This mod runs on UE4SS, which can occasionally crash during game startup or world load. Once you're in-game, it's typically stable. See Known Issues below for details.
+
 [size=3][b]Requirements[/b][/size]
 
 [list]
-[*]UE4SS 3.0.1 or later. Available at [url=https://www.nexusmods.com/abioticfactor/mods/35]Nexus Mods[/url] or [url=https://github.com/UE4SS-RE/RE-UE4SS]GitHub[/url]
+[*]UE4SS — Recommended: [url=https://www.nexusmods.com/abioticfactor/mods/35]NexusMods release for Abiotic Factor[/url] (Oct 2025). Other builds may work but are experimental.
 [*]Abiotic Factor (tested on v1.2 Holiday Cryosphere Update)
 [/list]
 
@@ -53,11 +57,13 @@ All of these features can be toggled on or off and the vast majority of them hav
 [b]Verify it works:[/b] On game launch, check UE4SS.log for [code][Rebiotic Recalibration] MOD LOADING[/code]
 
 [b]To uninstall:[/b] Delete the [code]Mods/RebioticRecalibration/[/code] folder.
-[b]To temporarily disable:[/b] Rename or delete the [code]enabled.txt[/code] file in the mod folder.
+[b]To temporarily disable:[/b] Rename or delete the [code]enabled.txt[/code] file in the mod folder. (The mod ships with this file; if it's missing, create an empty [code]enabled.txt[/code] to enable.)
 
 [size=3][b]Configuration[/b][/size]
 
 Edit [code]config.lua[/code] to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+
+For custom icons (Distribution Pad Indicators, Custom Server Button), see [code]icon-list.txt[/code] in the mod folder for available icon names.
 
 Example:
 [code]
@@ -82,27 +88,23 @@ All features tested and work client-side in multiplayer with two caveats:
 [*][b]Food Display Fix[/b] - If the host has it enabled, the fix applies to all players. If only a client has it enabled, the fix only visually applies for them.
 [*][b]Distribution Pad Range[/b] - Host only (server-authoritative).
 [/list]
-The mod has not been tested on dedicated servers, but those two should features should be the only ones requiring server-side installation.
+The mod has not been tested on dedicated servers, but those two should be the only features requiring server-side installation.
 
 [size=3][b]Known Issues & Workarounds[/b][/size]
 
 [b]Intermittent UE4SS startup crashes (~10% of launches)[/b]
 
-This can occur during game startup due to UE4SS injection timing and is not specific to this mod. It's a known issue with this game and UE4SS. However, once in-game, it'll be stable with no crashing.
+This can occur during startup or world loading due to UE4SS injection timing and may vary by UE4SS version and other installed mods. It's not specific to this mod. Once you're in-world, stability is typically solid.
 
-Workarounds:
-[list]
-[*]Restart the game (this will fix 99% of crashes)
-[*]If running multiple UE4SS mods, try disabling others to isolate conflicts.
-[/list]
+Workaround: Restart the game.
 
 [b]Mod conflicts[/b]
 
-May conflict with other mods that hook the same widgets or HUD elements. If you experience issues, try disabling overlapping features in config.lua first.
+May conflict with other UE4SS mods that hook the same widgets or HUD elements. If you experience issues or crashes with multiple mods installed, try disabling overlapping features in config.lua or disabling other mods to isolate the conflict.
 
 [size=3][b]Reporting Issues[/b][/size]
 
-When reporting issues, please include: UE4SS version, game version, other installed UE4SS mods, and UE4SS.log
+When reporting issues, please include: UE4SS version, game version, other installed UE4SS mods, and [code]UE4SS.log[/code]
 
 [size=3][b]FAQ[/b][/size]
 

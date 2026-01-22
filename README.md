@@ -59,6 +59,8 @@ To temporarily disable without uninstalling, rename or delete the `enabled.txt` 
 
 Edit `config.lua` to enable/disable features and adjust settings. The file is commented with descriptions and default values.
 
+For custom icons (Distribution Pad Indicators, Custom Server Button), see `icon-list.txt` in the mod folder for available icon names.
+
 ```lua
 -- Example: Disable ammo counter, change low health threshold
 AmmoCounter = {
