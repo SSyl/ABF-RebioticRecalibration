@@ -87,12 +87,13 @@ Changes take effect on game restart.
 All features work client-side in multiplayer. The following features require the host to have the mod installed and [b]only work in peer-to-peer (player-hosted) games, not dedicated servers[/b]:
 
 [list]
-[*][b]Food Display Fix[/b] - Host installation applies the fix for all players.
 [*][b]Distribution Pad Range[/b]
 [*][b]Beds Keep Spawn[/b]
 [*][b]Vehicle Light Toggle[/b]
 [/list]
 Dedicated server support is being explored, but the modding approach used here doesn't currently work on dedicated servers.
+
+[b]Food Display Fix[/b] works slightly differently: if only you have the mod installed, it fixes the visual for you. If the host has the mod installed, it fixes it for everyone.
 
 [size=3][b]Known Issues & Workarounds[/b][/size]
 
@@ -124,7 +125,7 @@ No. Features check their config on startup. If disabled, they don't register any
 [b]How do I edit the config? I can't find config.lua![/b]
 The config file is automatically generated on first run. Launch the game once with the mod installed, then look for [b]config.lua[/b] in the mod folder (Mods\RebioticRecalibration\config.lua). If it's still missing, check that the mod loaded successfully by looking for "[Rebiotic Recalibration] MOD LOADING" in UE4SS.log. You can also find the latest default config in the Optional Files section for reference.
 
-[b]Why isn't Food Display Fix / Distribution Pad Range / Bed "Just Sleep" / Vehicle Light Toggle working?[/b]
+[b]Why isn't Distribution Pad Range / Bed "Just Sleep" / Vehicle Light Toggle working?[/b]
 These features require the host to have the mod installed. If you're playing on a dedicated server, these features won't work - they only work in peer-to-peer (player-hosted) games. See the Multiplayer section above for details.
 
 [size=3][b]Source Code[/b][/size]

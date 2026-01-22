@@ -81,12 +81,13 @@ Changes take effect on game restart or UE4SS hot-reload.
 
 All features work client-side in multiplayer. The following features require the host to have the mod installed and **only work in peer-to-peer (player-hosted) games, not dedicated servers**:
 
-- **Food Display Fix**: Host installation applies the fix for all players.
 - **Distribution Pad Range**
 - **Beds Keep Spawn**
 - **Vehicle Light Toggle**
 
 Dedicated server support is being explored, but Blueprint hooks don't currently fire on dedicated servers.
+
+**Food Display Fix** works slightly differently: if only you have the mod installed, it fixes the visual for you. If the host has the mod installed, it fixes it for everyone.
 
 ## Troubleshooting
 
