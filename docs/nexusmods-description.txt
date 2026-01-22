@@ -54,18 +54,18 @@ This mod runs on UE4SS, which can occasionally crash during game startup or worl
 [*]Folder structure should be: [code]Mods\RebioticRecalibration\scripts\main.lua[/code]
 [/list]
 
-[b]Verify it works:[/b] On game launch, check UE4SS.log for [code][Rebiotic Recalibration] MOD LOADING[/code]
+[b]Verify it works:[/b] On game launch, check [b]UE4SS.log[/b] for "[Rebiotic Recalibration] MOD LOADING"
 
-[b]To uninstall:[/b] Delete the [code]Mods/RebioticRecalibration/[/code] folder.
-[b]To temporarily disable:[/b] Rename or delete the [code]enabled.txt[/code] file in the mod folder. (The mod ships with this file; if it's missing, create an empty [code]enabled.txt[/code] to enable.)
+[b]To uninstall:[/b] Delete the Mods/RebioticRecalibration/ folder.
+[b]To temporarily disable:[/b] Rename or delete the [b]enabled.txt[/b] file in the mod folder. (The mod ships with this file; if it's missing, create an empty [b]enabled.txt[/b] to enable.)
 
 [size=3][b]Configuration[/b][/size]
 
-On first run, the mod automatically generates [code]config.lua[/code] in the mod folder. Edit this file to enable/disable features and adjust settings. The file is commented with descriptions and default values.
+On first run, the mod automatically generates [b]config.lua[/b] in the mod folder. Edit this file to enable/disable features and adjust settings. The file is commented with descriptions and default values.
 
 When the mod updates with new options, your existing config is automatically patched - your settings are preserved and only missing options are added.
 
-For custom icons (Distribution Pad Indicators, Custom Server Button), see [code]icon-list.txt[/code] in the mod folder for available icon names.
+For custom icons (Distribution Pad Indicators, Custom Server Button), see [b]icon-list.txt[/b] in the mod folder for available icon names.
 
 Example:
 [code]
@@ -104,11 +104,11 @@ Workaround: Restart the game.
 
 [b]Mod conflicts[/b]
 
-May conflict with other UE4SS mods that hook the same widgets or HUD elements. If you experience issues or crashes with multiple mods installed, try disabling overlapping features in config.lua or disabling other mods to isolate the conflict.
+May conflict with other UE4SS mods that hook the same widgets or HUD elements. If you experience issues or crashes with multiple mods installed, try disabling overlapping features in [b]config.lua[/b] or disabling other mods to isolate the conflict.
 
 [size=3][b]Reporting Issues[/b][/size]
 
-When reporting issues, please include: UE4SS version, game version, other installed UE4SS mods, and [code]UE4SS.log[/code]
+When reporting issues, please include: UE4SS version, game version, other installed UE4SS mods, and [b]UE4SS.log[/b]
 
 [size=3][b]FAQ[/b][/size]
 
@@ -122,7 +122,10 @@ Many features share the same hooks internally. Bundling them reduces overhead in
 No. Features check their config on startup. If disabled, they don't register any hooks or run any logic - zero performance cost. You can safely leave the whole mod installed and pick and choose what you want or don't want.
 
 [b]How do I edit the config? I can't find config.lua![/b]
-The config file is automatically generated on first run. Launch the game once with the mod installed, then look for [code]config.lua[/code] in the mod folder ([code]Mods\RebioticRecalibration\config.lua[/code]). If it's still missing, check that the mod loaded successfully by looking for [code][Rebiotic Recalibration] MOD LOADING[/code] in UE4SS.log. You can also find the latest default config in the Optional Files section for reference.
+The config file is automatically generated on first run. Launch the game once with the mod installed, then look for [b]config.lua[/b] in the mod folder (Mods\RebioticRecalibration\config.lua). If it's still missing, check that the mod loaded successfully by looking for "[Rebiotic Recalibration] MOD LOADING" in UE4SS.log. You can also find the latest default config in the Optional Files section for reference.
+
+[b]Why isn't Food Display Fix / Distribution Pad Range / Bed "Just Sleep" / Vehicle Light Toggle working?[/b]
+These features require the host to have the mod installed. If you're playing on a dedicated server, these features won't work - they only work in peer-to-peer (player-hosted) games. See the Multiplayer section above for details.
 
 [size=3][b]Source Code[/b][/size]
 
