@@ -25,6 +25,7 @@ local UEHelpers = require("UEHelpers")
 local Module = {
     name = "VehicleLightToggle",
     configKey = "VehicleLightToggle",
+    serverSupport = true,  -- Headlight toggle needs server authority
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -88,19 +89,14 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function Module.RegisterHooks()
-    Log.Debug("RegisterHooks called")
+function Module.RegisterHooks(isDedicatedServer)
+    Log.Debug("RegisterHooks called (isDedicatedServer=%s)", tostring(isDedicatedServer))
 
     local canInteractSuccess = HookUtil.Register(
         "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:CanInteractWith_B",
         function(vehicle, HitComponentParam, SuccessParam)
             Module.OnCanInteractB(vehicle, HitComponentParam, SuccessParam)
         end,
-        Log
-    )
-
-    local promptTextSuccess = HookUtil.RegisterABFInteractionPromptUpdate(
-        Module.OnUpdateInteractionPrompts,
         Log
     )
 
@@ -112,23 +108,32 @@ function Module.RegisterHooks()
         Log
     )
 
-    -- LocalFX hook - fires on the client that initiates the interaction (for sound)
-    local localFXSuccess = HookUtil.Register(
-        "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:InteractWith_B_LocalFX",
-        function(vehicle, HoldParam)
-            Module.OnVehicleInteractB_LocalFX(vehicle)
-        end,
-        Log
-    )
+    -- Client-only hooks (prompt text, sound effects)
+    local promptTextSuccess = true
+    if not isDedicatedServer then
+        promptTextSuccess = HookUtil.RegisterABFInteractionPromptUpdate(
+            Module.OnUpdateInteractionPrompts,
+            Log
+        )
 
-    if Config.SoundVolume > 0 then
-        ExecuteInGameThread(function()
-            local sound, wasFound, didLoad = LoadAsset(SOUND_ASSET)
-            if wasFound and didLoad and sound:IsValid() then
-                LightSwitchSound = sound
-                Log.Debug("Pre-loaded light switch sound")
-            end
-        end)
+        -- LocalFX hook - fires on the client that initiates the interaction (for sound)
+        HookUtil.Register(
+            "/Game/Blueprints/Vehicles/ABF_Vehicle_ParentBP.ABF_Vehicle_ParentBP_C:InteractWith_B_LocalFX",
+            function(vehicle, HoldParam)
+                Module.OnVehicleInteractB_LocalFX(vehicle)
+            end,
+            Log
+        )
+
+        if Config.SoundVolume > 0 then
+            ExecuteInGameThread(function()
+                local sound, wasFound, didLoad = LoadAsset(SOUND_ASSET)
+                if wasFound and didLoad and sound:IsValid() then
+                    LightSwitchSound = sound
+                    Log.Debug("Pre-loaded light switch sound")
+                end
+            end)
+        end
     end
 
     return canInteractSuccess and promptTextSuccess and interactSuccess

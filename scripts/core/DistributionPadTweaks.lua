@@ -28,6 +28,7 @@ local Module = {
     name = "DistPadTweaks",
     configKey = "DistributionPad",
     debugKey = "DistributionPad",
+    serverSupport = true,  -- Range feature needs server authority
 
     schema = {
         { path = "Indicator.Enabled", type = "boolean", default = true },
@@ -285,12 +286,12 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function Module.RegisterHooks()
-    Log.Debug("RegisterHooks called")
+function Module.RegisterHooks(isDedicatedServer)
+    Log.Debug("RegisterHooks called (isDedicatedServer=%s)", tostring(isDedicatedServer))
     local success = true
 
     -- Pad spawn hook (for Range and/or Indicator)
-    if Config.Range.Enabled or Config.Indicator.Enabled then
+    if Config.Range.Enabled or (Config.Indicator.Enabled and not isDedicatedServer) then
         success = HookUtil.RegisterABFDeployedBeginPlay(
             "/Game/Blueprints/DeployedObjects/Misc/Deployed_DistributionPad.Deployed_DistributionPad_C",
             "Deployed_DistributionPad_C",
@@ -299,8 +300,8 @@ function Module.RegisterHooks()
         ) and success
     end
 
-    -- Indicator-specific hooks
-    if Config.Indicator.Enabled then
+    -- Indicator-specific hooks (client-only)
+    if Config.Indicator.Enabled and not isDedicatedServer then
         success = HookUtil.Register(
             "/Game/Blueprints/DeployedObjects/AbioticDeployed_ParentBP.AbioticDeployed_ParentBP_C:ReceiveEndPlay",
             Module.OnReceiveEndPlay,

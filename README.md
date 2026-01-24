@@ -79,15 +79,22 @@ Changes take effect on game restart or UE4SS hot-reload.
 
 ## Multiplayer
 
-All features work client-side in multiplayer. The following features require the host to have the mod installed and **only work in peer-to-peer (player-hosted) games, not dedicated servers**:
+All features work client-side in multiplayer. The following features require the host (or dedicated server) to have the mod installed:
 
 - **Distribution Pad Range**
 - **Beds Keep Spawn**
 - **Vehicle Light Toggle**
+- **Food Display Fix** (if only you have the mod, it fixes visuals locally; if host/server has it, fixes for everyone)
 
-Dedicated server support is being explored, but Blueprint hooks don't currently fire on dedicated servers.
+### Dedicated Server Support
 
-**Food Display Fix** works slightly differently: if only you have the mod installed, it fixes the visual for you. If the host has the mod installed, it fixes it for everyone.
+The mod works on dedicated servers with some configuration:
+
+1. Install the mod on your dedicated server
+2. Edit `config.lua`, find the `DedicatedServer` section, and change `Enabled = false` to `Enabled = true`
+3. Restart the server
+
+Only the features listed above run on dedicated servers. Client-only features (UI mods, HUD elements) are automatically skipped.
 
 ## Troubleshooting
 

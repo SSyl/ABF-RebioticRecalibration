@@ -16,7 +16,7 @@ API:
 local ConfigMigration = {}
 
 -- Current config version - increment when adding new options
-local CURRENT_VERSION = 1
+local CURRENT_VERSION = 2
 
 -- ============================================================
 -- FILE I/O HELPERS
@@ -283,10 +283,17 @@ local function ExtractSectionFromDefaults(defaultsText, sectionName)
     -- Don't include category headers (####) - just section headers (====)
     for i = headerStart, startLine - 1 do
         if lines[i]:match("####") then
+            -- Skip entire category header block until we hit ==== or non-comment
             headerStart = i + 1
-            -- Skip empty line after category header
-            if lines[headerStart] and lines[headerStart]:match("^%s*$") then
-                headerStart = headerStart + 1
+            while headerStart <= startLine - 1 do
+                local line = lines[headerStart]
+                if line:match("====") then
+                    break
+                elseif line:match("^%s*%-%-") or line:match("^%s*$") then
+                    headerStart = headerStart + 1
+                else
+                    break
+                end
             end
             break
         end

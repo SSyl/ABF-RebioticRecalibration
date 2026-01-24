@@ -6,7 +6,7 @@ Rebiotic Recalibration - Main Entry Point
 ============================================================================
 
 Module-driven architecture:
-1. Modules export metadata (name, schema, hookPoint, lifecycle functions)
+1. Modules export metadata (name, schema, hookPoint, serverSupport, lifecycle functions)
 2. main.lua orchestrates lifecycle detection and module registration
 3. Adding a new feature = create module file + add to MODULES list
 
@@ -14,11 +14,14 @@ Hook Points:
 - "MainMenu": Registers when main menu detected
 - "Gameplay": Registers when gameplay map loaded (once per map)
 
-Lifecycle Detection (single hook):
-- Abiotic_PlayerCharacter_C:ReceiveBeginPlay fires for all player spawns
-- MainMenu path in character name → main menu
-- Abiotic_Survival_GameState_C exists → gameplay
-- Cleanup runs when transitioning between states
+Lifecycle Detection:
+- Client/Host: Abiotic_PlayerCharacter_C:ReceiveBeginPlay fires for all player spawns
+- Dedicated Server: Polls for Abiotic_Survival_GameState_C (set DedicatedServer.Enabled=true in config)
+
+Server Support:
+- Modules with serverSupport=true run on dedicated servers
+- Modules without serverSupport are skipped on dedicated servers
+- RegisterHooks receives isDedicatedServer param to skip client-only hooks
 ]]
 
 local LogUtil = require("utils/LogUtil")
@@ -27,6 +30,9 @@ local ConfigUtil = require("utils/ConfigUtil")
 local HookUtil = require("utils/HookUtil")
 local PlayerUtil = require("utils/PlayerUtil")
 local UEHelpers = require("UEHelpers")
+
+-- Dedicated server mode flag (set from Config.DedicatedServerMode after config loads)
+local isDedicatedServer = false
 
 -- ============================================================
 -- MODULE REGISTRY
@@ -57,6 +63,7 @@ local MODULE_PATHS = {
 
 local Modules = {}
 local SCHEMA = {
+    { path = "DedicatedServer.Enabled", type = "boolean", default = false },
     { path = "DebugFlags.Main", type = "boolean", default = false },
 }
 
@@ -129,6 +136,11 @@ if Config.DistributionPad and Config.DistributionPad.Indicator then
         :gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%1")
 end
 
+-- Apply dedicated server mode from config
+if Config.DedicatedServer and Config.DedicatedServer.Enabled then
+    isDedicatedServer = true
+end
+
 -- ============================================================
 -- CREATE LOGGERS & INITIALIZE MODULES
 -- ============================================================
@@ -138,15 +150,18 @@ local Log = {
 }
 
 for _, mod in ipairs(Modules) do
-    local debugKey = mod.debugKey or mod.configKey
-    local debugEnabled = Config.DebugFlags[debugKey] or false
+    -- Skip modules without serverSupport on dedicated servers
+    if not isDedicatedServer or mod.serverSupport then
+        local debugKey = mod.debugKey or mod.configKey
+        local debugEnabled = Config.DebugFlags[debugKey] or false
 
-    mod._log = LogUtil.CreateLogger("Rebiotic Recalibration|" .. mod.name, debugEnabled)
+        mod._log = LogUtil.CreateLogger("Rebiotic Recalibration|" .. mod.name, debugEnabled)
 
-    mod._config = Config[mod.configKey]
+        mod._config = Config[mod.configKey]
 
-    if mod.Init then
-        mod.Init(mod._config, mod._log)
+        if mod.Init then
+            mod.Init(mod._config, mod._log)
+        end
     end
 end
 
@@ -165,11 +180,14 @@ local function IsModuleEnabled(mod)
     return cfg.Enabled == true
 end
 
-local function RegisterModuleHooks(hookPoint)
+local function RegisterModuleHooks(hookPoint, isDedicatedServer)
     for _, mod in ipairs(Modules) do
         if mod.hookPoint == hookPoint and mod.RegisterHooks then
-            if IsModuleEnabled(mod) then
-                local ok = mod.RegisterHooks()
+            -- Skip modules without serverSupport on dedicated servers
+            if isDedicatedServer and not mod.serverSupport then
+                Log.General.Debug("Skipping %s (no dedicated server support)", mod.name)
+            elseif IsModuleEnabled(mod) then
+                local ok = mod.RegisterHooks(isDedicatedServer)
                 if ok then
                     Log.General.Debug("Registered %s hooks for %s", hookPoint, mod.name)
                 else
@@ -231,7 +249,7 @@ local function OnMainMenuDetected(character)
 
     mainMenuFired = true
     Log.General.Debug("Main menu detected")
-    RegisterModuleHooks("MainMenu")
+    RegisterModuleHooks("MainMenu", isDedicatedServer)
 end
 
 -- ============================================================
@@ -250,7 +268,7 @@ local function OnGameplayDetected(gameState)
 
     gameplayFired = true
     Log.General.Debug("Gameplay detected")
-    RegisterModuleHooks("Gameplay")
+    RegisterModuleHooks("Gameplay", isDedicatedServer)
 end
 
 -- Delayed registration of lifecycle hook (Blueprint not loaded on mod init)
@@ -290,7 +308,32 @@ local function RegisterLifecycleHook(attempts)
     end
 end
 
-ExecuteWithDelay(250, function() RegisterLifecycleHook() end)
+-- ============================================================
+-- LIFECYCLE: DEDICATED SERVER (poll for GameState)
+-- ============================================================
+
+local function PollForGameState(attempts)
+    attempts = attempts or 0
+    if gameplayFired then return end
+    if attempts > 100 then
+        Log.General.Error("Failed to detect GameState after %d attempts", attempts)
+        return
+    end
+
+    ExecuteInGameThread(function()
+        local gameState = FindFirstOf("Abiotic_Survival_GameState_C")
+        if gameState and gameState:IsValid() then
+            gameplayFired = true
+            Log.General.Debug("GameState detected - registering all server hooks")
+            RegisterModuleHooks("MainMenu", true)
+            RegisterModuleHooks("Gameplay", true)
+        else
+            ExecuteWithDelay(50, function()
+                PollForGameState(attempts + 1)
+            end)
+        end
+    end)
+end
 
 -- ============================================================
 -- LIFECYCLE: POLL FOR MISSED STATE (late init / hot-reload)
@@ -327,6 +370,17 @@ local function PollForMissedState(attempts)
     end)
 end
 
-PollForMissedState()
+-- ============================================================
+-- STARTUP: Choose detection path based on server type
+-- ============================================================
+
+if isDedicatedServer then
+    Log.General.Info("Dedicated server detected - polling for GameState")
+    PollForGameState()
+else
+    -- Client/Listen server: use PlayerCharacter detection
+    ExecuteWithDelay(250, function() RegisterLifecycleHook() end)
+    PollForMissedState()
+end
 
 Log.General.Info("Mod loaded (%d modules)", #Modules)

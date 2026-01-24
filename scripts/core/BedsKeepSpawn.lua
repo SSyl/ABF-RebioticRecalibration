@@ -26,6 +26,7 @@ local HookUtil = require("utils/HookUtil")
 local Module = {
     name = "BedsKeepSpawn",
     configKey = "BedsKeepSpawn",
+    serverSupport = true,  -- Interaction hooks need server authority
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -108,8 +109,8 @@ end
 -- HOOK REGISTRATION
 -- ============================================================
 
-function Module.RegisterHooks()
-    Log.Debug("RegisterHooks called")
+function Module.RegisterHooks(isDedicatedServer)
+    Log.Debug("RegisterHooks called (isDedicatedServer=%s)", tostring(isDedicatedServer))
 
     -- Hook CanInteractWith_A to enable tap-E prompt for beds
     local canInteractSuccess = HookUtil.Register(
@@ -129,11 +130,14 @@ function Module.RegisterHooks()
         Log
     )
 
-    -- Hook interaction prompt to change tap-E text for beds
-    local promptSuccess = HookUtil.RegisterABFInteractionPromptUpdate(
-        Module.OnUpdateInteractionPrompts,
-        Log
-    )
+    -- Hook interaction prompt to change tap-E text for beds (client-only)
+    local promptSuccess = true
+    if not isDedicatedServer then
+        promptSuccess = HookUtil.RegisterABFInteractionPromptUpdate(
+            Module.OnUpdateInteractionPrompts,
+            Log
+        )
+    end
 
     return canInteractSuccess and interactSuccess and promptSuccess
 end

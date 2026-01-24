@@ -1,7 +1,7 @@
 return {
     -- Config version - DO NOT MODIFY
     -- Used for automatic config migration when new options are added
-    ConfigVersion = 1,
+    ConfigVersion = 2,
 
     -- ############################################################
     -- GAMEPLAY QOL
@@ -380,6 +380,21 @@ return {
         -- Time window (ms) to suppress gib VFX after corpse spawns.
         -- Increase if you still see gibsplosions on area load.
         Threshold = 2000, -- [default = 2000]
+    },
+
+    -- ############################################################
+    -- DEDICATED SERVER
+    -- ############################################################
+
+    -- ============================================================
+    -- Dedicated Server
+    -- Only enable this on dedicated servers
+    -- NOT for clients, player-hosted servers, or listen servers
+    -- ============================================================
+    DedicatedServer = {
+        -- Skips client-only features (UI mods, HUD elements) and uses
+        -- server-appropriate lifecycle hooks
+        Enabled = false, -- [default = false]
     },
 
     -- ############################################################

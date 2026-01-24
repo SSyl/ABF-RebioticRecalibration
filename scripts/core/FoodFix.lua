@@ -23,6 +23,7 @@ local HookUtil = require("utils/HookUtil")
 local Module = {
     name = "FoodFix",
     configKey = "FoodDisplayFix",
+    serverSupport = true,  -- Durability fix needs server authority
 
     schema = {
         { path = "Enabled", type = "boolean", default = true },
@@ -79,7 +80,7 @@ function Module.Init(config, log)
     Log.Info("FoodFix - %s", status)
 end
 
-function Module.RegisterHooks()
+function Module.RegisterHooks(isDedicatedServer)
     return HookUtil.RegisterABFDeployedBeginPlay(
         "/Game/Blueprints/DeployedObjects/Furniture/Deployed_Food_Pie_ParentBP.Deployed_Food_Pie_ParentBP_C",
         "^Deployed_Food_",
