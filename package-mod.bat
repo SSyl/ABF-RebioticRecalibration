@@ -169,10 +169,10 @@ for /R scripts %%F in (*.lua) do (
 )
 
 REM ========================================
-REM Create zip using PowerShell
+REM Create zip using PowerShell (with forward slashes for Linux compatibility)
 REM ========================================
 echo Creating %C_YELLOW%!ZIP_NAME!%C_RESET%...
-powershell -Command "Compress-Archive -Path '%TEMP_DIR%\*' -DestinationPath '!ZIP_NAME!' -Force"
+powershell -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $tempDir = '%TEMP_DIR%'; $zipPath = Join-Path (Get-Location) '!ZIP_NAME!'; if (Test-Path $zipPath) { Remove-Item $zipPath }; $zip = [System.IO.Compression.ZipFile]::Open($zipPath, 'Create'); Get-ChildItem -Path $tempDir -Recurse -File | ForEach-Object { $relativePath = $_.FullName.Substring($tempDir.Length + 1).Replace('\', '/'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $relativePath) | Out-Null }; $zip.Dispose()"
 
 REM Clean up temp directory
 rmdir /s /q "%TEMP_DIR%"
