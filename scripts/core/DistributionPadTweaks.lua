@@ -35,7 +35,7 @@ local Module = {
         { path = "Indicator.RefreshOnBuiltContainer", type = "boolean", default = true },
         { path = "Indicator.IconEnabled", type = "boolean", default = true },
         { path = "Indicator.Icon", type = "string", default = "hackingdevice" },
-        { path = "Indicator.IconColor", type = "color", default = { R = 114, G = 242, B = 255 } },
+        { path = "Indicator.IconColor", type = "widgetColor", default = { R = 114, G = 242, B = 255 } },
         { path = "Indicator.IconSize", type = "number", default = 24, min = 1 },
         { path = "Indicator.IconOffset.Horizontal", type = "number", default = 0 },
         { path = "Indicator.IconOffset.Vertical", type = "number", default = 0 },

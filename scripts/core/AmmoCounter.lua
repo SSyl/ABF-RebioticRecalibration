@@ -35,9 +35,9 @@ local Module = {
         { path = "LoadedAmmoWarning", type = "number", default = 0.5, min = 0, max = 1 },
         { path = "InventoryAmmoWarning", type = "number", default = 0, min = 0 },  -- 0 = adaptive
         { path = "ShowMaxCapacity", type = "boolean", default = false },
-        { path = "AmmoGood", type = "textcolor", default = { R = 114, G = 242, B = 255 } },
-        { path = "AmmoLow", type = "textcolor", default = { R = 255, G = 200, B = 32 } },
-        { path = "NoAmmo", type = "textcolor", default = { R = 249, G = 41, B = 41 } },
+        { path = "AmmoGood", type = "textColor", default = { R = 114, G = 242, B = 255 } },
+        { path = "AmmoLow", type = "textColor", default = { R = 255, G = 200, B = 32 } },
+        { path = "NoAmmo", type = "textColor", default = { R = 249, G = 41, B = 41 } },
     },
 
     hookPoint = "Gameplay",

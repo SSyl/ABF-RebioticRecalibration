@@ -25,7 +25,7 @@ local Module = {
     schema = {
         { path = "Enabled", type = "boolean", default = true },
         { path = "Threshold", type = "number", default = 0.25, min = 0.01, max = 1.1 },
-        { path = "Color", type = "color", default = { R = 128, G = 0, B = 0, A = 0.3 } },
+        { path = "Color", type = "widgetColor", default = { R = 128, G = 0, B = 0, A = 0.3 } },
         { path = "PulseEnabled", type = "boolean", default = true },
     },
 

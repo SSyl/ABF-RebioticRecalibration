@@ -38,7 +38,7 @@ local Module = {
         { path = "CustomServerButton.Password", type = "string", default = "" },
         { path = "CustomServerButton.ButtonText", type = "string", default = "Custom Server Button" },
         { path = "CustomServerButton.Icon", type = "string", default = "icon_hackingdevice" },
-        { path = "CustomServerButton.TextColor", type = "color", default = { R = 42, G = 255, B = 45 } },
+        { path = "CustomServerButton.TextColor", type = "widgetColor", default = { R = 42, G = 255, B = 45 } },
     },
 
     hookPoint = "MainMenu",

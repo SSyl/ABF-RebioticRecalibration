@@ -11,7 +11,7 @@ API:
 - ValidateBoolean(value, default, logFunc, fieldName) -> boolean
 - ValidateNumber(value, default, min, max, logFunc, fieldName) -> number
 - ValidateString(value, default, minLength, maxLength, trim, logFunc, fieldName) -> string
-- ValidateColor(value, default, logFunc, fieldName) -> {R, G, B, A} (normalized 0-1)
+- ValidateWidgetColor(value, default, logFunc, fieldName) -> {R, G, B, A} (normalized 0-1) for UI widgets
 - ValidateTextColor(value, default, logFunc, fieldName) -> SlateColor format for text widgets
 ]]
 
@@ -102,7 +102,7 @@ function ConfigUtil.ValidateString(value, default, minLength, maxLength, trim, l
     return value
 end
 
-function ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
+function ConfigUtil.ValidateWidgetColor(value, default, logFunc, fieldName)
     local function isValidRGB(color)
         return type(color) == "table"
             and type(color.R) == "number" and color.R >= 0 and color.R <= 255
@@ -140,7 +140,7 @@ end
 
 -- Validates color and returns SlateColor format for text widgets (UTextBlock)
 function ConfigUtil.ValidateTextColor(value, default, logFunc, fieldName)
-    local normalized = ConfigUtil.ValidateColor(value, default, logFunc, fieldName)
+    local normalized = ConfigUtil.ValidateWidgetColor(value, default, logFunc, fieldName)
     return {
         SpecifiedColor = normalized,
         ColorUseRule = "UseColor_Specified",
@@ -196,9 +196,9 @@ function ConfigUtil.ValidateFromSchema(userConfig, schema, logFunc)
             validated = ConfigUtil.ValidateNumber(value, default, entry.min, entry.max, logFunc, path)
         elseif entryType == "string" then
             validated = ConfigUtil.ValidateString(value, default, entry.min, entry.max, entry.trim, logFunc, path)
-        elseif entryType == "color" then
-            validated = ConfigUtil.ValidateColor(value, default, logFunc, path)
-        elseif entryType == "textcolor" then
+        elseif entryType == "widgetColor" then
+            validated = ConfigUtil.ValidateWidgetColor(value, default, logFunc, path)
+        elseif entryType == "textColor" then
             validated = ConfigUtil.ValidateTextColor(value, default, logFunc, path)
         else
             validated = value or default

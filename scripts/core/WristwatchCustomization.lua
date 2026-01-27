@@ -32,12 +32,12 @@ local Module = {
 
         -- Background tint (persistent - always on)
         { path = "Background.Persistent.Enabled", type = "boolean", default = false },
-        { path = "Background.Persistent.Color", type = "color", default = { R = 64, G = 255, B = 32 } },
+        { path = "Background.Persistent.Color", type = "widgetColor", default = { R = 64, G = 255, B = 32 } },
         { path = "Background.Persistent.Intensity", type = "number", default = 2.0, min = 0.5, max = 5.0 },
 
         -- Background tint (portal days - overrides persistent)
         { path = "Background.Portal.Enabled", type = "boolean", default = false },
-        { path = "Background.Portal.Color", type = "color", default = { R = 255, G = 64, B = 6 } },
+        { path = "Background.Portal.Color", type = "widgetColor", default = { R = 255, G = 64, B = 6 } },
         { path = "Background.Portal.Intensity", type = "number", default = 2.0, min = 0.5, max = 5.0 },
         { path = "Background.Portal.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
     },

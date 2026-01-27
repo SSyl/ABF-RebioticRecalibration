@@ -30,7 +30,7 @@ local Module = {
         { path = "Text.Scale", type = "number", default = 0.8, min = 0.1, max = 2.0 },
         { path = "Text.Position", type = "string", default = "TOP" },
         { path = "Text.AbbreviationMode", type = "string", default = "Simple" },
-        { path = "Text.Color", type = "textcolor", default = { R = 255, G = 186, B = 40 } },
+        { path = "Text.Color", type = "textColor", default = { R = 255, G = 186, B = 40 } },
     },
 
     hookPoint = "Gameplay",
