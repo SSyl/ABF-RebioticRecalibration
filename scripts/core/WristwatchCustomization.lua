@@ -5,8 +5,9 @@ WristwatchCustomization - Portal Reset Day Awareness
 
 Features:
 1. Highlight Sunday/Wednesday dots to indicate portal reset days (brighter alpha)
-2. Change Daytime/Nightfall text to "RESETDAY"/"RESETNITE" on eve days (Sat/Tue)
+2. Change Daytime/Nightfall text to "RESET DAY"/"RESET PM" on eve/reset days
 3. Tint watch background color (persistent and/or portal eve only)
+4. Play extra beep at daybreak/nightfall on portal eve/reset days
 ]]
 
 local HookUtil = require("utils/HookUtil")
@@ -25,8 +26,8 @@ local Module = {
         { path = "WeekDayDots.Alpha", type = "number", default = 0.6, min = 0.0, max = 1.0 },
 
         -- Text change on portal-related days
-        { path = "DayNightText.Enabled", type = "boolean", default = true },
-        { path = "DayNightText.Daytime", type = "string", default = "RESET AM" },
+        { path = "DayNightText.Enabled", type = "boolean", default = false },
+        { path = "DayNightText.Daytime", type = "string", default = "RESET DAY" },
         { path = "DayNightText.Nightfall", type = "string", default = "RESET PM" },
         { path = "DayNightText.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
 
@@ -40,6 +41,10 @@ local Module = {
         { path = "Background.Portal.Color", type = "widgetColor", default = { R = 255, G = 64, B = 6 } },
         { path = "Background.Portal.Intensity", type = "number", default = 2.0, min = 0.5, max = 5.0 },
         { path = "Background.Portal.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
+
+        -- Audio beep at daybreak/nightfall on portal-related days
+        { path = "PortalResetBeep.Enabled", type = "boolean", default = false },
+        { path = "PortalResetBeep.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
     },
     hookPoint = "Gameplay",
 }
@@ -135,6 +140,62 @@ local function isTextDay()
     end
 end
 
+local function isBeepDay()
+    if not Config.PortalResetBeep or not Config.PortalResetBeep.Enabled then return false end
+    local when = (Config.PortalResetBeep.When or "Eve"):lower()
+    if when == "eve" then
+        return PORTAL_EVE_DAYS[currentDayOfWeek]
+    else
+        return PORTAL_RESET_DAYS[currentDayOfWeek]
+    end
+end
+
+-- Chime durations (rounded up) + small buffer
+local DAYBREAK_CHIME_MS = 3700  -- daybreak.wav is 3.65s
+local NIGHTFALL_CHIME_MS = 2700 -- nightfall.wav is 2.64s
+
+-- Beep cadence timing
+local BEEP = 200   -- interval between beeps (overlapping since beep is ~300ms)
+local PAUSE = 300  -- pause between triples
+
+-- Pattern: beep-beep-beep, pause, beep-beep-beep, pause, beep-beep-beep
+local CADENCE = { BEEP, BEEP, BEEP, PAUSE, BEEP, BEEP, BEEP, PAUSE, BEEP, BEEP, BEEP }
+
+local function playPortalResetBeeps(wristwatch, delayMs)
+    local function playBeepOnce()
+        if not wristwatch:IsValid() then return end
+        wristwatch:HourlyBeep(0, 0)
+    end
+
+    local function playCadence(index)
+        if not wristwatch:IsValid() then return end
+
+        local current = CADENCE[index]
+
+        if current == BEEP then
+            playBeepOnce()
+        end
+
+        if index < #CADENCE then
+            ExecuteWithDelay(current, function()
+                ExecuteInGameThread(function()
+                    playCadence(index + 1)
+                end)
+            end)
+        else
+            Log.Debug("[PortalResetBeep] Beep cadence complete")
+        end
+    end
+
+    ExecuteWithDelay(delayMs, function()
+        ExecuteInGameThread(function()
+            if not wristwatch:IsValid() then return end
+            Log.Debug("[PortalResetBeep] Playing beep cadence after %dms delay", delayMs)
+            playCadence(1)
+        end)
+    end)
+end
+
 local function applyDayNightText(wristwatch, isNight)
     if not Config.DayNightText or not Config.DayNightText.Enabled then return end
 
@@ -187,9 +248,10 @@ function Module.RegisterHooks()
     local textEnabled = Config.DayNightText and Config.DayNightText.Enabled
     local bgPersistentEnabled = Config.Background and Config.Background.Persistent and Config.Background.Persistent.Enabled
     local bgPortalEnabled = Config.Background and Config.Background.Portal and Config.Background.Portal.Enabled
+    local beepEnabled = Config.PortalResetBeep and Config.PortalResetBeep.Enabled
 
     -- Skip all hooks if all features disabled
-    if not dotsEnabled and not textEnabled and not bgPersistentEnabled and not bgPortalEnabled then
+    if not dotsEnabled and not textEnabled and not bgPersistentEnabled and not bgPortalEnabled and not beepEnabled then
         Log.Debug("All features disabled, skipping hook registration")
         return true
     end
@@ -231,16 +293,20 @@ function Module.RegisterHooks()
         Log
     )
 
-    -- Only register Nightfall/Daybreak hooks if text feature is enabled
+    -- Only register Nightfall/Daybreak hooks if text or beep feature is enabled
     local nightfallOk = true
     local daybreakOk = true
 
-    if textEnabled then
+    if textEnabled or beepEnabled then
         nightfallOk = HookUtil.Register(
             "/Game/Blueprints/Widgets/W_Wristwatch.W_Wristwatch_C:NightfallAlarm",
             function(wristwatch)
-                if not isTextDay() then return end
-                applyDayNightText(wristwatch, true)
+                if isTextDay() then
+                    applyDayNightText(wristwatch, true)
+                end
+                if isBeepDay() then
+                    playPortalResetBeeps(wristwatch, NIGHTFALL_CHIME_MS)
+                end
             end,
             Log
         )
@@ -248,8 +314,12 @@ function Module.RegisterHooks()
         daybreakOk = HookUtil.Register(
             "/Game/Blueprints/Widgets/W_Wristwatch.W_Wristwatch_C:DaybreakAlarm",
             function(wristwatch)
-                if not isTextDay() then return end
-                applyDayNightText(wristwatch, false)
+                if isTextDay() then
+                    applyDayNightText(wristwatch, false)
+                end
+                if isBeepDay() then
+                    playPortalResetBeeps(wristwatch, DAYBREAK_CHIME_MS)
+                end
             end,
             Log
         )

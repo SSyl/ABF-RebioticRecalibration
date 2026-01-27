@@ -265,10 +265,10 @@ return {
         -- Changes "DAYTIME"/"NIGHTFALL" text to remind you about portal resets
         DayNightText = {
             -- Enable text change
-            Enabled = true, -- [default = true]
+            Enabled = false, -- [default = false]
 
             -- Text to show during daytime (replaces "DAYTIME")
-            Daytime = "RESET AM", -- [default = "RESET AM"]
+            Daytime = "RESET DAY", -- [default = "RESET DAY"]
 
             -- Text to show during nighttime (replaces "NIGHTFALL")
             Nightfall = "RESET PM", -- [default = "RESET PM"]
@@ -277,26 +277,36 @@ return {
             When = "Eve", -- [default = "Eve"]
         },
 
-        -- Background color tint
+        -- Watch background color
+        -- Note: The color will change between day/night, as it applies a different "glow" tint
         Background = {
             -- Persistent background color (always on, every day)
             Persistent = {
                 Enabled = false, -- [default = false]
                 Color = { R = 64, G = 255, B = 32 }, -- [default = green]
-                -- Intensity compensates for the wristwatch's desaturation filter (0.5-5.0)
+                -- Intensity compensates for the wristwatch's filter (0.5-5.0)
                 -- 1.0 = vanilla levels, 2.0 = vivid colors
                 Intensity = 2.0, -- [default = 2.0]
             },
 
-            -- Portal-related background color (overrides Persistent on specified days)
+            -- Changes the background color of the watch only on portal reset eves/days
             Portal = {
                 Enabled = false, -- [default = false]
                 Color = { R = 255, G = 64, B = 6 }, -- [default = red-orange]
-                -- Intensity compensates for the wristwatch's desaturation filter (0.5-5.0)
+                -- Intensity compensates for the wristwatch's filter (0.5-5.0)
                 -- 1.0 = vanilla levels, 2.0 = vivid colors
                 Intensity = 2.0, -- [default = 2.0]
                 When = "Eve", -- [default = "Eve"] "Eve" = day before reset, "Reset" = day of reset
             },
+        },
+
+        -- Audio beep at daybreak/nightfall on portal-related days
+        PortalResetBeep = {
+            -- Play an extra beep at daybreak/nightfall as a portal reminder
+            Enabled = false, -- [default = false]
+
+            -- When to play: "Eve" = day before reset, "Reset" = day of reset
+            When = "Eve", -- [default = "Eve"]
         },
     },
 
