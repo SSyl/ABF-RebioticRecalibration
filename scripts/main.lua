@@ -55,6 +55,7 @@ local MODULE_PATHS = {
     "core/AmmoCounter",
     "core/TeleporterTags",
     "core/BedsKeepSpawn",
+    "core/WristwatchCustomization",
 }
 
 -- ============================================================

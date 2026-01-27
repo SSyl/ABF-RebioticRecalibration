@@ -1,7 +1,7 @@
 return {
     -- Config version - DO NOT MODIFY
     -- Used for automatic config migration when new options are added
-    ConfigVersion = 2,
+    ConfigVersion = 3,
 
     -- ############################################################
     -- GAMEPLAY QOL
@@ -239,6 +239,68 @@ return {
     },
 
     -- ============================================================
+    -- Wristwatch Reset Indicator
+    -- Visual cues for portal reset days (Sunday/Wednesday by default)
+    -- ============================================================
+    WristwatchCustomization = {
+        -- Enable/disable the wristwatch reset day indicators
+        Enabled = true, -- [default = true]
+
+        -- Which days portals reset (comma-separated day names)
+        -- Eve days (day before) are calculated automatically for text changes
+        PortalResetDays = "Sunday,Wednesday", -- [default = "Sunday,Wednesday"]
+
+        -- Weekday dot indicators (highlights portal reset day dots on the wristwatch)
+        WeekDayDots = {
+            -- Highlight the portal reset day dots
+            Enabled = true, -- [default = true]
+
+            -- Brightness of portal reset day dots when NOT the current day (0.0-1.0)
+            -- Normal non-current days are 0.4, current day is 1.0
+            -- 0.6 makes portal reset days subtly stand out
+            Alpha = 0.6, -- [default = 0.6]
+        },
+
+        -- Day/night text change on portal-related days
+        -- Changes "DAYTIME"/"NIGHTFALL" text to remind you about portal resets
+        DayNightText = {
+            -- Enable text change
+            Enabled = true, -- [default = true]
+
+            -- Text to show during daytime (replaces "DAYTIME")
+            Daytime = "RESET AM", -- [default = "RESET AM"]
+
+            -- Text to show during nighttime (replaces "NIGHTFALL")
+            Nightfall = "RESET PM", -- [default = "RESET PM"]
+
+            -- When to show: "Eve" = day before reset, "Reset" = day of reset
+            When = "Eve", -- [default = "Eve"]
+        },
+
+        -- Background color tint
+        Background = {
+            -- Persistent background color (always on, every day)
+            Persistent = {
+                Enabled = false, -- [default = false]
+                Color = { R = 64, G = 255, B = 32 }, -- [default = green]
+                -- Intensity compensates for the wristwatch's desaturation filter (0.5-5.0)
+                -- 1.0 = vanilla levels, 2.0 = vivid colors
+                Intensity = 2.0, -- [default = 2.0]
+            },
+
+            -- Portal-related background color (overrides Persistent on specified days)
+            Portal = {
+                Enabled = false, -- [default = false]
+                Color = { R = 255, G = 64, B = 6 }, -- [default = red-orange]
+                -- Intensity compensates for the wristwatch's desaturation filter (0.5-5.0)
+                -- 1.0 = vanilla levels, 2.0 = vivid colors
+                Intensity = 2.0, -- [default = 2.0]
+                When = "Eve", -- [default = "Eve"] "Eve" = day before reset, "Reset" = day of reset
+            },
+        },
+    },
+
+    -- ============================================================
     -- Low Health Vignette
     -- Adds a red vignette overlay when health drops below a threshold
     -- ============================================================
@@ -411,6 +473,7 @@ return {
         AutoJumpCrouch = false,
         AmmoCounter = false,
         TeleporterTags = false,
+        WristwatchCustomization = false,
         LowHealthVignette = false,
         MenuTweaks = false,
         HideHotbarHotkeys = false,
