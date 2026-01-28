@@ -196,15 +196,21 @@ local function playPortalResetBeeps(wristwatch, delayMs)
     end)
 end
 
-local function applyDayNightText(wristwatch, isNight)
+local function applyDayNightText(wristwatch, isNight, useCustomText)
     if not Config.DayNightText or not Config.DayNightText.Enabled then return end
 
     local textWidget = isNight and wristwatch.Night_Text or wristwatch.Daytime_Text
-    local textValue = isNight and Config.DayNightText.Nightfall or Config.DayNightText.Daytime
 
     if textWidget:IsValid() then
-        textWidget:SetText(FText(textValue))
-        Log.Debug("[DayNightText] Set %s text to '%s'", isNight and "night" or "day", textValue)
+        if useCustomText then
+            local textValue = isNight and Config.DayNightText.Nightfall or Config.DayNightText.Daytime
+            textWidget:SetText(FText(textValue))
+            Log.Debug("[DayNightText] Set %s text to '%s'", isNight and "night" or "day", textValue)
+        else
+            local defaultText = isNight and "NIGHTFALL" or "DAYTIME"
+            textWidget:SetText(FText(defaultText))
+            Log.Debug("[DayNightText] Reset %s text to default", isNight and "night" or "day")
+        end
     end
 end
 
@@ -279,14 +285,15 @@ function Module.RegisterHooks()
                     local dayNightManager = wristwatch.DayNightManager
                     if dayNightManager:IsValid() then
                         local isNight = dayNightManager.IsNight
-                        applyDayNightText(wristwatch, isNight)
+                        applyDayNightText(wristwatch, isNight, true)
                     end
                 end
 
                 -- Apply background color (persistent or portal)
                 applyBackgroundColor(wristwatch)
-            elseif previousDay ~= currentDayOfWeek and bgPortalEnabled then
-                -- Day changed at midnight - update background if portal-based
+            elseif previousDay ~= currentDayOfWeek then
+                -- Day changed at midnight - re-apply styling
+                applyDayDotStyling(wristwatch)
                 applyBackgroundColor(wristwatch)
             end
         end,
@@ -301,9 +308,7 @@ function Module.RegisterHooks()
         nightfallOk = HookUtil.Register(
             "/Game/Blueprints/Widgets/W_Wristwatch.W_Wristwatch_C:NightfallAlarm",
             function(wristwatch)
-                if isTextDay() then
-                    applyDayNightText(wristwatch, true)
-                end
+                applyDayNightText(wristwatch, true, isTextDay())
                 if isBeepDay() then
                     playPortalResetBeeps(wristwatch, NIGHTFALL_CHIME_MS)
                 end
@@ -314,9 +319,7 @@ function Module.RegisterHooks()
         daybreakOk = HookUtil.Register(
             "/Game/Blueprints/Widgets/W_Wristwatch.W_Wristwatch_C:DaybreakAlarm",
             function(wristwatch)
-                if isTextDay() then
-                    applyDayNightText(wristwatch, false)
-                end
+                applyDayNightText(wristwatch, false, isTextDay())
                 if isBeepDay() then
                     playPortalResetBeeps(wristwatch, DAYBREAK_CHIME_MS)
                 end
