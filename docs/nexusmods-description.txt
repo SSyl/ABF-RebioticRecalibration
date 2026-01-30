@@ -20,6 +20,7 @@ Every feature can be toggled on or off. Enable what you want, disable what you d
 [list]
 [*][b]Ammo Counter[/b] - Color-coded ammo display showing loaded + inventory count. Customize warning thresholds and colors for good/low/empty states
 [*][b]Teleporter Tags[/b] - Text labels and/or color tinting on synced Personal Teleporter icons. Toggle text/color independently, multiple abbreviation modes, adjustable scale and position
+[*][b]Wristwatch Portal Alerts[/b] - Portal reset day reminders on your wristwatch: highlighted day dots, day/night text replacement, optional background tint, and audio beeps at daybreak/nightfall
 [*][b]Low Health Vignette[/b] - Red screen edge effect when health drops below threshold. Customize threshold, color, opacity, and toggle pulsing
 [*][b]Hide Hotbar Hotkeys[/b] - Hide hotbar key indicators completely, or show your actual keybindings (e.g., if you rebound 1 to Z, shows "Z") (off by default)
 [*][b]Skip LAN hosting delay[/b] - Removes the 3 second delay when trying to host a LAN game (off by default)

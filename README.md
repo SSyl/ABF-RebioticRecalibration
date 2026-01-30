@@ -22,6 +22,7 @@ A UE4SS Lua mod for [Abiotic Factor](https://store.steampowered.com/app/427410/A
 |---------|-------------|---------|
 | **Ammo Counter** | Color-coded ammo display showing loaded + inventory count | On |
 | **Teleporter Tags** | Text labels and/or color tinting on synced Personal Teleporter icons | On |
+| **Wristwatch Portal Alerts** | Portal reset day reminders via wristwatch: highlighted day dots, day/night text change, optional background tint, and audio beeps | On |
 | **Low Health Vignette** | Red screen edge effect when health drops below threshold | On |
 | **Hide Hotbar Hotkeys** | Hide hotbar key indicators, or show your actual keybindings | Off |
 | **Menu Tweaks** | Skip LAN hosting delay. Add a custom main menu button with configurable icon, color, and text that connects directly to a server | Off |
