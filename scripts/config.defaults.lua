@@ -257,15 +257,15 @@ return {
 
             -- Brightness of portal reset day dots when NOT the current day (0.0-1.0)
             -- Normal non-current days are 0.4, current day is 1.0
-            -- 0.6 makes portal reset days subtly stand out
-            Alpha = 0.6, -- [default = 0.6]
+            -- 0.7 makes portal reset days subtly stand out
+            Alpha = 0.7, -- [default = 0.7]
         },
 
         -- Day/night text change on portal-related days
         -- Changes "DAYTIME"/"NIGHTFALL" text to remind you about portal resets
         DayNightText = {
             -- Enable text change
-            Enabled = false, -- [default = false]
+            Enabled = true, -- [default = true]
 
             -- Text to show during daytime (replaces "DAYTIME")
             Daytime = "RESET DAY", -- [default = "RESET DAY"]
@@ -303,7 +303,7 @@ return {
         -- Audio beep at daybreak/nightfall on portal-related days
         PortalResetBeep = {
             -- Play an extra beep at daybreak/nightfall as a portal reminder
-            Enabled = false, -- [default = false]
+            Enabled = true, -- [default = true]
 
             -- When to play: "Eve" = day before reset, "Reset" = day of reset
             When = "Eve", -- [default = "Eve"]

@@ -23,10 +23,10 @@ local Module = {
 
         -- Weekday dot indicators for portal reset days
         { path = "WeekDayDots.Enabled", type = "boolean", default = true },
-        { path = "WeekDayDots.Alpha", type = "number", default = 0.6, min = 0.0, max = 1.0 },
+        { path = "WeekDayDots.Alpha", type = "number", default = 0.7, min = 0.0, max = 1.0 },
 
         -- Text change on portal-related days
-        { path = "DayNightText.Enabled", type = "boolean", default = false },
+        { path = "DayNightText.Enabled", type = "boolean", default = true },
         { path = "DayNightText.Daytime", type = "string", default = "RESET DAY" },
         { path = "DayNightText.Nightfall", type = "string", default = "RESET PM" },
         { path = "DayNightText.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
@@ -43,7 +43,7 @@ local Module = {
         { path = "Background.Portal.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
 
         -- Audio beep at daybreak/nightfall on portal-related days
-        { path = "PortalResetBeep.Enabled", type = "boolean", default = false },
+        { path = "PortalResetBeep.Enabled", type = "boolean", default = true },
         { path = "PortalResetBeep.When", type = "string", default = "Eve" },  -- "Eve" or "Reset"
     },
     hookPoint = "Gameplay",
